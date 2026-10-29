@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from backend.app.api.v1.assistants import router as assistants_router
 from backend.app.api.v1.auth import router as auth_router
+from backend.app.api.v1.billing import router as billing_router
 from backend.app.api.v1.health import router as health_router
 from backend.app.api.v1.knowledge import router as knowledge_router
 from backend.app.api.v1.workspaces import router as workspaces_router
@@ -70,6 +71,7 @@ def create_application() -> FastAPI:
     app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
+    app.include_router(billing_router, prefix="/api/v1")
 
     return app
 

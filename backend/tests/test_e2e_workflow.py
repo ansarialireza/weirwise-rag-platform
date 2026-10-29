@@ -156,15 +156,15 @@ def test_complete_product_workflow(mock_core_client):
     assert published_ast["version"] == 2
 
     # Manually configure source core_kb_id for chat retrieval testing
-    # Using dedicated sqlite3 connection to avoid async greenlet mismatch in synchronous test runner
-    import sqlite3
-    db_path = "./platform_dev.db"
-    with sqlite3.connect(db_path) as s_conn:
-        s_conn.execute(
-            "UPDATE knowledge_sources SET core_kb_id = ?, status = 'ready' WHERE id = ?",
-            (mock_core_client["fake_kb_id"], source_id),
+    from backend.app.core.config import settings
+    from sqlalchemy import create_engine, text
+    sync_url = settings.DATABASE_URL.replace("+aiosqlite", "").replace("+asyncpg", "")
+    with create_engine(sync_url).connect() as conn:
+        conn.execute(
+            text("UPDATE knowledge_sources SET core_kb_id = :kb_id, status = 'ready' WHERE id = :source_id"),
+            {"kb_id": mock_core_client["fake_kb_id"], "source_id": source_id},
         )
-        s_conn.commit()
+        conn.commit()
 
     # 7. Execute Chat Query & Observe Citations
     chat_resp = client.post(

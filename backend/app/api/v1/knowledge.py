@@ -5,7 +5,7 @@ import uuid
 
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
-from backend.app.models.auth import Membership, User, WorkspaceRole
+from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
@@ -21,6 +21,7 @@ from backend.app.schemas.knowledge import (
 )
 from backend.app.services.scraper import fetch_webpage_content
 from backend.app.services.storage import storage_service
+from backend.app.services.subscription import subscription_service
 from backend.app.tasks.ingestion import process_document_ingestion
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import func, select
@@ -151,12 +152,31 @@ async def upload_documents(
     if not source:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
 
-    await verify_project_membership(source.project_id, current_user.id, db)
+    project = await verify_project_membership(source.project_id, current_user.id, db)
+
+    # Entitlement check: verify document count limit under current workspace plan
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        doc_count_stmt = (
+            select(func.count(Document.id))
+            .join(KnowledgeSource, KnowledgeSource.id == Document.knowledge_source_id)
+            .join(Project, Project.id == KnowledgeSource.project_id)
+            .where(Project.workspace_id == workspace.id)
+        )
+        current_docs = (await db.execute(doc_count_stmt)).scalar() or 0
+        await subscription_service.check_document_upload_entitlement(
+            workspace, current_docs, additional_docs=len(files)
+        )
 
     uploaded_records: list[Document] = []
 
     for file in files:
         safe_name, path, size, chash = await storage_service.save_upload(file)
+
+        # Enforce plan file size limit
+        if workspace:
+            subscription_service.check_file_size_entitlement(workspace, size)
 
         doc = Document(
             knowledge_source_id=source.id,

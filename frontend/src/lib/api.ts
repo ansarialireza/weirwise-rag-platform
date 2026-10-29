@@ -233,6 +233,22 @@ class ApiClient {
       body: JSON.stringify({ name }),
     });
   }
+
+  // Billing & Plans
+  async getPlans(): Promise<any[]> {
+    return this.request<any[]>("/plans");
+  }
+
+  async getBillingStatus(workspaceId: string): Promise<any> {
+    return this.request<any>(`/workspaces/${workspaceId}/billing`);
+  }
+
+  async changePlan(workspaceId: string, targetTier: string): Promise<any> {
+    return this.request<any>(`/workspaces/${workspaceId}/billing/change-plan`, {
+      method: "POST",
+      body: JSON.stringify({ target_tier: targetTier }),
+    });
+  }
 }
 
 export const api = new ApiClient();

@@ -1,5 +1,7 @@
 """Integration tests for Workspaces, RBAC, Multi-tenancy, and Owner protection."""
 
+import uuid
+
 from backend.app.main import app
 from fastapi.testclient import TestClient
 
@@ -8,7 +10,8 @@ client = TestClient(app)
 
 def test_workspace_and_rbac_flow():
     # 1. Register Owner
-    owner_email = "workspace_owner@example.com"
+    uid = uuid.uuid4().hex[:8]
+    owner_email = f"workspace_owner_{uid}@example.com"
     reg_resp = client.post(
         "/api/v1/auth/register",
         json={"email": owner_email, "password": "Password123!", "full_name": "Org Owner"},
@@ -23,7 +26,7 @@ def test_workspace_and_rbac_flow():
     owner_headers = {"Authorization": f"Bearer {owner_token}"}
 
     # 2. Register Member User
-    member_email = "team_member@example.com"
+    member_email = f"team_member_{uid}@example.com"
     client.post(
         "/api/v1/auth/register",
         json={"email": member_email, "password": "Password123!", "full_name": "Team Member"},

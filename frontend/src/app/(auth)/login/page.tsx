@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Shield, ArrowRight, Loader2 } from "lucide-react";
+import { Shield, ArrowRight, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -25,7 +29,7 @@ export default function LoginPage() {
       const user = await api.getMe();
       login(res.access_token, user);
 
-      // Redirect to user's first workspace
+      // Redirect to user's first workspace or default route
       const workspaces = await api.getWorkspaces();
       if (workspaces.length > 0) {
         router.push(`/workspaces/${workspaces[0].id}`);
@@ -33,79 +37,96 @@ export default function LoginPage() {
         router.push("/");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to sign in. Please verify your credentials.");
+      setError(err.message || "Failed to sign in. Please verify your email and password.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8 rounded-xl border border-border bg-card p-8">
-        <div className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Shield className="h-6 w-6" />
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 transition-colors">
+      {/* Top right theme switcher */}
+      <div className="absolute right-6 top-6">
+        <ThemeSwitcher />
+      </div>
+
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-glow transition-all">
+        {/* Brand Header */}
+        <div className="space-y-3 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xl shadow-md">
+            W
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
             Sign in to Weirwise
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Enterprise AI Assistant & Knowledge Platform
+          <p className="text-xs text-muted-foreground">
+            Production AI assistant platform grounded in your business data
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert
+            type="destructive"
+            title="Authentication Error"
+            message={error}
+          />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Work Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-              placeholder="name@company.com"
-            />
-          </div>
+          <Input
+            label="Work Email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@company.com"
+          />
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-              placeholder="••••••••"
-            />
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+          />
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            variant="primary"
+            size="lg"
+            isLoading={loading}
+            className="w-full"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                Continue <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
+            Continue to Workspace <ArrowRight className="h-4 w-4" />
+          </Button>
         </form>
 
+        {/* Demo Credentials Helper Pill */}
+        <div className="rounded-lg border border-border/80 bg-secondary/50 p-3.5 text-center text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">Verified Local Demo: </span>
+          <span className="font-mono text-xs">admin@weirwise.local</span> /{" "}
+          <span className="font-mono text-xs">SecretPassword123!</span>
+        </div>
+
+        {/* Sign up Link */}
         <div className="text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary hover:underline font-medium">
-            Register your organization
+          Don&apos;t have an account yet?{" "}
+          <Link
+            href="/register"
+            className="font-semibold text-primary hover:underline underline-offset-4 focus:outline-none focus:ring-1 focus:ring-primary rounded"
+          >
+            Create an account
           </Link>
         </div>
+      </div>
+
+      {/* Footer reassurance */}
+      <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <Shield className="h-3.5 w-3.5 text-primary" />
+        <span>Enterprise Data Isolation & Strict Multi-Tenancy</span>
       </div>
     </div>
   );

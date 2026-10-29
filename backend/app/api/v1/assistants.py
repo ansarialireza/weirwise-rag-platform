@@ -21,7 +21,7 @@ from backend.app.models.assistant import (
     Message,
 )
 from backend.app.models.audit import ApiCredential, UsageEvent
-from backend.app.models.auth import Membership, User, WorkspaceRole
+from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
 from backend.app.models.project import KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     ApiCredentialCreateRequest,
@@ -34,8 +34,9 @@ from backend.app.schemas.assistant import (
     DeploymentCreateRequest,
     DeploymentResponse,
 )
+from backend.app.services.subscription import subscription_service
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Assistants, Chat & Deployments"])
@@ -64,7 +65,20 @@ async def create_assistant(
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Create a new Assistant in DRAFT state."""
-    await verify_project_access(project_id, current_user.id, db)
+    project = await verify_project_access(project_id, current_user.id, db)
+
+    # Entitlement check: enforce workspace assistant limits
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        # Count assistants in workspace
+        count_stmt = (
+            select(func.count(Assistant.id))
+            .join(Project, Project.id == Assistant.project_id)
+            .where(Project.workspace_id == workspace.id)
+        )
+        current_count = (await db.execute(count_stmt)).scalar() or 0
+        await subscription_service.check_assistant_creation_entitlement(workspace, current_count)
 
     assistant = Assistant(
         project_id=project_id,
@@ -197,7 +211,13 @@ async def chat_with_assistant(
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
 
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    project = await verify_project_access(assistant.project_id, current_user.id, db)
+
+    # Entitlement check: verify monthly chat turns quota
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        await subscription_service.check_chat_entitlement(workspace, db)
 
     # 1. Resolve or create conversation
     conv = None

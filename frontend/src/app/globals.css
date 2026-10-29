@@ -2,30 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #090A0C;
-  --foreground: #EDEDED;
+@layer base {
+  /* Default: Obsidian Dark (#CCFF00 Primary Accent) */
+  :root,
+  .theme-obsidian {
+    --background: 240 10% 4%;        /* #090A0C */
+    --foreground: 0 0% 95%;           /* #EDEDED */
+    --card: 240 12% 7%;               /* #101217 */
+    --card-foreground: 0 0% 95%;
+    --popover: 240 12% 7%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime */
+    --primary-foreground: 0 0% 0%;    /* #000000 */
+    --secondary: 220 16% 13%;         /* #1C1F26 */
+    --secondary-foreground: 0 0% 92%;
+    --muted: 225 15% 11%;             /* #16181F */
+    --muted-foreground: 220 12% 60%;  /* #8E95A5 */
+    --accent: 72 100% 50%;            /* #CCFF00 */
+    --accent-foreground: 0 0% 0%;
+    --destructive: 4 90% 58%;         /* #FF453A */
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 18% 18%;            /* #232733 */
+    --input: 220 16% 13%;             /* #1C1F26 */
+    --ring: 72 100% 50%;              /* #CCFF00 */
+    --radius: 0.5rem;
+    --brand-glow: rgba(204, 255, 0, 0.12);
+  }
+
+  /* Light Theme: Crisp, high-contrast corporate SaaS with high visibility */
+  .theme-light {
+    --background: 0 0% 98%;           /* #FAFAFB */
+    --foreground: 222 47% 11%;        /* #0F172A */
+    --card: 0 0% 100%;                /* #FFFFFF */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 74 100% 36%;           /* Deep High-Contrast Lime #7AA800 */
+    --primary-foreground: 0 0% 100%;  /* #FFFFFF */
+    --secondary: 210 40% 96%;         /* #F1F5F9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;  /* #64748B */
+    --accent: 74 100% 36%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;         /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;            /* #E2E8F0 */
+    --input: 214 32% 91%;
+    --ring: 74 100% 36%;
+    --radius: 0.5rem;
+    --brand-glow: rgba(122, 168, 0, 0.12);
+  }
+
+  /* Cyber Theme: Distinctive Slate/Neon Deep Dark (#CCFF00 Highlights) */
+  .theme-cyber {
+    --background: 222 47% 6%;         /* #070B13 */
+    --foreground: 180 100% 96%;       /* #E6FFFF */
+    --card: 222 45% 9%;               /* #0D1424 */
+    --card-foreground: 180 100% 96%;
+    --popover: 222 45% 9%;
+    --popover-foreground: 180 100% 96%;
+    --primary: 72 100% 50%;           /* #CCFF00 Neon Lime */
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 17%;         /* #1E293B */
+    --secondary-foreground: 180 100% 96%;
+    --muted: 217 33% 14%;             /* #161F2E */
+    --muted-foreground: 215 20% 65%;  /* #94A3B8 */
+    --accent: 72 100% 50%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 345 82% 57%;       /* #F43F5E */
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 20%;            /* #283548 */
+    --input: 217 33% 17%;
+    --ring: 72 100% 50%;
+    --radius: 0.5rem;
+    --brand-glow: rgba(204, 255, 0, 0.18);
+  }
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Custom minimal scrollbar */
+/* Custom scrollbars matching active theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #090A0C;
+  background: hsl(var(--background));
 }
 ::-webkit-scrollbar-thumb {
-  background: #232733;
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3B4254;
+  background: hsl(var(--muted-foreground));
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

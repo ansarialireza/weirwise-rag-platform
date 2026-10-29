@@ -1,5 +1,7 @@
 """Unit and integration tests for Authentication and Identity flows."""
 
+import uuid
+
 from backend.app.main import app
 from fastapi.testclient import TestClient
 
@@ -7,7 +9,7 @@ client = TestClient(app)
 
 
 def test_auth_registration_and_login_flow():
-    email = "owner@example.com"
+    email = f"owner_{uuid.uuid4().hex[:8]}@example.com"
     password = "SuperSecurePassword123!"
     full_name = "Jane Doe"
 
@@ -76,7 +78,7 @@ def test_auth_registration_and_login_flow():
 
 
 def test_password_reset_flow():
-    email = "reset_user@example.com"
+    email = f"reset_{uuid.uuid4().hex[:8]}@example.com"
     password = "InitialPassword123!"
     new_password = "UpdatedPassword456!"
 

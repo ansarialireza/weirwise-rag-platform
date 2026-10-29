@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Shield, ArrowRight, Loader2 } from "lucide-react";
+import { Shield, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert } from "@/components/ui/alert";
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
@@ -19,107 +23,126 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters in length.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // 1. Create account
       await api.register({ full_name: fullName, email, password });
+
+      // 2. Immediate auto-login
       const loginRes = await api.login({ email, password });
       const user = await api.getMe();
       login(loginRes.access_token, user);
 
-      const workspaces = await api.getWorkspaces();
-      if (workspaces.length > 0) {
-        router.push(`/workspaces/${workspaces[0].id}`);
-      } else {
-        router.push("/");
+      // 3. Ensure a primary workspace exists for instant onboarding
+      let workspaces = await api.getWorkspaces();
+      if (workspaces.length === 0) {
+        const defaultName = `${fullName.split(" ")[0]}'s Workspace`;
+        const newWs = await api.createWorkspace({ name: defaultName });
+        workspaces = [newWs];
       }
+
+      router.push(`/workspaces/${workspaces[0].id}`);
     } catch (err: any) {
-      setError(err.message || "Failed to create account.");
+      setError(err.message || "Failed to create account. Please check your details.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8 rounded-xl border border-border bg-card p-8">
-        <div className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Shield className="h-6 w-6" />
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 transition-colors">
+      <div className="absolute right-6 top-6">
+        <ThemeSwitcher />
+      </div>
+
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-glow transition-all">
+        {/* Brand Header */}
+        <div className="space-y-3 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black text-xl shadow-md">
+            W
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Create an Account
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Create your account
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Deploy secure AI assistants grounded in business data
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert
+            type="destructive"
+            title="Registration Error"
+            message={error}
+          />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Full Name</label>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-              placeholder="Jane Doe"
-            />
-          </div>
+          <Input
+            label="Full Name"
+            type="text"
+            required
+            autoComplete="name"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Jane Doe"
+          />
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Work Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-              placeholder="name@company.com"
-            />
-          </div>
+          <Input
+            label="Work Email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@company.com"
+          />
 
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Password (min 8 chars)</label>
-            <input
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-              placeholder="••••••••"
-            />
-          </div>
+          <Input
+            label="Password"
+            type="password"
+            required
+            minLength={8}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Minimum 8 characters"
+            hint="Use 8 or more characters with a mix of letters, numbers & symbols."
+          />
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            variant="primary"
+            size="lg"
+            isLoading={loading}
+            className="w-full"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                Create Account <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
+            Create Account & Launch <ArrowRight className="h-4 w-4" />
+          </Button>
         </form>
 
+        {/* Sign in Link */}
         <div className="text-center text-xs text-muted-foreground">
-          Already registered?{" "}
-          <Link href="/login" className="text-primary hover:underline font-medium">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-primary hover:underline underline-offset-4 focus:outline-none focus:ring-1 focus:ring-primary rounded"
+          >
             Sign in
           </Link>
         </div>
+      </div>
+
+      <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <Shield className="h-3.5 w-3.5 text-primary" />
+        <span>Enterprise Data Isolation & Strict Multi-Tenancy</span>
       </div>
     </div>
   );

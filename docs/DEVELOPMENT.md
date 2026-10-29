@@ -32,7 +32,7 @@ Using Docker Compose:
 docker compose up -d
 ```
 This spins up:
-- Platform PostgreSQL (`localhost:5432`)
+- Platform PostgreSQL (`localhost:5433`)
 - Platform Redis (`localhost:6379`)
 - Platform MinIO Object Storage (`localhost:9000` / Console on `9001`)
 
