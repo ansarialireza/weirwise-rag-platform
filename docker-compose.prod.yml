@@ -1,4 +1,4 @@
-name: weirwise-prod
+name: prod
 
 services:
   prod-db:

@@ -77,7 +77,7 @@ fi
 
 # 2. Rebuild and restart previous stable containers
 echo "Rebuilding and restarting previous service containers..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" up -d --build --remove-orphans "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --build --remove-orphans "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
 
 # 3. Database restore if requested and backup available
 if [ "$RESTORE_DB" = true ]; then

@@ -1,4 +1,4 @@
-name: weirwise-dev
+name: dev
 
 services:
   dev-db:

@@ -125,11 +125,11 @@ fi
 
 # 7. Build Docker Images
 echo "[Step 2/6] Building Docker container images..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" build
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" build
 
 # 8. Start Database, Redis, and Core-DB
 echo "[Step 3/6] Starting persistence services (${ENV_TYPE}-db, ${ENV_TYPE}-redis, ${ENV_TYPE}-core-db)..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" up -d "${ENV_TYPE}-db" "${ENV_TYPE}-redis" "${ENV_TYPE}-core-db"
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d "${ENV_TYPE}-db" "${ENV_TYPE}-redis" "${ENV_TYPE}-core-db"
 
 echo "Waiting for persistence services to report healthy..."
 for i in {1..30}; do
@@ -147,16 +147,16 @@ done
 # 9. Execute Database Schema Migrations
 echo "[Step 4/6] Running schema migrations..."
 echo "Applying Platform backend migrations..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" run --rm "${ENV_TYPE}-backend" alembic -c /app/backend/alembic.ini upgrade head
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-backend" alembic -c /app/backend/alembic.ini upgrade head
 
 echo "Applying Core database migrations..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" run --rm "${ENV_TYPE}-core" alembic -c /app/server/alembic.ini upgrade head || true
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" alembic -c /app/server/alembic.ini upgrade head || true
 
 # 10. Seed/Register Core API Key for Platform
 echo "[Step 5/6] Registering Platform Core API key in Core DB..."
 CORE_API_KEY=$(grep '^WEIRWISE_CORE_API_KEY=' "${ENV_FILE}" | cut -d '=' -f2- | tr -d '"\r\n' || true)
 if [ -n "$CORE_API_KEY" ]; then
-    docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" run --rm "${ENV_TYPE}-core" \
+    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" \
         python -m server.app.cli admin create-tenant \
         --name "Weirwise-${ENV_TYPE}" \
         --key-name "platform-${ENV_TYPE}" \
@@ -165,7 +165,7 @@ fi
 
 # 11. Start Application Containers
 echo "[Step 6/6] Launching application services (${ENV_TYPE}-core, ${ENV_TYPE}-backend, ${ENV_TYPE}-frontend)..."
-docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" up -d --remove-orphans "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
 
 # 12. Health Checks and Verification
 echo "Running post-deployment health verification..."
@@ -210,8 +210,8 @@ else
     echo "=================================================="
     echo "ERROR: Health checks FAILED after deployment!"
     echo "Collecting service diagnostic logs..."
-    docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-backend"
-    docker compose -f "${COMPOSE_FILE}" -p "weirwise-${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-core"
+    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-backend"
+    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-core"
     echo "Triggering automated rollback..."
     echo "=================================================="
     
