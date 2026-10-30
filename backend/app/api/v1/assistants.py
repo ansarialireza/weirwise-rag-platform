@@ -28,12 +28,14 @@ from backend.app.schemas.assistant import (
     ApiCredentialResponse,
     AssistantCreateRequest,
     AssistantResponse,
+    AssistantUpdateRequest,
     ChatMessageRequest,
     ChatResponse,
     CitationItem,
     DeploymentCreateRequest,
     DeploymentResponse,
 )
+from backend.app.services.routing_engine import IntelligentRoutingEngine
 from backend.app.services.subscription import subscription_service
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -145,6 +147,97 @@ async def list_project_assistants(
         output.append(resp)
 
     return output
+
+
+@router.get("/assistants/{assistant_id}", response_model=AssistantResponse)
+async def get_assistant(
+    assistant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AssistantResponse:
+    """Retrieve single assistant details by ID."""
+    res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    await verify_project_access(assistant.project_id, current_user.id, db)
+
+    links_res = await db.execute(
+        select(AssistantKnowledgeSource.knowledge_source_id).where(
+            AssistantKnowledgeSource.assistant_id == assistant.id
+        )
+    )
+    source_ids = list(links_res.scalars().all())
+
+    resp = AssistantResponse.model_validate(assistant)
+    resp.knowledge_source_ids = source_ids
+    return resp
+
+
+@router.patch("/assistants/{assistant_id}", response_model=AssistantResponse)
+async def update_assistant(
+    assistant_id: uuid.UUID,
+    payload: AssistantUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AssistantResponse:
+    """Update assistant configuration (system prompt, model, temperature, sources, etc.)."""
+    res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    project = await verify_project_access(assistant.project_id, current_user.id, db)
+
+    update_data = payload.model_dump(exclude_unset=True)
+
+    if "name" in update_data and update_data["name"] is not None:
+        assistant.name = update_data["name"]
+    if "description" in update_data:
+        assistant.description = update_data["description"]
+    if "system_instructions" in update_data:
+        assistant.system_instructions = update_data["system_instructions"]
+    if "model" in update_data and update_data["model"] is not None:
+        assistant.model = update_data["model"]
+    if "temperature" in update_data and update_data["temperature"] is not None:
+        assistant.temperature = update_data["temperature"]
+    if "max_tokens" in update_data and update_data["max_tokens"] is not None:
+        assistant.max_tokens = update_data["max_tokens"]
+    if "score_threshold" in update_data and update_data["score_threshold"] is not None:
+        assistant.score_threshold = update_data["score_threshold"]
+    if "top_k" in update_data and update_data["top_k"] is not None:
+        assistant.top_k = update_data["top_k"]
+
+    if payload.knowledge_source_ids is not None:
+        # Delete existing links
+        from sqlalchemy import delete
+
+        await db.execute(delete(AssistantKnowledgeSource).where(AssistantKnowledgeSource.assistant_id == assistant.id))
+        for sid in payload.knowledge_source_ids:
+            ks_res = await db.execute(
+                select(KnowledgeSource).where(KnowledgeSource.id == sid, KnowledgeSource.project_id == project.id)
+            )
+            if not ks_res.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"KnowledgeSource {sid} does not belong to this project.",
+                )
+            db.add(AssistantKnowledgeSource(assistant_id=assistant.id, knowledge_source_id=sid))
+
+    await db.commit()
+    await db.refresh(assistant)
+
+    links_res = await db.execute(
+        select(AssistantKnowledgeSource.knowledge_source_id).where(
+            AssistantKnowledgeSource.assistant_id == assistant.id
+        )
+    )
+    source_ids = list(links_res.scalars().all())
+
+    resp = AssistantResponse.model_validate(assistant)
+    resp.knowledge_source_ids = source_ids
+    return resp
 
 
 @router.post("/assistants/{assistant_id}/publish", response_model=AssistantResponse)
@@ -304,7 +397,44 @@ async def chat_with_assistant(
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
-    # 5. Record Assistant Message
+    # 5. Route via Intelligent AI Credential Engine & Record FinOps Accounting
+    p_res = await db.execute(select(Project.workspace_id).where(Project.id == assistant.project_id))
+    ws_id = p_res.scalar_one()
+
+    # Determine provider family from assistant.model
+    provider_name = "openai"
+    if "claude" in assistant.model.lower():
+        provider_name = "anthropic"
+    elif "gemini" in assistant.model.lower():
+        provider_name = "gemini"
+
+    # Attempt resolution via Intelligent Credential Pool
+    resolution = await IntelligentRoutingEngine.select_credential(
+        db=db,
+        provider_name=provider_name,
+        model_name=assistant.model,
+    )
+
+    # Calculate token volume and provider unit cost
+    approx_input_tokens = len(payload.message.split()) * 2 + len(retrieved_contexts) * 50
+    approx_output_tokens = len(assistant_reply.split()) * 2
+    cost_usd = (approx_input_tokens * 0.00000015) + (approx_output_tokens * 0.0000006)
+
+    if resolution:
+        # Record successful routed execution and update ledger & budgets
+        await IntelligentRoutingEngine.record_success(
+            db=db,
+            credential_id=str(resolution.credential.id),
+            workspace_id=str(ws_id),
+            provider_name=provider_name,
+            model_name=assistant.model,
+            input_tokens=approx_input_tokens,
+            output_tokens=approx_output_tokens,
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+        )
+
+    # 6. Record Assistant Message
     assistant_msg = Message(
         conversation_id=conv.id,
         role="assistant",
@@ -314,10 +444,7 @@ async def chat_with_assistant(
     )
     db.add(assistant_msg)
 
-    # 6. Record Usage Event
-    p_res = await db.execute(select(Project.workspace_id).where(Project.id == assistant.project_id))
-    ws_id = p_res.scalar_one()
-
+    # 7. Record Customer Usage Event
     usage = UsageEvent(
         workspace_id=ws_id,
         project_id=assistant.project_id,

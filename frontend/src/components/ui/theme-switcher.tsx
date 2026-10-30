@@ -1,54 +1,101 @@
 "use client";
 
 import { useTheme, Theme } from "@/lib/theme-context";
-import { Moon, Sun, Monitor, Sparkles } from "lucide-react";
+import { Moon, Sun, Laptop } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 interface ThemeSwitcherProps {
   className?: string;
-  showLabels?: boolean;
 }
 
-export function ThemeSwitcher({ className, showLabels = false }: ThemeSwitcherProps) {
-  const { theme, setTheme } = useTheme();
+export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const themes: { id: Theme; label: string; icon: typeof Moon }[] = [
-    { id: "obsidian", label: "Obsidian", icon: Moon },
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Close on Escape key
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Escape" && open) {
+        setOpen(false);
+      }
+    },
+    [open]
+  );
+
+  const options: { id: Theme; label: string; icon: typeof Moon }[] = [
+    { id: "dark", label: "Dark", icon: Moon },
     { id: "light", label: "Light", icon: Sun },
-    { id: "cyber", label: "Cyber", icon: Sparkles },
+    { id: "system", label: "System", icon: Laptop },
   ];
+
+  const CurrentIcon = resolvedTheme === "dark" ? Moon : Sun;
 
   return (
     <div
-      className={cn(
-        "inline-flex items-center gap-1 p-1 rounded-lg border border-border bg-card shadow-sm",
-        className
-      )}
-      role="group"
-      aria-label="Theme selection"
+      ref={containerRef}
+      onKeyDown={handleKeyDown}
+      className={cn("relative inline-block text-left", className)}
     >
-      {themes.map((item) => {
-        const Icon = item.icon;
-        const isActive = theme === item.id;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTheme(item.id)}
-            aria-pressed={isActive}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-              isActive
-                ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-            )}
-            title={`Switch to ${item.label} theme`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {showLabels && <span>{item.label}</span>}
-          </button>
-        );
-      })}
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-xs"
+        title={`Theme preference: ${theme} (currently ${resolvedTheme})`}
+        aria-label="Toggle theme selection menu"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <CurrentIcon className="h-3.5 w-3.5" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Theme options"
+          className="absolute right-0 top-full mt-1.5 w-32 rounded-lg border border-border bg-card shadow-lg py-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+        >
+          {options.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = theme === opt.id;
+            return (
+              <button
+                key={opt.id}
+                role="menuitem"
+                type="button"
+                onClick={() => {
+                  setTheme(opt.id);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex items-center justify-between w-full px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary text-left",
+                  isSelected ? "text-primary font-semibold" : "text-foreground"
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{opt.label}</span>
+                </div>
+                {isSelected && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

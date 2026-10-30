@@ -64,12 +64,13 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
                 mime_type=document.mime_type,
             )
 
-            # 4. Save Core document ID
-            core_doc_id = uuid.UUID(upload_resp["id"])
+            # 4. Save Core document ID (Core returns {"document": {"id": ...}, "job_id": ...})
+            doc_data = upload_resp.get("document", upload_resp)
+            core_doc_id = uuid.UUID(str(doc_data["id"]))
             document.core_doc_id = core_doc_id
 
             # In v1.0.0, if Core responds with status completed or pending:
-            core_status = upload_resp.get("status", "completed")
+            core_status = doc_data.get("status", "completed")
             if core_status in ("completed", "ready"):
                 document.status = SourceProcessingStatus.READY.value
                 source.status = SourceProcessingStatus.READY.value

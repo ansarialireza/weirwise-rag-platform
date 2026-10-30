@@ -1,6 +1,17 @@
 """Unified model registry for SQLAlchemy and Alembic."""
 
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
+from backend.app.models.admin import (
+    AdminAuditLog,
+    AdminRole,
+    AdminUserRole,
+    CredentialHealthStatus,
+    FinancialInvoice,
+    ProviderAccount,
+    ProviderCredential,
+    ProviderRoutingStrategy,
+    TokenCostLedger,
+)
 from backend.app.models.assistant import (
     Assistant,
     AssistantKnowledgeSource,
@@ -33,7 +44,9 @@ from backend.app.models.project import (
 )
 
 __all__ = [
-    "GUID",
+    "AdminAuditLog",
+    "AdminRole",
+    "AdminUserRole",
     "ApiCredential",
     "Assistant",
     "AssistantKnowledgeSource",
@@ -42,9 +55,12 @@ __all__ = [
     "Base",
     "CompatibleJSON",
     "Conversation",
+    "CredentialHealthStatus",
     "Deployment",
     "DeploymentType",
     "Document",
+    "FinancialInvoice",
+    "GUID",
     "KnowledgeSource",
     "KnowledgeSourceType",
     "Membership",
@@ -52,7 +68,11 @@ __all__ = [
     "PasswordResetToken",
     "ProcessingJob",
     "Project",
+    "ProviderAccount",
+    "ProviderCredential",
+    "ProviderRoutingStrategy",
     "SourceProcessingStatus",
+    "TokenCostLedger",
     "UsageEvent",
     "User",
     "UserSession",

@@ -1,17 +1,19 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-export type Theme = "obsidian" | "light" | "cyber";
+export type Theme = "dark" | "light" | "system";
 
 interface ThemeContextType {
   theme: Theme;
+  resolvedTheme: "dark" | "light";
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "obsidian",
+  theme: "system",
+  resolvedTheme: "dark",
   setTheme: () => {},
   toggleTheme: () => {},
 });
@@ -19,51 +21,78 @@ const ThemeContext = createContext<ThemeContextType>({
 const STORAGE_KEY = "wwp_theme";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("obsidian");
+  // Default preference is strictly "system"
+  const [theme, setThemeState] = useState<Theme>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    // 1. Check local storage
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    if (stored === "obsidian" || stored === "light" || stored === "cyber") {
-      setThemeState(stored);
-      applyThemeClass(stored);
-    } else {
-      // 2. Check system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial: Theme = prefersDark ? "obsidian" : "light";
-      setThemeState(initial);
-      applyThemeClass(initial);
-    }
-    setMounted(true);
+  const getSystemTheme = useCallback((): "dark" | "light" => {
+    if (typeof window === "undefined") return "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }, []);
 
-  const applyThemeClass = (t: Theme) => {
+  const applyTheme = useCallback((t: Theme) => {
+    if (typeof document === "undefined") return;
     const root = document.documentElement;
-    root.classList.remove("theme-obsidian", "theme-light", "theme-cyber", "dark", "light");
+    root.classList.remove("dark", "light", "theme-obsidian", "theme-light", "theme-cyber");
 
-    if (t === "obsidian") {
-      root.classList.add("dark", "theme-obsidian");
-    } else if (t === "cyber") {
-      root.classList.add("dark", "theme-cyber");
+    const effective = t === "system" ? getSystemTheme() : t;
+    setResolvedTheme(effective);
+
+    if (effective === "dark") {
+      root.classList.add("dark");
     } else {
-      root.classList.add("light", "theme-light");
+      root.classList.add("light");
     }
-  };
+  }, [getSystemTheme]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    let initial: Theme = "system";
+
+    if (stored === "dark" || stored === "light") {
+      initial = stored;
+    } else if (stored === "system") {
+      initial = "system";
+    }
+
+    setThemeState(initial);
+    applyTheme(initial);
+    setMounted(true);
+
+    // Active listener for OS theme changes while app is open
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleSystemChange = () => {
+      const currentStored = localStorage.getItem(STORAGE_KEY);
+      // If user has not set an explicit override (or explicitly selected "system"), follow OS
+      if (!currentStored || currentStored === "system") {
+        applyTheme("system");
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleSystemChange);
+    return () => mediaQuery.removeEventListener("change", handleSystemChange);
+  }, [applyTheme]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem(STORAGE_KEY, newTheme);
-    applyThemeClass(newTheme);
+    if (newTheme === "system") {
+      // Clear explicit override or persist "system"
+      localStorage.setItem(STORAGE_KEY, "system");
+    } else {
+      localStorage.setItem(STORAGE_KEY, newTheme);
+    }
+    applyTheme(newTheme);
   };
 
   const toggleTheme = () => {
-    const next: Theme = theme === "obsidian" ? "light" : theme === "light" ? "cyber" : "obsidian";
+    // When toggling manually, alternate between dark and light
+    const next: Theme = resolvedTheme === "dark" ? "light" : "dark";
     setTheme(next);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

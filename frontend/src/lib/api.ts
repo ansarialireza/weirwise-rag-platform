@@ -11,7 +11,7 @@ import {
   ApiCredential,
 } from "@/types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001/api/v1";
 
 class ApiError extends Error {
   status: number;
@@ -134,6 +134,13 @@ class ApiClient {
     return this.request<Workspace>(`/workspaces/${id}`);
   }
 
+  async updateWorkspace(id: string, data: { name?: string; settings?: Record<string, any> }): Promise<Workspace> {
+    return this.request<Workspace>(`/workspaces/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async getMembers(workspaceId: string): Promise<Membership[]> {
     return this.request<Membership[]>(`/workspaces/${workspaceId}/members`);
   }
@@ -192,6 +199,17 @@ class ApiClient {
     return this.request<Assistant[]>(`/projects/${projectId}/assistants`);
   }
 
+  async getAssistant(assistantId: string): Promise<Assistant> {
+    return this.request<Assistant>(`/assistants/${assistantId}`);
+  }
+
+  async updateAssistant(assistantId: string, data: Partial<Assistant>): Promise<Assistant> {
+    return this.request<Assistant>(`/assistants/${assistantId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async createAssistant(projectId: string, data: Partial<Assistant>): Promise<Assistant> {
     return this.request<Assistant>(`/projects/${projectId}/assistants`, {
       method: "POST",
@@ -248,6 +266,62 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ target_tier: targetTier }),
     });
+  }
+
+  // Super Admin Control Center APIs
+  async getAdminMetrics(): Promise<any> {
+    return this.request<any>("/admin/metrics");
+  }
+
+  async getAdminProviders(): Promise<any[]> {
+    return this.request<any[]>("/admin/providers");
+  }
+
+  async createAdminProvider(data: {
+    provider_name: string;
+    display_name: string;
+    default_routing_strategy?: string;
+    global_monthly_budget_usd?: number;
+    supported_models?: string[];
+  }): Promise<any> {
+    return this.request<any>("/admin/providers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminCredentials(providerId: string): Promise<any[]> {
+    return this.request<any[]>(`/admin/providers/${providerId}/credentials`);
+  }
+
+  async createAdminCredential(
+    providerId: string,
+    data: {
+      label: string;
+      secret: string;
+      priority?: number;
+      routing_weight?: number;
+      monthly_budget_usd?: number;
+    }
+  ): Promise<any> {
+    return this.request<any>(`/admin/providers/${providerId}/credentials`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdminCredential(credentialId: string): Promise<void> {
+    return this.request<void>(`/admin/credentials/${credentialId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getFinOpsSummary(): Promise<any> {
+    return this.request<any>("/admin/finops/summary");
+  }
+
+  async getAdminAuditLogs(limit: number = 50): Promise<any[]> {
+    return this.request<any[]>(`/admin/audit-logs?limit=${limit}`);
   }
 }
 

@@ -1,11 +1,10 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 .Python
 env/
-# Python build & virtualenvs
 /build/
 /develop-eggs/
 /dist/
@@ -49,10 +48,17 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Database & Storage
+*.db
 *.sqlite
 *.sqlite3
 data/
 uploads/
+
+# Artifacts & Reports
+artifacts/
+
+# Deployment & Environment Secrets
+deploy/envs/
 
 # IDE & OS
 .idea/
@@ -61,6 +67,3 @@ uploads/
 *.swo
 .DS_Store
 Thumbs.db
-*.db
-deploy/envs/
-deploy/envs/

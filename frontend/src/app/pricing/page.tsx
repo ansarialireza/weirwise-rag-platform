@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import {
   Brain,
   Shield,
@@ -70,11 +71,12 @@ export default function PricingPage() {
       {/* Navigation */}
       <header className="border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground font-black shadow-md">
-              <Brain className="h-5 w-5" />
-            </div>
-            <span className="font-bold text-lg tracking-tight">Weirwise</span>
+          <Link href="/" className="flex items-center gap-3 group">
+            <WeirwiseSymbol className="h-9 w-9" />
+            <span className="font-bold text-xl tracking-tight text-foreground flex items-center gap-1.5">
+              Weirwise
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            </span>
           </Link>
           <div className="flex items-center gap-4">
             <Link

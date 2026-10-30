@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  /* Default: Obsidian Dark (#CCFF00 Primary Accent) */
+  /* Dark Theme (Default) - Weirwise Onyx Charcoal & #CCFF00 Electric Lime */
   :root,
-  .theme-obsidian {
+  .dark {
     --background: 240 10% 4%;        /* #090A0C */
     --foreground: 0 0% 95%;           /* #EDEDED */
     --card: 240 12% 7%;               /* #101217 */
@@ -29,54 +29,29 @@
     --brand-glow: rgba(204, 255, 0, 0.12);
   }
 
-  /* Light Theme: Crisp, high-contrast corporate SaaS with high visibility */
-  .theme-light {
-    --background: 0 0% 98%;           /* #FAFAFB */
-    --foreground: 222 47% 11%;        /* #0F172A */
-    --card: 0 0% 100%;                /* #FFFFFF */
+  /* Light Theme - Soft warm neutral surfaces, high-contrast typography, accessible brand lime */
+  .light {
+    --background: 220 14% 96%;        /* #F3F4F6 soft neutral off-white, eliminates glare */
+    --foreground: 222 47% 11%;        /* #0F172A rich deep slate/onyx for crisp readability */
+    --card: 0 0% 100%;                /* #FFFFFF elevated card surfaces */
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 74 100% 36%;           /* Deep High-Contrast Lime #7AA800 */
+    --primary: 78 100% 30%;           /* #578000 deep energetic lime-olive, AAA accessible contrast on light */
     --primary-foreground: 0 0% 100%;  /* #FFFFFF */
-    --secondary: 210 40% 96%;         /* #F1F5F9 */
+    --secondary: 220 13% 91%;         /* #E2E8F0 subtle tactile button/input backdrop */
     --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;  /* #64748B */
-    --accent: 74 100% 36%;
+    --muted: 220 14% 92%;             /* #E5E7EB */
+    --muted-foreground: 220 13% 42%;  /* #5E697C high-contrast readable secondary text */
+    --accent: 78 100% 30%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;         /* #EF4444 */
+    --destructive: 0 84% 56%;         /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;            /* #E2E8F0 */
-    --input: 214 32% 91%;
-    --ring: 74 100% 36%;
+    --border: 220 13% 86%;            /* #CBD5E1 clean structured boundaries */
+    --input: 220 14% 94%;             /* #EFF1F5 */
+    --ring: 78 100% 30%;
     --radius: 0.5rem;
-    --brand-glow: rgba(122, 168, 0, 0.12);
-  }
-
-  /* Cyber Theme: Distinctive Slate/Neon Deep Dark (#CCFF00 Highlights) */
-  .theme-cyber {
-    --background: 222 47% 6%;         /* #070B13 */
-    --foreground: 180 100% 96%;       /* #E6FFFF */
-    --card: 222 45% 9%;               /* #0D1424 */
-    --card-foreground: 180 100% 96%;
-    --popover: 222 45% 9%;
-    --popover-foreground: 180 100% 96%;
-    --primary: 72 100% 50%;           /* #CCFF00 Neon Lime */
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 17%;         /* #1E293B */
-    --secondary-foreground: 180 100% 96%;
-    --muted: 217 33% 14%;             /* #161F2E */
-    --muted-foreground: 215 20% 65%;  /* #94A3B8 */
-    --accent: 72 100% 50%;
-    --accent-foreground: 222 47% 6%;
-    --destructive: 345 82% 57%;       /* #F43F5E */
-    --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 20%;            /* #283548 */
-    --input: 217 33% 17%;
-    --ring: 72 100% 50%;
-    --radius: 0.5rem;
-    --brand-glow: rgba(204, 255, 0, 0.18);
+    --brand-glow: rgba(87, 128, 0, 0.16);
   }
 }
 

@@ -5,6 +5,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from backend.app.api.v1.admin import router as admin_router
 from backend.app.api.v1.assistants import router as assistants_router
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.billing import router as billing_router
@@ -72,6 +73,7 @@ def create_application() -> FastAPI:
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
     app.include_router(billing_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
 
     return app
 
