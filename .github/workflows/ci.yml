@@ -125,6 +125,7 @@ jobs:
             echo "Deploying commit ${{ github.sha }} to ${TARGET_DIR} (dev)..."
             cd "${TARGET_DIR}"
             git fetch origin develop
+            git checkout -q "${{ github.sha }}"
             bash ./scripts/deploy.sh --env dev --sha "${{ github.sha }}"
 
   deploy-prod:
@@ -149,4 +150,5 @@ jobs:
             echo "Deploying commit ${{ github.sha }} to ${TARGET_DIR} (prod)..."
             cd "${TARGET_DIR}"
             git fetch origin main
+            git checkout -q "${{ github.sha }}"
             bash ./scripts/deploy.sh --env prod --sha "${{ github.sha }}"
