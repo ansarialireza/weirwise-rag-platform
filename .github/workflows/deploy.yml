@@ -14,9 +14,21 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
-    if: "${{ secrets.DEPLOY_SSH_KEY != '' }}"
     steps:
+      - name: Check Secret Availability
+        id: check_secret
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "${SSH_KEY}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "DEPLOY_SSH_KEY not configured. Skipping automated remote deployment."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine Environment
+        if: steps.check_secret.outputs.configured == 'true'
         id: env
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -28,6 +40,7 @@ jobs:
           fi
 
       - name: Deploy via SSH
+        if: steps.check_secret.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST || '178.63.180.212' }}
