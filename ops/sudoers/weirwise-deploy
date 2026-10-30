@@ -13,3 +13,7 @@ agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-rollback prod
 agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-nginx-conf dev
 agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-nginx-conf prod
 agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-backup-n8n
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-n8n-migrate switch
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-n8n-migrate status
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-n8n-migrate retire-old-vhost
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-n8n-migrate rollback

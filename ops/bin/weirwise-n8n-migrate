@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise n8n Migration & Lifecycle Controller
+# Strict Least-Privilege Script: Only accepts 'switch', 'status', 'retire-old-vhost', 'rollback'
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one target argument required: 'switch', 'status', 'retire-old-vhost', or 'rollback'" >&2
+    exit 1
+fi
+
+ACTION="$1"
+N8N_DIR="/opt/rag-platform/infra/n8n"
+COMPOSE_FILE="${N8N_DIR}/docker-compose.yml"
+ENV_FILE="${N8N_DIR}/.env"
+NGINX_CONF_DIR="/opt/rag-platform/infra/nginx/conf.d"
+OLD_VHOST="${NGINX_CONF_DIR}/n8n.ansarialireza.ir.conf"
+BACKUP_DIR="/srv/weirwise/shared/backups/n8n"
+mkdir -p "${BACKUP_DIR}"
+
+case "${ACTION}" in
+    switch)
+        echo "========================================================"
+        echo "Starting n8n Migration to n8n.weirwise.com"
+        echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        echo "========================================================"
+        
+        # 1. Trigger automated n8n full backup before making changes
+        if [ -x "/usr/local/bin/weirwise-backup-n8n" ]; then
+            echo "[Step 1/4] Running pre-migration backup..."
+            /usr/local/bin/weirwise-backup-n8n
+        fi
+        
+        # 2. Preserve a local backup of the current .env
+        cp "${ENV_FILE}" "${ENV_FILE}.bak.$(date +%Y%m%d_%H%M%S)"
+        
+        # 3. Update n8n host environment variables safely
+        echo "[Step 2/4] Updating n8n hostname settings..."
+        sed -i 's/^N8N_HOST=.*/N8N_HOST=n8n.weirwise.com/' "${ENV_FILE}"
+        sed -i 's|^WEBHOOK_URL=.*|WEBHOOK_URL=https://n8n.weirwise.com/|' "${ENV_FILE}"
+        if grep -q '^N8N_EDITOR_BASE_URL=' "${ENV_FILE}"; then
+            sed -i 's|^N8N_EDITOR_BASE_URL=.*|N8N_EDITOR_BASE_URL=https://n8n.weirwise.com/|' "${ENV_FILE}"
+        else
+            echo "N8N_EDITOR_BASE_URL=https://n8n.weirwise.com/" >> "${ENV_FILE}"
+        fi
+        chmod 0600 "${ENV_FILE}"
+        
+        # 4. Restart only the n8n application container (database is preserved untouched)
+        echo "[Step 3/4] Restarting n8n container..."
+        docker compose -f "${COMPOSE_FILE}" up -d --no-deps n8n
+        
+        # 5. Verify n8n container health
+        echo "[Step 4/4] Verifying n8n health..."
+        HEALTHY=false
+        for i in {1..30}; do
+            STATUS=$(docker inspect --format='{{json .State.Health.Status}}' n8n 2>/dev/null || echo "\"starting\"")
+            HTTP_CODE=$(docker exec n8n wget -qO- http://127.0.0.1:5678/healthz 2>/dev/null || echo "")
+            if [ "$STATUS" = "\"healthy\"" ] || echo "$HTTP_CODE" | grep -q "ok"; then
+                echo "n8n application is healthy!"
+                HEALTHY=true
+                break
+            fi
+            sleep 2
+        done
+        
+        if [ "$HEALTHY" = true ]; then
+            echo "Migration to n8n.weirwise.com SUCCESSFUL!"
+            exit 0
+        else
+            echo "Error: n8n health check failed!" >&2
+            exit 1
+        fi
+        ;;
+        
+    status)
+        echo "========================================================"
+        echo "n8n Service & Container Status"
+        echo "========================================================"
+        docker ps -f name="^n8n" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        docker inspect --format='N8N_HOST: {{range .Config.Env}}{{if (contains . "N8N_HOST")}}{{println .}}{{end}}{{end}}' n8n 2>/dev/null || true
+        docker inspect --format='WEBHOOK_URL: {{range .Config.Env}}{{if (contains . "WEBHOOK_URL")}}{{println .}}{{end}}{{end}}' n8n 2>/dev/null || true
+        ;;
+        
+    retire-old-vhost)
+        echo "========================================================"
+        echo "Retiring legacy n8n virtual host: n8n.ansarialireza.ir"
+        echo "========================================================"
+        if [ -f "${OLD_VHOST}" ]; then
+            echo "Archiving old virtual host..."
+            cp "${OLD_VHOST}" "${BACKUP_DIR}/n8n.ansarialireza.ir.conf.retired.$(date +%Y%m%d_%H%M%S)"
+            rm -f "${OLD_VHOST}"
+            echo "Testing Nginx syntax..."
+            if docker exec global-nginx nginx -t; then
+                echo "Syntax valid. Reloading global-nginx safely..."
+                docker exec global-nginx nginx -s reload
+                echo "Legacy n8n virtual host successfully retired."
+            else
+                echo "Error: Nginx syntax test failed! Restoring old virtual host..." >&2
+                cp "${BACKUP_DIR}/n8n.ansarialireza.ir.conf.retired."* "${OLD_VHOST}"
+                exit 1
+            fi
+        else
+            echo "Notice: Old virtual host ${OLD_VHOST} is not present."
+        fi
+        ;;
+        
+    rollback)
+        echo "Rolling back n8n configuration..."
+        LATEST_BAK=$(ls -t "${ENV_FILE}.bak."* 2>/dev/null | head -n 1 || echo "")
+        if [ -n "${LATEST_BAK}" ] && [ -f "${LATEST_BAK}" ]; then
+            cp "${LATEST_BAK}" "${ENV_FILE}"
+            chmod 0600 "${ENV_FILE}"
+            docker compose -f "${COMPOSE_FILE}" up -d --no-deps n8n
+            echo "Rolled back to ${LATEST_BAK}."
+        else
+            echo "Error: No backup .env file found!" >&2
+            exit 1
+        fi
+        ;;
+        
+    *)
+        echo "Error: Invalid argument '$1'. Only 'switch', 'status', 'retire-old-vhost', 'rollback' allowed." >&2
+        exit 1
+        ;;
+esac
