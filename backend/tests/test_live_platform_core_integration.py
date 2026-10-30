@@ -17,34 +17,53 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import ASGITransport
 
-# Ensure paths
-sys.path.insert(0, r"C:\Users\Alireza\GitHub\weirwise-rag-platform")
-sys.path.insert(0, r"C:\Users\Alireza\GitHub\weirwise-rag-core")
+# Dynamically resolve paths if present
+for p in [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "weirwise-rag-core")),
+]:
+    if p not in sys.path and os.path.exists(p):
+        sys.path.insert(0, p)
 
-from backend.app.adapters.core_client import CoreApiClient, CoreApiException
-from backend.app.main import app as platform_app
-from backend.app.models.project import Document, KnowledgeSource
-from server.app.auth import generate_api_key
-from server.app.database import AsyncSessionLocal as CoreSessionLocal
-from server.app.main import app as core_app
-from server.app.models import APIKey, DocumentChunk, Tenant
-from sqlalchemy import delete, select
+from backend.app.adapters.core_client import CoreApiClient, CoreApiException  # noqa: E402
+from backend.app.main import app as platform_app  # noqa: E402
+from backend.app.models.project import Document, KnowledgeSource  # noqa: E402
+
+try:
+    from server.app.auth import generate_api_key  # noqa: E402
+    from server.app.database import AsyncSessionLocal as CoreSessionLocal  # noqa: E402
+    from server.app.main import app as core_app  # noqa: E402
+    from server.app.models import APIKey, DocumentChunk, Tenant  # noqa: E402
+
+    HAS_CORE = True
+except ImportError:
+    HAS_CORE = False
+
+from sqlalchemy import delete, select  # noqa: E402
 
 
 def get_jina_token():
-    secrets_path = r"C:\Users\Alireza\GitHub\test-secrets\.env.testing"
-    with open(secrets_path, "r", encoding="utf-8") as f:
-        for line in f:
-            if line.strip().startswith("jina_"):
-                return line.strip()
+    env_token = os.getenv("JINA_API_KEY") or os.getenv("WEIRWISE_EMBEDDING_API_KEY")
+    if env_token and env_token.startswith("jina_"):
+        return env_token
+    secrets_path = os.getenv("TEST_SECRETS_PATH", r"C:\Users\Alireza\GitHub\test-secrets\.env.testing")
+    if os.path.exists(secrets_path):
+        with open(secrets_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("jina_"):
+                    return line.strip()
     return None
 
 
 @pytest.mark.asyncio
 async def test_live_platform_to_core_jina_integration():
     """Execute complete cross-service live verification."""
+    if not HAS_CORE:
+        pytest.skip("weirwise-rag-core package not available in environment; skipping live cross-service test.")
+
     jina_token = get_jina_token()
-    assert jina_token is not None, "Jina AI token must be present in .env.testing"
+    if not jina_token:
+        pytest.skip("Jina AI API token not configured; skipping live third-party integration test.")
 
     # Configure Core environment to use Jina AI embeddings
     os.environ["WEIRWISE_EMBEDDING_BASE_URL"] = "https://api.jina.ai/v1"

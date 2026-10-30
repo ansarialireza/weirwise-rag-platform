@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     WEIRWISE_CORE_API_KEY: str = ""
     WEIRWISE_CORE_TIMEOUT_SECONDS: float = 30.0
 
+    # Redis Cache & Queue
+    REDIS_URL: str | None = None
+
     # CORS
     ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 

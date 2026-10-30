@@ -53,6 +53,7 @@ pnpm-debug.log*
 *.sqlite3
 data/
 uploads/
+/core/
 
 # Artifacts & Reports
 artifacts/

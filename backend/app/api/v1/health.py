@@ -21,6 +21,7 @@ class ReadinessStatus(BaseModel):
     status: str
     version: str
     database: str
+    redis: str = "connected"
     core_gateway: str
 
 
@@ -38,23 +39,45 @@ async def liveness_check() -> HealthStatus:
 async def readiness_check(
     db: AsyncSession = Depends(get_db_session),
 ) -> ReadinessStatus:
-    """Readiness probe verifying live database session and core gateway probe."""
+    """Readiness probe verifying live database, redis, and real core engine gateway."""
+    # 1. Database check
     db_status = "connected"
     try:
         await db.execute(text("SELECT 1"))
     except Exception as e:
         db_status = f"unhealthy: {e!s}"
 
+    # 2. Redis check
+    redis_status = "not_configured"
+    if settings.REDIS_URL:
+        try:
+            from redis.asyncio import from_url
+
+            redis_client = from_url(settings.REDIS_URL, socket_timeout=2)
+            await redis_client.ping()
+            await redis_client.aclose()
+            redis_status = "connected"
+        except Exception as e:
+            redis_status = f"unhealthy: {e!s}"
+
+    # 3. Core Engine check
     core_client = CoreApiClient()
     core_probe = await core_client.check_health()
-    is_ready = core_probe.get("status") in ("alive", "ok", "ready")
-    core_status = "ready" if is_ready else f"unavailable ({core_probe.get('status')})"
+    is_core_ready = core_probe.get("status") in ("ready", "ok")
+    if "error" in core_probe:
+        core_status = f"unavailable ({core_probe['error']})"
+    elif is_core_ready:
+        core_status = "ready"
+    else:
+        core_status = f"unavailable ({core_probe.get('status', 'unreachable')})"
 
-    overall_status = "ready" if db_status == "connected" else "degraded"
+    is_redis_ok = redis_status in ("connected", "not_configured")
+    overall_status = "ready" if (db_status == "connected" and is_redis_ok and is_core_ready) else "degraded"
 
     return ReadinessStatus(
         status=overall_status,
         version=settings.VERSION,
         database=db_status,
+        redis=redis_status,
         core_gateway=core_status,
     )

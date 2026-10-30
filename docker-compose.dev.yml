@@ -1,8 +1,18 @@
+name: dev
+
 services:
   dev-db:
     image: postgres:16-alpine
     container_name: weirwise-dev-db
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-weirwise_dev}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_dev_secure_password}
@@ -16,6 +26,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -32,6 +54,97 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          memory: 32M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dev-internal
+
+  dev-core-db:
+    image: pgvector/pgvector:pg16
+    container_name: weirwise-dev-core-db
+    restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
+    environment:
+      POSTGRES_USER: ${DEV_CORE_DB_USER:-weirwise_core_dev}
+      POSTGRES_PASSWORD: ${DEV_CORE_DB_PASSWORD:-weirwise_core_dev_pass}
+      POSTGRES_DB: ${DEV_CORE_DB_NAME:-weirwise_core_dev_db}
+    volumes:
+      - dev_core_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEV_CORE_DB_USER:-weirwise_core_dev} -d ${DEV_CORE_DB_NAME:-weirwise_core_dev_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dev-internal
+
+  dev-core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: weirwise-dev-core
+    restart: unless-stopped
+    environment:
+      - WEIRWISE_ENV=development
+      - WEIRWISE_HOST=0.0.0.0
+      - WEIRWISE_PORT=8000
+      - WEIRWISE_DATABASE_URL=postgresql+asyncpg://${DEV_CORE_DB_USER:-weirwise_core_dev}:${DEV_CORE_DB_PASSWORD:-weirwise_core_dev_pass}@dev-core-db:5432/${DEV_CORE_DB_NAME:-weirwise_core_dev_db}
+      - WEIRWISE_DATABASE_SYNC_URL=postgresql://${DEV_CORE_DB_USER:-weirwise_core_dev}:${DEV_CORE_DB_PASSWORD:-weirwise_core_dev_pass}@dev-core-db:5432/${DEV_CORE_DB_NAME:-weirwise_core_dev_db}
+      - WEIRWISE_STORAGE_DIR=/app/var/data/storage
+      - WEIRWISE_INGESTION_MODE=inline
+      - WEIRWISE_SECRET_KEY=${DEV_CORE_SECRET_KEY:-weirwise-dev-secret-key-32chars-min-length}
+    volumes:
+      - dev_core_storage:/app/var/data/storage
+    depends_on:
+      dev-core-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -45,6 +158,7 @@ services:
       - .env.dev
     environment:
       - PORT=8000
+      - WEIRWISE_CORE_BASE_URL=http://dev-core:8000
     ports:
       - "127.0.0.1:8001:8000"
     volumes:
@@ -54,12 +168,26 @@ services:
         condition: service_healthy
       dev-redis:
         condition: service_healthy
+      dev-core:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
       - shared-proxy-network
@@ -84,6 +212,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
       - shared-proxy-network
@@ -95,6 +235,10 @@ volumes:
     name: weirwise_dev_redis_data
   dev_uploads:
     name: weirwise_dev_uploads
+  dev_core_postgres_data:
+    name: weirwise_dev_core_postgres_data
+  dev_core_storage:
+    name: weirwise_dev_core_storage
 
 networks:
   dev-internal:

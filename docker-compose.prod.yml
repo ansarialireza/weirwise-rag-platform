@@ -1,8 +1,18 @@
+name: prod
+
 services:
   prod-db:
     image: postgres:16-alpine
     container_name: weirwise-prod-db
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-weirwise_prod}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_prod_secure_password}
@@ -16,6 +26,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - prod-internal
 
@@ -32,6 +54,97 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          memory: 32M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - prod-internal
+
+  prod-core-db:
+    image: pgvector/pgvector:pg16
+    container_name: weirwise-prod-core-db
+    restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
+    environment:
+      POSTGRES_USER: ${PROD_CORE_DB_USER:-weirwise_core_prod}
+      POSTGRES_PASSWORD: ${PROD_CORE_DB_PASSWORD:-weirwise_core_prod_pass}
+      POSTGRES_DB: ${PROD_CORE_DB_NAME:-weirwise_core_prod_db}
+    volumes:
+      - prod_core_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROD_CORE_DB_USER:-weirwise_core_prod} -d ${PROD_CORE_DB_NAME:-weirwise_core_prod_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - prod-internal
+
+  prod-core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: weirwise-prod-core
+    restart: unless-stopped
+    environment:
+      - WEIRWISE_ENV=production
+      - WEIRWISE_HOST=0.0.0.0
+      - WEIRWISE_PORT=8000
+      - WEIRWISE_DATABASE_URL=postgresql+asyncpg://${PROD_CORE_DB_USER:-weirwise_core_prod}:${PROD_CORE_DB_PASSWORD:-weirwise_core_prod_pass}@prod-core-db:5432/${PROD_CORE_DB_NAME:-weirwise_core_prod_db}
+      - WEIRWISE_DATABASE_SYNC_URL=postgresql://${PROD_CORE_DB_USER:-weirwise_core_prod}:${PROD_CORE_DB_PASSWORD:-weirwise_core_prod_pass}@prod-core-db:5432/${PROD_CORE_DB_NAME:-weirwise_core_prod_db}
+      - WEIRWISE_STORAGE_DIR=/app/var/data/storage
+      - WEIRWISE_INGESTION_MODE=inline
+      - WEIRWISE_SECRET_KEY=${PROD_CORE_SECRET_KEY:-weirwise-prod-secret-key-32chars-min-length}
+    volumes:
+      - prod_core_storage:/app/var/data/storage
+    depends_on:
+      prod-core-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - prod-internal
 
@@ -45,6 +158,7 @@ services:
       - .env.prod
     environment:
       - PORT=8000
+      - WEIRWISE_CORE_BASE_URL=http://prod-core:8000
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -54,12 +168,26 @@ services:
         condition: service_healthy
       prod-redis:
         condition: service_healthy
+      prod-core:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - prod-internal
       - shared-proxy-network
@@ -84,6 +212,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - prod-internal
       - shared-proxy-network
@@ -95,6 +235,10 @@ volumes:
     name: weirwise_prod_redis_data
   prod_uploads:
     name: weirwise_prod_uploads
+  prod_core_postgres_data:
+    name: weirwise_prod_core_postgres_data
+  prod_core_storage:
+    name: weirwise_prod_core_storage
 
 networks:
   prod-internal:

@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,9 +6,12 @@ on:
   pull_request:
     branches: [develop, main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend-ci:
@@ -99,3 +102,53 @@ jobs:
           file: ./frontend/Dockerfile
           push: false
           tags: weirwise-platform-frontend:test
+
+  deploy-dev:
+    name: Deploy to Development
+    needs: [docker-validation]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: development
+      url: https://dev.weirwise.com
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Development via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.DEPLOY_HOST || '178.63.180.212' }}
+          username: ${{ vars.DEPLOY_USER || 'agyops' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ vars.DEPLOY_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            TARGET_DIR="/srv/weirwise/dev"
+            echo "Deploying commit ${{ github.sha }} to ${TARGET_DIR} (dev)..."
+            cd "${TARGET_DIR}"
+            git fetch origin develop
+            git checkout -q "${{ github.sha }}"
+            bash ./scripts/deploy.sh --env dev --sha "${{ github.sha }}"
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: [docker-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://weirwise.com
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ vars.DEPLOY_HOST || '178.63.180.212' }}
+          username: ${{ vars.DEPLOY_USER || 'agyops' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ vars.DEPLOY_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            TARGET_DIR="/srv/weirwise/prod"
+            echo "Deploying commit ${{ github.sha }} to ${TARGET_DIR} (prod)..."
+            cd "${TARGET_DIR}"
+            git fetch origin main
+            git checkout -q "${{ github.sha }}"
+            bash ./scripts/deploy.sh --env prod --sha "${{ github.sha }}"
