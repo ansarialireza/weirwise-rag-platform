@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Development via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.DEPLOY_HOST || '178.63.180.212' }}
           username: ${{ vars.DEPLOY_USER || 'agyops' }}
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Production via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ vars.DEPLOY_HOST || '178.63.180.212' }}
           username: ${{ vars.DEPLOY_USER || 'agyops' }}
