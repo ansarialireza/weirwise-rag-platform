@@ -19,7 +19,14 @@ def test_liveness_probe() -> None:
 
 
 def test_readiness_probe() -> None:
-    with patch.object(CoreApiClient, "check_health", new_callable=AsyncMock) as mock_probe:
+    with (
+        patch.object(CoreApiClient, "check_health", new_callable=AsyncMock) as mock_probe,
+        patch("redis.asyncio.from_url") as mock_redis_factory,
+    ):
+        mock_redis = AsyncMock()
+        mock_redis.ping.return_value = True
+        mock_redis_factory.return_value = mock_redis
+
         mock_probe.return_value = {"status": "ready"}
         response = client.get("/health/ready")
         assert response.status_code == 200

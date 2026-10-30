@@ -24,6 +24,7 @@ dependencies = [
     "redis>=5.0.2",
     "celery>=5.3.6",
     "pyjwt>=2.8.0",
+    "cryptography>=42.0.0",
     "beautifulsoup4>=4.12.0",
 ]
 

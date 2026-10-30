@@ -35,13 +35,22 @@ class CoreApiClient:
         return headers
 
     async def check_health(self) -> dict[str, Any]:
-        """Check Core liveness probe (/health/live)."""
-        url = f"{self.base_url}/health/live"
+        """Check Core readiness probe (/health/ready) and guard against self-referential loops."""
+        url = f"{self.base_url}/health/ready"
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
-                    return resp.json()
+                    data = resp.json()
+                    # Self-loop detection: Platform returns "environment" in /health/*, Core does not
+                    if "environment" in data:
+                        return {
+                            "status": "unhealthy",
+                            "error": "WEIRWISE_CORE_BASE_URL is misconfigured to Platform itself",
+                        }
+                    if data.get("status") in ("ready", "ok", "alive"):
+                        return data
+                    return {"status": "degraded", "details": data}
                 return {"status": "unhealthy", "code": resp.status_code}
         except Exception as e:
             logger.warning(f"Core health check failed: {e!s}")
