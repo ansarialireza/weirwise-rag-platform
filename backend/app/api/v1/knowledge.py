@@ -114,9 +114,12 @@ async def list_knowledge_sources(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[KnowledgeSourceResponse]:
     """List all knowledge sources in a project."""
-    await verify_project_membership(project_id, current_user.id, db, min_roles=[
-        WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER
-    ])
+    await verify_project_membership(
+        project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
 
     stmt = (
         select(KnowledgeSource, func.count(Document.id).label("doc_count"))
@@ -215,9 +218,12 @@ async def list_source_documents(
     if not source:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
 
-    await verify_project_membership(source.project_id, current_user.id, db, min_roles=[
-        WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER
-    ])
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
 
     stmt = select(Document).where(Document.knowledge_source_id == source_id).order_by(Document.created_at.desc())
     res = await db.execute(stmt)

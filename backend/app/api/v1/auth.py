@@ -84,9 +84,7 @@ async def login(
     db: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:
     """Authenticate user with email and password, returning JWT access token and session refresh token."""
-    res = await db.execute(
-        select(User).where(User.email == payload.email.lower(), User.is_active.is_(True))
-    )
+    res = await db.execute(select(User).where(User.email == payload.email.lower(), User.is_active.is_(True)))
     user = res.scalar_one_or_none()
 
     if not user or not verify_password(payload.password, user.hashed_password):

@@ -19,9 +19,7 @@ class ApiCredential(Base):
     __tablename__ = "api_credentials"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     key_prefix = Column(String(32), nullable=False)  # e.g., "wwp_live_"
     key_hash = Column(String(64), unique=True, nullable=False, index=True)
@@ -38,9 +36,7 @@ class AuditEvent(Base):
     __tablename__ = "audit_events"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(GUID, nullable=True, index=True)
     action = Column(String(100), nullable=False)  # e.g., "workspace.update", "member.role_change"
     resource_type = Column(String(50), nullable=False)  # "workspace", "project", "assistant"
@@ -64,6 +60,4 @@ class UsageEvent(Base):
     metadata_info = Column("metadata", CompatibleJSON, default=dict, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    __table_args__ = (
-        Index("ix_usage_workspace_event", "workspace_id", "event_type"),
-    )
+    __table_args__ = (Index("ix_usage_workspace_event", "workspace_id", "event_type"),)

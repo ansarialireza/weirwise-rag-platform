@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  prod-db:
+    image: postgres:16-alpine
+    container_name: weirwise-prod-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weirwise_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_prod_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-weirwise_prod_db}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weirwise_prod} -d ${POSTGRES_DB:-weirwise_prod_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - prod-internal
+
+  prod-redis:
+    image: redis:7-alpine
+    container_name: weirwise-prod-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - prod_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - prod-internal
+
+  prod-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weirwise-prod-backend
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      - PORT=8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - prod_uploads:/app/uploads
+    depends_on:
+      prod-db:
+        condition: service_healthy
+      prod-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - prod-internal
+      - shared-proxy-network
+
+  prod-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: weirwise-prod-frontend
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      prod-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - prod-internal
+      - shared-proxy-network
+
+volumes:
+  prod_postgres_data:
+    name: weirwise_prod_postgres_data
+  prod_redis_data:
+    name: weirwise_prod_redis_data
+  prod_uploads:
+    name: weirwise_prod_uploads
+
+networks:
+  prod-internal:
+    name: weirwise-prod-internal
+    driver: bridge
+  shared-proxy-network:
+    external: true

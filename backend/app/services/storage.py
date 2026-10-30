@@ -10,7 +10,8 @@ from fastapi import HTTPException, UploadFile, status
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename to prevent directory traversal and filesystem attacks."""
-    clean = os.path.basename(filename)
+    clean = filename.replace("\\", "/")
+    clean = os.path.basename(clean)
     clean = re.sub(r"[^\w\.\- ]", "_", clean)
     clean = clean.strip()
     if not clean or clean.startswith("."):

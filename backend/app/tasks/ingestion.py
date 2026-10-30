@@ -20,10 +20,7 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
     """
     async with async_session_factory() as db:
         # Load document with knowledge source
-        doc_stmt = (
-            select(Document)
-            .where(Document.id == document_id)
-        )
+        doc_stmt = select(Document).where(Document.id == document_id)
         res = await db.execute(doc_stmt)
         document = res.scalar_one_or_none()
 

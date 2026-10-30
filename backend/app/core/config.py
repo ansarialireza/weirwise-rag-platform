@@ -1,6 +1,5 @@
 """Centralized application settings with strict validation."""
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,9 +51,7 @@ class Settings(BaseSettings):
     WEIRWISE_CORE_TIMEOUT_SECONDS: float = 30.0
 
     # CORS
-    ALLOWED_ORIGINS: list[str] = Field(
-        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
-    )
+    ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 
 
 settings = Settings()

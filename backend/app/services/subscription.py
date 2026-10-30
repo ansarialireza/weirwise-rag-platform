@@ -113,9 +113,7 @@ class SubscriptionService:
             )
 
     @classmethod
-    async def check_assistant_creation_entitlement(
-        cls, workspace: Workspace, current_count: int
-    ) -> None:
+    async def check_assistant_creation_entitlement(cls, workspace: Workspace, current_count: int) -> None:
         """Enforce limit on total assistants configured per workspace."""
         plan = cls.get_plan(workspace.plan_tier)
         if current_count >= plan.max_assistants:

@@ -86,6 +86,7 @@ class WorkspaceContext:
 
 def require_workspace(workspace_id_param: str = "workspace_id", allowed_roles: list[WorkspaceRole] | None = None):
     """Factory dependency enforcing workspace membership and RBAC role."""
+
     async def dependency(
         workspace_id: uuid.UUID,
         user: User = Depends(get_current_user),
@@ -132,12 +133,9 @@ async def get_api_credential_context(
         )
 
     key_hash = hash_token(x_api_key)
-    stmt = (
-        select(ApiCredential)
-        .where(
-            ApiCredential.key_hash == key_hash,
-            ApiCredential.is_active.is_(True),
-        )
+    stmt = select(ApiCredential).where(
+        ApiCredential.key_hash == key_hash,
+        ApiCredential.is_active.is_(True),
     )
     res = await db.execute(stmt)
     credential = res.scalar_one_or_none()

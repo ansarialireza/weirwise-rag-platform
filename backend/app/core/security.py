@@ -56,11 +56,13 @@ def create_jwt_token(data: dict[str, Any], expires_delta: timedelta) -> str:
     """Create a signed JWT token with explicit expiration and standard claims."""
     now = datetime.now(UTC)
     to_encode = data.copy()
-    to_encode.update({
-        "iat": now,
-        "exp": now + expires_delta,
-        "jti": secrets.token_hex(16),
-    })
+    to_encode.update(
+        {
+            "iat": now,
+            "exp": now + expires_delta,
+            "jti": secrets.token_hex(16),
+        }
+    )
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

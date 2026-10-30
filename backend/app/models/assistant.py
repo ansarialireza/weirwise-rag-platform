@@ -27,9 +27,7 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    project_id = Column(
-        GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -44,9 +42,7 @@ class Assistant(Base):
     version = Column(Integer, default=1, nullable=False)
     published_snapshot = Column(CompatibleJSON, nullable=True)  # Frozen immutable config snapshot on publish
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     project = relationship("Project", back_populates="assistants")
     source_links = relationship("AssistantKnowledgeSource", back_populates="assistant", cascade="all, delete-orphan")
@@ -57,12 +53,8 @@ class Assistant(Base):
 class AssistantKnowledgeSource(Base):
     __tablename__ = "assistant_knowledge_sources"
 
-    assistant_id = Column(
-        GUID, ForeignKey("assistants.id", ondelete="CASCADE"), primary_key=True
-    )
-    knowledge_source_id = Column(
-        GUID, ForeignKey("knowledge_sources.id", ondelete="CASCADE"), primary_key=True
-    )
+    assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), primary_key=True)
+    knowledge_source_id = Column(GUID, ForeignKey("knowledge_sources.id", ondelete="CASCADE"), primary_key=True)
     priority = Column(Integer, default=1, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
@@ -74,18 +66,12 @@ class Conversation(Base):
     __tablename__ = "conversations"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    assistant_id = Column(
-        GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    user_id = Column(
-        GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
-    )
+    assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     session_token = Column(String(128), nullable=True, index=True)  # For widget / anonymous users
     title = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     assistant = relationship("Assistant", back_populates="conversations")
     messages = relationship(
@@ -97,9 +83,7 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(
-        GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    conversation_id = Column(GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(50), nullable=False)  # "user", "assistant", "system"
     content = Column(Text, nullable=False)
     citations = Column(CompatibleJSON, default=list, nullable=False)
@@ -119,9 +103,7 @@ class Deployment(Base):
     __tablename__ = "deployments"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    assistant_id = Column(
-        GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
     deployment_type = Column(String(50), default=DeploymentType.WIDGET.value, nullable=False)
     name = Column(String(255), nullable=False)
     public_key = Column(String(64), unique=True, nullable=False, index=True)  # Safe for embed script
@@ -129,8 +111,6 @@ class Deployment(Base):
     theme_config = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     assistant = relationship("Assistant", back_populates="deployments")

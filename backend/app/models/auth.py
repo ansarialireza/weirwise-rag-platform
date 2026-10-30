@@ -32,9 +32,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_superuser = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
@@ -51,9 +49,7 @@ class Workspace(Base):
     settings = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     memberships = relationship("Membership", back_populates="workspace", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="workspace", cascade="all, delete-orphan")
@@ -65,33 +61,23 @@ class Membership(Base):
     __tablename__ = "memberships"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    user_id = Column(
-        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(String(50), default=WorkspaceRole.MEMBER.value, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(
-        DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False
-    )
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     workspace = relationship("Workspace", back_populates="memberships")
     user = relationship("User", back_populates="memberships")
 
-    __table_args__ = (
-        UniqueConstraint("workspace_id", "user_id", name="uq_workspace_user_membership"),
-    )
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id", name="uq_workspace_user_membership"),)
 
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     refresh_token_hash = Column(String(64), unique=True, nullable=False, index=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(512), nullable=True)
@@ -106,9 +92,7 @@ class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False, nullable=False)

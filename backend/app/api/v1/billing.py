@@ -63,9 +63,9 @@ async def list_available_plans() -> list[PlanInfoResponse]:
 @router.get("/workspaces/{workspace_id}/billing", response_model=UsageStatusResponse)
 async def get_workspace_billing_status(
     workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[
-        WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER
-    ])),
+    context: WorkspaceContext = Depends(
+        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
+    ),
     db: AsyncSession = Depends(get_db_session),
 ) -> UsageStatusResponse:
     """Retrieve actual server-computed usage metrics vs plan entitlements."""

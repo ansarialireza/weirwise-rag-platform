@@ -24,10 +24,11 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_core_client():
-    with patch.object(CoreApiClient, "create_knowledge_base", new_callable=AsyncMock) as mock_kb, \
-         patch.object(CoreApiClient, "upload_document", new_callable=AsyncMock) as mock_upload, \
-         patch.object(CoreApiClient, "search", new_callable=AsyncMock) as mock_search:
-
+    with (
+        patch.object(CoreApiClient, "create_knowledge_base", new_callable=AsyncMock) as mock_kb,
+        patch.object(CoreApiClient, "upload_document", new_callable=AsyncMock) as mock_upload,
+        patch.object(CoreApiClient, "search", new_callable=AsyncMock) as mock_search,
+    ):
         fake_kb_id = str(uuid.uuid4())
         fake_doc_id = str(uuid.uuid4())
         fake_chunk_id = str(uuid.uuid4())
@@ -109,9 +110,7 @@ def test_complete_product_workflow(mock_core_client):
 
     # Simulate multipart file upload
     file_content = b"# Enterprise Employee Handbook\nAll full-time staff receive 25 vacation days."
-    files = [
-        ("files", ("handbook.md", io.BytesIO(file_content), "text/markdown"))
-    ]
+    files = [("files", ("handbook.md", io.BytesIO(file_content), "text/markdown"))]
     upload_resp = client.post(
         f"/api/v1/sources/{source_id}/documents/upload",
         headers=auth_headers,
@@ -158,6 +157,7 @@ def test_complete_product_workflow(mock_core_client):
     # Manually configure source core_kb_id for chat retrieval testing
     from backend.app.core.config import settings
     from sqlalchemy import create_engine, text
+
     sync_url = settings.DATABASE_URL.replace("+aiosqlite", "").replace("+asyncpg", "")
     with create_engine(sync_url).connect() as conn:
         conn.execute(

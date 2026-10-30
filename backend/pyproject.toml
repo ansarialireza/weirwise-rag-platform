@@ -21,6 +21,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "redis>=5.0.2",
     "celery>=5.3.6",
+    "pyjwt>=2.8.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +39,14 @@ minversion = "7.0"
 addopts = "-q"
 testpaths = ["tests"]
 pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+disable_error_code = ["arg-type", "assignment", "var-annotated"]
 
 [tool.ruff]
 line-length = 120

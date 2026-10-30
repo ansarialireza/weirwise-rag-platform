@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  dev-db:
+    image: postgres:16-alpine
+    container_name: weirwise-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-weirwise_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_dev_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-weirwise_dev_db}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-weirwise_dev} -d ${POSTGRES_DB:-weirwise_dev_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dev-internal
+
+  dev-redis:
+    image: redis:7-alpine
+    container_name: weirwise-dev-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - dev_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - dev-internal
+
+  dev-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weirwise-dev-backend
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    environment:
+      - PORT=8000
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - dev_uploads:/app/uploads
+    depends_on:
+      dev-db:
+        condition: service_healthy
+      dev-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dev-internal
+      - shared-proxy-network
+
+  dev-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: weirwise-dev-frontend
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      dev-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - dev-internal
+      - shared-proxy-network
+
+volumes:
+  dev_postgres_data:
+    name: weirwise_dev_postgres_data
+  dev_redis_data:
+    name: weirwise_dev_redis_data
+  dev_uploads:
+    name: weirwise_dev_uploads
+
+networks:
+  dev-internal:
+    name: weirwise-dev-internal
+    driver: bridge
+  shared-proxy-network:
+    external: true

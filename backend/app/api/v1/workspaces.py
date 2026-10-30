@@ -32,6 +32,7 @@ def slugify(text: str) -> str:
 
 # --- Workspace Routes ---
 
+
 @router.post("/workspaces", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED)
 async def create_workspace(
     payload: WorkspaceCreateRequest,
@@ -86,9 +87,11 @@ async def list_user_workspaces(
 @router.get("/workspaces/{workspace_id}", response_model=WorkspaceResponse)
 async def get_workspace(
     workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[
-        WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER
-    ])),
+    context: WorkspaceContext = Depends(
+        require_workspace(
+            allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER]
+        )
+    ),
 ) -> WorkspaceResponse:
     """Get details of a specific workspace."""
     return WorkspaceResponse.model_validate(context.workspace)
@@ -122,6 +125,7 @@ async def update_workspace(
 
 
 # --- Membership & RBAC Routes ---
+
 
 @router.get("/workspaces/{workspace_id}/members", response_model=list[MembershipResponse])
 async def list_workspace_members(
@@ -224,9 +228,7 @@ async def update_member_role(
 ) -> MembershipResponse:
     """Change a member's role (Strictly OWNER required). Protects against demoting the last owner."""
     res = await db.execute(
-        select(Membership).where(
-            Membership.id == member_id, Membership.workspace_id == workspace_id
-        )
+        select(Membership).where(Membership.id == member_id, Membership.workspace_id == workspace_id)
     )
     membership = res.scalar_one_or_none()
 
@@ -236,12 +238,15 @@ async def update_member_role(
     # Guard against demoting the last owner
     if membership.role == WorkspaceRole.OWNER.value and payload.role != WorkspaceRole.OWNER:
         owner_count_res = await db.execute(
-            select(func.count()).select_from(Membership).where(
+            select(func.count())
+            .select_from(Membership)
+            .where(
                 Membership.workspace_id == workspace_id,
                 Membership.role == WorkspaceRole.OWNER.value,
             )
         )
-        if owner_count_res.scalar() <= 1:
+        owner_count = owner_count_res.scalar() or 0
+        if owner_count <= 1:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot demote the last remaining Owner of the workspace. Transfer ownership first.",
@@ -266,6 +271,7 @@ async def update_member_role(
 
 
 # --- Project Routes ---
+
 
 @router.post("/workspaces/{workspace_id}/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(

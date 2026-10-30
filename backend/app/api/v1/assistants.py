@@ -57,6 +57,7 @@ async def verify_project_access(project_id: uuid.UUID, user_id: uuid.UUID, db: A
 
 # --- Assistant Management ---
 
+
 @router.post("/projects/{project_id}/assistants", response_model=AssistantResponse, status_code=status.HTTP_201_CREATED)
 async def create_assistant(
     project_id: uuid.UUID,
@@ -101,9 +102,7 @@ async def create_assistant(
         for sid in payload.knowledge_source_ids:
             # Verify source belongs to the same project
             ks_res = await db.execute(
-                select(KnowledgeSource).where(
-                    KnowledgeSource.id == sid, KnowledgeSource.project_id == project_id
-                )
+                select(KnowledgeSource).where(KnowledgeSource.id == sid, KnowledgeSource.project_id == project_id)
             )
             if not ks_res.scalar_one_or_none():
                 raise HTTPException(
@@ -138,9 +137,7 @@ async def list_project_assistants(
     output = []
     for a in assistants:
         links_res = await db.execute(
-            select(AssistantKnowledgeSource.knowledge_source_id).where(
-                AssistantKnowledgeSource.assistant_id == a.id
-            )
+            select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == a.id)
         )
         sids = links_res.scalars().all()
         resp = AssistantResponse.model_validate(a)
@@ -195,6 +192,7 @@ async def publish_assistant(
 
 
 # --- Grounded Chat Runtime & Citations ---
+
 
 @router.post("/assistants/{assistant_id}/chat", response_model=ChatResponse)
 async def chat_with_assistant(
@@ -255,10 +253,12 @@ async def chat_with_assistant(
 
     # Get linked knowledge sources
     links_res = await db.execute(
-        select(KnowledgeSource).join(
+        select(KnowledgeSource)
+        .join(
             AssistantKnowledgeSource,
             AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id,
-        ).where(AssistantKnowledgeSource.assistant_id == assistant.id)
+        )
+        .where(AssistantKnowledgeSource.assistant_id == assistant.id)
     )
     sources = links_res.scalars().all()
 
@@ -340,6 +340,7 @@ async def chat_with_assistant(
 
 
 # --- Deployments & API Credentials ---
+
 
 @router.post(
     "/assistants/{assistant_id}/deployments",
