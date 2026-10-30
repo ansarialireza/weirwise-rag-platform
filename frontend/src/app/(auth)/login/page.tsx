@@ -13,6 +13,8 @@ import { Alert } from "@/components/ui/alert";
 import { IntelligentFlowGraphic } from "@/components/auth/intelligent-flow-graphic";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 
+import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -74,8 +76,8 @@ export default function LoginPage() {
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background text-foreground transition-colors">
       {/* Left Column: Form & Brand Authenticator */}
       <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col justify-between p-8 sm:p-12 lg:p-16 border-r border-border bg-card">
-        {/* Top Header: Official Logo */}
-        <div>
+        {/* Top Header: Official Logo & Theme Switcher */}
+        <div className="flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-3 group">
             <WeirwiseSymbol className="h-8 w-8" />
             <span className="font-bold text-lg tracking-tight text-foreground flex items-center gap-1.5">
@@ -83,6 +85,7 @@ export default function LoginPage() {
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
             </span>
           </Link>
+          <ThemeSwitcher />
         </div>
 
         {/* Center Form Container */}
@@ -257,8 +260,8 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Column: Intelligent Flow Composition (Dark stage backdrop for RAG visualization) */}
-      <div className="hidden lg:flex flex-1 relative bg-[#090A0C]">
+      {/* Right Column: Intelligent Flow Composition (Theme-aware stage backdrop for RAG visualization) */}
+      <div className="hidden lg:flex flex-1 relative bg-background/80 border-l border-border/50">
         <IntelligentFlowGraphic />
       </div>
     </div>

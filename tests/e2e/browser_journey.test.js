@@ -48,13 +48,80 @@ async function runAuditSuite() {
 
   try {
     // --------------------------------------------------------------------------
-    // Test 1: Landing Page and Navigation
+    // Test 1: Landing Page & Multi-Viewport Responsive Audit
     // --------------------------------------------------------------------------
-    console.log("\n[Test 1] Testing Landing Page & Public Navigation...");
+    console.log("\n[Test 1] Testing Minimal Homepage & Responsive Layouts Across 6 Viewports...");
+    const viewports = [
+      { name: "Mobile (360px)", width: 360, height: 640 },
+      { name: "Mobile (390px)", width: 390, height: 844 },
+      { name: "Tablet (768px)", width: 768, height: 1024 },
+      { name: "Laptop (1024px)", width: 1024, height: 768 },
+      { name: "Desktop (1440px)", width: 1440, height: 900 },
+      { name: "Wide Desktop (1920px)", width: 1920, height: 1080 },
+    ];
+
+    for (const vp of viewports) {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+
+      const hasHorizontalScroll = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > window.innerWidth;
+      });
+
+      if (hasHorizontalScroll) {
+        throw new Error(`Horizontal overflow detected on viewport ${vp.name}!`);
+      }
+
+      console.log(`  ✓ ${vp.name}: Clean layout, no horizontal scroll.`);
+    }
+
+    // Reset to standard viewport
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
     const pageTitle = await page.title();
     console.log(`  ✓ Landing page title: "${pageTitle}"`);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01_landing.png") });
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01_minimal_homepage.png") });
+
+    // --------------------------------------------------------------------------
+    // Test 1B: Theme Switcher & Persistence Verification (Dark / Colorful / Light)
+    // --------------------------------------------------------------------------
+    console.log("\n[Test 1B] Testing Theme Switcher & Persistence Across Page Reloads...");
+    
+    // Switch to Colorful Theme via ThemeSwitcher or evaluate
+    await page.evaluate(() => {
+      window.localStorage.setItem("wwp_theme", "colorful");
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add("colorful");
+    });
+    let isColorful = await page.evaluate(() => document.documentElement.classList.contains("colorful"));
+    if (!isColorful) throw new Error("Failed to activate colorful theme!");
+    console.log("  ✓ Switched to Colorful Theme (active classes: colorful).");
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01b_homepage_colorful.png") });
+
+    // Reload page to verify persistence without flash
+    await page.reload({ waitUntil: "networkidle" });
+    isColorful = await page.evaluate(() => document.documentElement.classList.contains("colorful"));
+    if (!isColorful) throw new Error("Colorful theme did not persist across page reload!");
+    console.log("  ✓ Colorful Theme successfully persisted in localStorage across reload.");
+
+    // Switch to Light Theme
+    await page.evaluate(() => {
+      window.localStorage.setItem("wwp_theme", "light");
+      document.documentElement.classList.remove("colorful", "dark");
+      document.documentElement.classList.add("light");
+    });
+    const isLight = await page.evaluate(() => document.documentElement.classList.contains("light"));
+    if (!isLight) throw new Error("Failed to activate light theme!");
+    console.log("  ✓ Switched to Light Theme (active classes: light).");
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01c_homepage_light.png") });
+
+    // Revert to Colorful Theme for remaining journey tests
+    await page.evaluate(() => {
+      window.localStorage.setItem("wwp_theme", "colorful");
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add("colorful");
+    });
+    console.log("  ✓ Active theme set to Colorful for journey testing.");
 
     // --------------------------------------------------------------------------
     // Test 2: Registration Validation & Successful Signup

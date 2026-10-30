@@ -13,6 +13,7 @@ import {
   Moon,
   Sun,
   Laptop,
+  Palette,
   ArrowRight,
   Command as CommandIcon,
 } from "lucide-react";
@@ -143,6 +144,14 @@ export function CommandPalette() {
       icon: Moon,
       category: "Preferences" as const,
       onSelect: () => setTheme("dark"),
+    },
+    {
+      id: "theme-colorful",
+      title: "Theme: Colorful Mode",
+      subtitle: "Cosmic twilight with electric violet and cyan accents",
+      icon: Palette,
+      category: "Preferences" as const,
+      onSelect: () => setTheme("colorful"),
     },
     {
       id: "theme-light",

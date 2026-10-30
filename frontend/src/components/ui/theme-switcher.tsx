@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme, Theme } from "@/lib/theme-context";
-import { Moon, Sun, Laptop } from "lucide-react";
+import { Moon, Sun, Laptop, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect, useCallback } from "react";
 
@@ -37,11 +37,13 @@ export function ThemeSwitcher({ className }: ThemeSwitcherProps) {
 
   const options: { id: Theme; label: string; icon: typeof Moon }[] = [
     { id: "dark", label: "Dark", icon: Moon },
+    { id: "colorful", label: "Colorful", icon: Palette },
     { id: "light", label: "Light", icon: Sun },
     { id: "system", label: "System", icon: Laptop },
   ];
 
-  const CurrentIcon = resolvedTheme === "dark" ? Moon : Sun;
+  const CurrentIcon =
+    resolvedTheme === "colorful" ? Palette : resolvedTheme === "light" ? Sun : Moon;
 
   return (
     <div

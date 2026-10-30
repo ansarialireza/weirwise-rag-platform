@@ -4,17 +4,17 @@ import React from "react";
 
 export function IntelligentFlowGraphic() {
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-12 overflow-hidden select-none bg-[#090A0C] text-neutral-200">
+    <div className="relative w-full h-full flex flex-col justify-between p-12 overflow-hidden select-none bg-background/50 text-foreground transition-colors">
       {/* Background ambient radial glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#CCFF00]/[0.04] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/[0.05] rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header: Architecture Badge */}
       <div className="relative z-10 space-y-1">
-        <div className="inline-flex items-center gap-2 rounded-full border border-neutral-800 bg-[#12151A]/80 backdrop-blur-md px-3 py-1 text-[11px] font-mono text-neutral-400 shadow-sm">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#CCFF00] animate-pulse" />
+        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 backdrop-blur-md px-3 py-1 text-[11px] font-mono text-muted-foreground shadow-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
           <span>Intelligent Flow Control &bull; RAG Synthesis</span>
         </div>
-        <p className="text-xs text-neutral-400 pt-1">
+        <p className="text-xs text-muted-foreground pt-1">
           Scattered unstructured corporate knowledge routed and synthesized into verified grounded answers.
         </p>
       </div>
@@ -168,16 +168,16 @@ export function IntelligentFlowGraphic() {
       </div>
 
       {/* Bottom Technical Principles */}
-      <div className="relative z-10 grid grid-cols-2 gap-6 pt-6 border-t border-neutral-800/80 text-xs">
+      <div className="relative z-10 grid grid-cols-2 gap-6 pt-6 border-t border-border text-xs">
         <div>
-          <span className="font-semibold text-neutral-200 font-mono">Precision Filtering</span>
-          <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+          <span className="font-semibold text-foreground font-mono">Precision Filtering</span>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
             Eliminates hallucination by enforcing cosine similarity cutoffs on vectorized chunks.
           </p>
         </div>
         <div>
-          <span className="font-semibold text-neutral-200 font-mono">Contextual Synthesis</span>
-          <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+          <span className="font-semibold text-foreground font-mono">Contextual Synthesis</span>
+          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
             Delivers concise, attributed intelligence directly to users and integration channels.
           </p>
         </div>
