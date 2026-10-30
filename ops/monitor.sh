@@ -59,6 +59,8 @@ fi
 CRITICAL_CONTAINERS=(
     "weirwise-prod-frontend"
     "weirwise-prod-backend"
+    "weirwise-prod-core"
+    "weirwise-prod-core-db"
     "weirwise-prod-db"
     "weirwise-prod-redis"
     "weirwise-dev-frontend"

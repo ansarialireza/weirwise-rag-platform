@@ -144,6 +144,10 @@ for i in {1..30}; do
     sleep 2
 done
 
+# Ensure volume permissions for non-root users (UID 10001) before running migrations
+docker run --rm -v "weirwise_${ENV_TYPE}_uploads:/uploads" alpine chown -R 10001:10001 /uploads 2>/dev/null || true
+docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 10001:10001 /storage 2>/dev/null || true
+
 # 9. Execute Database Schema Migrations
 echo "[Step 4/6] Running schema migrations..."
 echo "Applying Platform backend migrations..."
