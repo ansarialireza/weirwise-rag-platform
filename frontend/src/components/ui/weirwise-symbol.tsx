@@ -9,14 +9,13 @@ export function WeirwiseSymbol({ className }: WeirwiseSymbolProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-md bg-[#101217] p-1 border border-neutral-800 shadow-xs shrink-0 select-none",
+        "flex items-center justify-center rounded-md bg-card p-1 border border-border shadow-xs shrink-0 select-none text-primary transition-colors",
         className
       )}
-      style={{ backgroundColor: "#101217" }}
     >
       <svg
         viewBox="0 0 350 170"
-        fill="#CCFF00"
+        fill="currentColor"
         className="w-full h-full object-contain"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"

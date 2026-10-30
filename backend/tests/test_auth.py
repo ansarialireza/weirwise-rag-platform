@@ -116,3 +116,33 @@ def test_password_reset_flow():
         json={"email": email, "password": new_password},
     )
     assert succ_login.status_code == 200
+
+
+def test_auth_validation_edge_cases():
+    # 1. Invalid email format
+    r_bad_email = client.post(
+        "/api/v1/auth/register",
+        json={"email": "not-an-email", "password": "Password123!", "full_name": "Test Name"},
+    )
+    assert r_bad_email.status_code == 422
+
+    # 2. Short password (< 8 chars)
+    r_short_pass = client.post(
+        "/api/v1/auth/register",
+        json={"email": "shortpass@example.com", "password": "short", "full_name": "Test Name"},
+    )
+    assert r_short_pass.status_code == 422
+
+    # 3. Missing full_name
+    r_missing_name = client.post(
+        "/api/v1/auth/register",
+        json={"email": "missingname@example.com", "password": "Password123!"},
+    )
+    assert r_missing_name.status_code == 422
+
+    # 4. Invalid login credentials
+    r_bad_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@example.com", "password": "WrongPassword123!"},
+    )
+    assert r_bad_login.status_code == 401

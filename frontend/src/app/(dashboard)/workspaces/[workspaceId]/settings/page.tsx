@@ -21,10 +21,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, Alert } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/toast";
 
 export default function WorkspaceSettingsPage() {
   const params = useParams();
   const workspaceId = params.workspaceId as string;
+  const { toast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"general" | "usage" | "api_keys" | "members">("general");
 
@@ -121,7 +123,7 @@ export default function WorkspaceSettingsPage() {
       setMembers([...members, memb]);
       setInviteEmail("");
     } catch (err: any) {
-      alert(err.message || "Failed to invite member");
+      toast({ type: "error", message: err.message || "Failed to invite member" });
     } finally {
       setInviting(false);
     }
@@ -138,7 +140,7 @@ export default function WorkspaceSettingsPage() {
         setCredName("");
       }
     } catch (err: any) {
-      alert(err.message || "Failed to create API key");
+      toast({ type: "error", message: err.message || "Failed to create API key" });
     } finally {
       setCreatingKey(false);
     }
