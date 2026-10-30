@@ -5,6 +5,14 @@ services:
     image: postgres:16-alpine
     container_name: weirwise-dev-db
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-weirwise_dev}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_dev_secure_password}
@@ -18,6 +26,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -34,6 +54,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          memory: 32M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -41,6 +73,14 @@ services:
     image: pgvector/pgvector:pg16
     container_name: weirwise-dev-core-db
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c max_connections=60
     environment:
       POSTGRES_USER: ${DEV_CORE_DB_USER:-weirwise_core_dev}
       POSTGRES_PASSWORD: ${DEV_CORE_DB_PASSWORD:-weirwise_core_dev_pass}
@@ -52,6 +92,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -81,6 +133,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
 
@@ -112,6 +176,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
       - shared-proxy-network
@@ -136,6 +212,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - dev-internal
       - shared-proxy-network

@@ -165,6 +165,11 @@ fi
 
 # 11. Start Application Containers
 echo "[Step 6/6] Launching application services (${ENV_TYPE}-core, ${ENV_TYPE}-backend, ${ENV_TYPE}-frontend)..."
+
+# Ensure volume permissions for non-root users (UID 10001)
+docker run --rm -v "weirwise_${ENV_TYPE}_uploads:/uploads" alpine chown -R 10001:10001 /uploads 2>/dev/null || true
+docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 10001:10001 /storage 2>/dev/null || true
+
 docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
 
 # 12. Health Checks and Verification

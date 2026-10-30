@@ -81,16 +81,21 @@ docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --build --remove-orph
 
 # 3. Database restore if requested and backup available
 if [ "$RESTORE_DB" = true ]; then
-    LATEST_BACKUP=$(find "${BACKUP_DIR}" -type f -name "weirwise_${ENV_TYPE}_db_*.sql.gz" 2>/dev/null | sort -r | head -n1)
-    if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP" ]; then
-        echo "Restoring database from ${LATEST_BACKUP}..."
-        CONTAINER_NAME="weirwise-${ENV_TYPE}-db"
-        DB_USER="weirwise_${ENV_TYPE}"
-        DB_NAME="weirwise_${ENV_TYPE}_db"
-        gunzip -c "${LATEST_BACKUP}" | docker exec -i "${CONTAINER_NAME}" psql -U "${DB_USER}" -d "${DB_NAME}"
-        echo "Database restored successfully."
+    echo "Restoring database using restore engine..."
+    if [ -f "./scripts/restore.sh" ]; then
+        bash ./scripts/restore.sh --env "${ENV_TYPE}" $([ "$ENV_TYPE" = "prod" ] && echo "--force-prod-restore" || echo "")
     else
-        echo "Warning: No database backup file found to restore."
+        LATEST_BACKUP=$(find "${BACKUP_DIR}" -type f \( -name "weirwise_${ENV_TYPE}_platform_db_*.sql.gz" -o -name "weirwise_${ENV_TYPE}_db_*.sql.gz" \) 2>/dev/null | sort -r | head -n1)
+        if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP" ]; then
+            echo "Restoring database from ${LATEST_BACKUP}..."
+            CONTAINER_NAME="weirwise-${ENV_TYPE}-db"
+            DB_USER="weirwise_${ENV_TYPE}"
+            DB_NAME="weirwise_${ENV_TYPE}_db"
+            gunzip -c "${LATEST_BACKUP}" | docker exec -i "${CONTAINER_NAME}" psql -U "${DB_USER}" -d "${DB_NAME}"
+            echo "Database restored successfully."
+        else
+            echo "Warning: No database backup file found to restore."
+        fi
     fi
 fi
 
