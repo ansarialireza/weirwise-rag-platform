@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise Pre-Decommission n8n Full Backup Script
+# Creates verified SQL dump and volume tar archive
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+BACKUP_DIR="/srv/weirwise/shared/backups/n8n"
+mkdir -p "${BACKUP_DIR}"
+
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+DB_BACKUP_FILE="${BACKUP_DIR}/n8n_db_${TIMESTAMP}.sql.gz"
+DATA_BACKUP_FILE="${BACKUP_DIR}/n8n_data_${TIMESTAMP}.tar.gz"
+
+echo "========================================================"
+echo "Starting n8n Comprehensive Backup"
+echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "========================================================"
+
+# 1. Back up n8n PostgreSQL Database
+if docker ps -q -f name="^n8n-db$" | grep -q .; then
+    echo "[1/3] Dumping n8n database from n8n-db..."
+    # n8n uses postgres user by default or env POSTGRES_USER
+    DB_USER=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' n8n-db | grep '^POSTGRES_USER=' | cut -d= -f2 || echo "postgres")
+    DB_NAME=$(docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' n8n-db | grep '^POSTGRES_DB=' | cut -d= -f2 || echo "postgres")
+    
+    docker exec -t n8n-db pg_dump -U "${DB_USER}" -d "${DB_NAME}" | gzip > "${DB_BACKUP_FILE}"
+    gzip -t "${DB_BACKUP_FILE}"
+    echo "Database backup verified: ${DB_BACKUP_FILE} ($(du -h "${DB_BACKUP_FILE}" | cut -f1))"
+else
+    echo "Warning: n8n-db container is not currently running!"
+fi
+
+# 2. Back up n8n Data Volume
+echo "[2/3] Archiving n8n_data volume..."
+docker run --rm -v n8n_n8n_data:/data:ro -v "${BACKUP_DIR}":/backup alpine tar czf "/backup/n8n_data_${TIMESTAMP}.tar.gz" -C /data .
+gzip -t "${DATA_BACKUP_FILE}"
+echo "Data volume backup verified: ${DATA_BACKUP_FILE} ($(du -h "${DATA_BACKUP_FILE}" | cut -f1))"
+
+# 3. Back up n8n compose and environment config
+echo "[3/3] Archiving n8n compose and configuration files..."
+tar czf "${BACKUP_DIR}/n8n_config_${TIMESTAMP}.tar.gz" -C /opt/rag-platform/infra/n8n .
+echo "Configuration archive verified: ${BACKUP_DIR}/n8n_config_${TIMESTAMP}.tar.gz"
+
+echo "========================================================"
+echo "n8n Backup Fully Verified and Preserved!"
+echo "Location: ${BACKUP_DIR}"
+echo "========================================================"

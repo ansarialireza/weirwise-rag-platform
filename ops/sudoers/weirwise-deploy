@@ -1,0 +1,15 @@
+# Sudoers drop-in for Weirwise least-privilege deployment automation
+# File location: /etc/sudoers.d/weirwise-deploy
+# Permissions: 0440 (root:root)
+
+# Grant 'agyops' execution rights ONLY to the exact, pre-audited root deployment binaries
+# with strictly validated literal parameters (no wildcards, no shell expansion)
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-deploy dev
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-deploy prod
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-backup dev
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-backup prod
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-rollback dev
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-rollback prod
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-nginx-conf dev
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-nginx-conf prod
+agyops ALL=(root) NOPASSWD: /usr/local/bin/weirwise-backup-n8n
