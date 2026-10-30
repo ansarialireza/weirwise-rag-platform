@@ -196,6 +196,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=/api/v1
     container_name: weirwise-dev-frontend
     restart: unless-stopped
     environment:
