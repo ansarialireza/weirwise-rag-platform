@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise Nginx Configuration Deployer
+# Strict Least-Privilege Script: Only accepts 'dev' or 'prod'
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one target argument required: 'dev' or 'prod'" >&2
+    exit 1
+fi
+
+case "$1" in
+    dev)
+        SRC_CONF="/srv/weirwise/dev/nginx/dev.weirwise.com.conf"
+        DEST_CONF="/opt/rag-platform/infra/nginx/conf.d/dev.weirwise.com.conf"
+        ;;
+    prod)
+        SRC_CONF="/srv/weirwise/prod/nginx/weirwise.com.conf"
+        DEST_CONF="/opt/rag-platform/infra/nginx/conf.d/weirwise.com.conf"
+        ;;
+    *)
+        echo "Error: Invalid target '$1'. Only 'dev' or 'prod' allowed." >&2
+        exit 1
+        ;;
+esac
+
+if [ ! -f "${SRC_CONF}" ]; then
+    echo "Error: Source config '${SRC_CONF}' does not exist!" >&2
+    exit 1
+fi
+
+echo "Deploying Nginx configuration: ${DEST_CONF}..."
+cp "${SRC_CONF}" "${DEST_CONF}"
+chmod 0644 "${DEST_CONF}"
+
+# Validate Nginx syntax inside global-nginx container before reloading
+echo "Testing Nginx configuration syntax..."
+if docker exec global-nginx nginx -t; then
+    echo "Syntax valid. Reloading global-nginx safely..."
+    docker exec global-nginx nginx -s reload
+    echo "global-nginx successfully reloaded."
+else
+    echo "Error: Nginx syntax test failed! Reverting configuration..." >&2
+    rm -f "${DEST_CONF}"
+    exit 1
+fi

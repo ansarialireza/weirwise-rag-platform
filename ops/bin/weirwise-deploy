@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise Production & Development Deployment Controller
+# Strict Least-Privilege Script: Only accepts 'dev' or 'prod'
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one target argument required: 'dev' or 'prod'" >&2
+    exit 1
+fi
+
+case "$1" in
+    dev)
+        ENV_TARGET="dev"
+        BACKEND_PORT="8001"
+        FRONTEND_PORT="3001"
+        ;;
+    prod)
+        ENV_TARGET="prod"
+        BACKEND_PORT="8000"
+        FRONTEND_PORT="3000"
+        ;;
+    *)
+        echo "Error: Invalid target '$1'. Only 'dev' or 'prod' allowed." >&2
+        exit 1
+        ;;
+esac
+
+TARGET_DIR="/srv/weirwise/${ENV_TARGET}"
+COMPOSE_FILE="${TARGET_DIR}/docker-compose.${ENV_TARGET}.yml"
+ENV_FILE="${TARGET_DIR}/.env.${ENV_TARGET}"
+LOG_DIR="/srv/weirwise/shared/deployment-logs"
+mkdir -p "${LOG_DIR}"
+
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+LOG_FILE="${LOG_DIR}/deploy_${ENV_TARGET}_${TIMESTAMP}.log"
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+echo "========================================================"
+echo "Starting Weirwise Deployment: ${ENV_TARGET}"
+echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "Target directory: ${TARGET_DIR}"
+echo "========================================================"
+
+if [ ! -d "${TARGET_DIR}" ]; then
+    echo "Error: Target directory '${TARGET_DIR}' does not exist!" >&2
+    exit 1
+fi
+
+if [ ! -f "${COMPOSE_FILE}" ]; then
+    echo "Error: Compose file '${COMPOSE_FILE}' not found!" >&2
+    exit 1
+fi
+
+if [ ! -f "${ENV_FILE}" ]; then
+    echo "Error: Environment file '${ENV_FILE}' not found!" >&2
+    exit 1
+fi
+
+# 1. Trigger automated database backup before applying changes
+if [ -x "/usr/local/bin/weirwise-backup" ]; then
+    echo "[Step 1/5] Executing pre-deployment backup..."
+    /usr/local/bin/weirwise-backup "${ENV_TARGET}" || echo "Notice: Initial backup skipped or DB not created yet."
+fi
+
+# 2. Build containers
+echo "[Step 2/5] Building container images..."
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" build
+
+# 3. Start database and cache services
+echo "[Step 3/5] Starting database and cache services..."
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d "${ENV_TARGET}-db" "${ENV_TARGET}-redis"
+
+# Wait for DB health
+echo "Waiting for database container health..."
+for i in {1..30}; do
+    STATUS=$(docker inspect --format='{{json .State.Health.Status}}' "weirwise-${ENV_TARGET}-db" 2>/dev/null || echo "\"starting\"")
+    if [ "$STATUS" = "\"healthy\"" ]; then
+        echo "Database is healthy."
+        break
+    fi
+    sleep 2
+done
+
+# 4. Run schema migrations
+echo "[Step 4/5] Running database migrations..."
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" run --rm "${ENV_TARGET}-backend" alembic -c /app/backend/alembic.ini upgrade head
+
+# 5. Start / Rolling restart app containers
+echo "[Step 5/5] Launching application services..."
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --remove-orphans "${ENV_TARGET}-backend" "${ENV_TARGET}-frontend"
+
+# 6. Verify health
+echo "Verifying health endpoints on 127.0.0.1..."
+HEALTHY=false
+for i in {1..30}; do
+    LIVE_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${BACKEND_PORT}/health/live" 2>/dev/null || echo "000")
+    READY_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${BACKEND_PORT}/health/ready" 2>/dev/null || echo "000")
+    FRONTEND_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${FRONTEND_PORT}/" 2>/dev/null || echo "000")
+
+    echo "Attempt $i/30: Backend Live: ${LIVE_CODE} | Ready: ${READY_CODE} | Frontend: ${FRONTEND_CODE}"
+    if [ "$LIVE_CODE" = "200" ] && [ "$READY_CODE" = "200" ] && [ "$FRONTEND_CODE" = "200" ]; then
+        HEALTHY=true
+        break
+    fi
+    sleep 3
+done
+
+if [ "$HEALTHY" = true ]; then
+    echo "========================================================"
+    echo "Deployment SUCCESSFUL for ${ENV_TARGET}!"
+    echo "All health checks passed."
+    echo "========================================================"
+    exit 0
+else
+    echo "========================================================"
+    echo "Deployment FAILED: Health verification unsuccessful!" >&2
+    echo "========================================================"
+    exit 1
+fi

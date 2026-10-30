@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise Database Backup Controller
+# Strict Least-Privilege Script: Only accepts 'dev' or 'prod'
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one target argument required: 'dev' or 'prod'" >&2
+    exit 1
+fi
+
+case "$1" in
+    dev|prod) ENV_TARGET="$1" ;;
+    *) echo "Error: Invalid target '$1'. Only 'dev' or 'prod' allowed." >&2; exit 1 ;;
+esac
+
+BACKUP_DIR="/srv/weirwise/shared/backups"
+mkdir -p "${BACKUP_DIR}"
+
+CONTAINER_NAME="weirwise-${ENV_TARGET}-db"
+DB_USER="weirwise_${ENV_TARGET}"
+DB_NAME="weirwise_${ENV_TARGET}_db"
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+BACKUP_FILE="${BACKUP_DIR}/weirwise_${ENV_TARGET}_db_${TIMESTAMP}.sql.gz"
+
+if ! docker ps -q -f name="^${CONTAINER_NAME}$" | grep -q .; then
+    echo "Notice: Database container '${CONTAINER_NAME}' is not running. Backup skipped."
+    exit 0
+fi
+
+echo "Creating compressed backup of database '${DB_NAME}'..."
+docker exec -t "${CONTAINER_NAME}" pg_dump -U "${DB_USER}" -d "${DB_NAME}" | gzip > "${BACKUP_FILE}"
+
+# Verify gzip archive integrity
+gzip -t "${BACKUP_FILE}"
+BACKUP_SIZE="$(du -h "${BACKUP_FILE}" | cut -f1)"
+
+echo "Backup verified successfully: ${BACKUP_FILE} (${BACKUP_SIZE})"
+
+# Retention: purge backups older than 14 days
+find "${BACKUP_DIR}" -type f -name "weirwise_${ENV_TARGET}_db_*.sql.gz" -mtime +14 -delete || true

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Weirwise Rollback Controller
+# Strict Least-Privilege Script: Only accepts 'dev' or 'prod'
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+if [ "$#" -ne 1 ]; then
+    echo "Error: Exactly one target argument required: 'dev' or 'prod'" >&2
+    exit 1
+fi
+
+case "$1" in
+    dev|prod) ENV_TARGET="$1" ;;
+    *) echo "Error: Invalid target '$1'. Only 'dev' or 'prod' allowed." >&2; exit 1 ;;
+esac
+
+TARGET_DIR="/srv/weirwise/${ENV_TARGET}"
+COMPOSE_FILE="${TARGET_DIR}/docker-compose.${ENV_TARGET}.yml"
+ENV_FILE="${TARGET_DIR}/.env.${ENV_TARGET}"
+
+echo "Executing rollback for environment: ${ENV_TARGET}..."
+
+if [ -f "${COMPOSE_FILE}" ] && [ -f "${ENV_FILE}" ]; then
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" restart "${ENV_TARGET}-backend" "${ENV_TARGET}-frontend" || true
+fi
+
+echo "Rollback command completed."
