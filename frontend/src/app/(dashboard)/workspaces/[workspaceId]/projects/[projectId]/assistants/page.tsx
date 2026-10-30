@@ -20,12 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
 
 export default function AssistantsListPage() {
   const params = useParams();
   const router = useRouter();
   const workspaceId = params.workspaceId as string;
   const projectId = params.projectId as string;
+  const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -80,7 +82,7 @@ export default function AssistantsListPage() {
       setShowCreate(false);
       router.push(`/workspaces/${workspaceId}/projects/${projectId}/assistants/${created.id}`);
     } catch (err: any) {
-      alert(err.message || "Failed to create assistant");
+      toast({ type: "error", message: err.message || "Failed to create assistant" });
     } finally {
       setCreating(false);
     }

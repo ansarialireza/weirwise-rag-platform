@@ -22,10 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const { toast } = useToast();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
@@ -76,6 +78,25 @@ export default function SourcesKnowledgePage() {
     loadDocuments();
   }, [loadDocuments]);
 
+  // Auto-poll document processing status when any document is in non-terminal state
+  useEffect(() => {
+    const hasPending = documents.some(
+      (d) => d.status === "pending" || d.status === "processing"
+    );
+    if (!hasPending || !selectedSource) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const docs = await api.getDocuments(selectedSource.id);
+        setDocuments(docs);
+      } catch {
+        // Non-critical background polling failure
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [documents, selectedSource]);
+
   const handleCreateSource = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sourceName.trim()) return;
@@ -92,8 +113,9 @@ export default function SourcesKnowledgePage() {
       setShowModal(false);
       setSourceName("");
       setTargetUrl("");
+      toast({ type: "success", message: `Knowledge source "${created.name}" created.` });
     } catch (err: any) {
-      alert(err.message || "Failed to create knowledge source");
+      toast({ type: "error", message: err.message || "Failed to create knowledge source" });
     } finally {
       setCreating(false);
     }
@@ -136,7 +158,7 @@ export default function SourcesKnowledgePage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
               Knowledge Base
             </h1>
-            <Badge variant="primary" className="text-xs px-2.5 py-0.5">{sources.length} Datasets</Badge>
+            <Badge variant="primary" className="text-xs px-2.5 py-0.5">{sources.length} Sources</Badge>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-relaxed">
             Ingest and index company documents for grounded vector similarity search with Jina AI embeddings.
@@ -338,7 +360,7 @@ export default function SourcesKnowledgePage() {
 
             <form onSubmit={handleCreateSource} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Dataset Name</label>
+                <label className="text-xs font-semibold text-foreground">Knowledge Source Name</label>
                 <Input
                   type="text"
                   required
@@ -389,7 +411,7 @@ export default function SourcesKnowledgePage() {
                   isLoading={creating}
                   disabled={!sourceName.trim()}
                 >
-                  Create Dataset
+                  Create Knowledge Source
                 </Button>
               </div>
             </form>
