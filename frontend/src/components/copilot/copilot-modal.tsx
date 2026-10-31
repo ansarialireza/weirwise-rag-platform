@@ -257,7 +257,7 @@ export function CopilotModal({ isOpen, onClose }: CopilotModalProps) {
         {/* Header */}
         <header className="flex items-center justify-between border-b border-border bg-card px-4 py-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-secondary/10 border border-brand-secondary/30 text-brand-secondary shadow-xs">
               <WeirwiseSymbol className="h-5 w-5" />
             </div>
             <div>
@@ -265,8 +265,8 @@ export function CopilotModal({ isOpen, onClose }: CopilotModalProps) {
                 <span className="text-sm font-bold tracking-tight text-foreground">
                   Weirwise Copilot
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500 border border-emerald-500/20">
-                  <ShieldCheck className="h-3 w-3" /> Official Guide
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-secondary/10 px-2 py-0.5 text-[10px] font-semibold text-brand-secondary border border-brand-secondary/25">
+                  <ShieldCheck className="h-3 w-3" /> Intelligent Guide
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">

@@ -219,13 +219,13 @@ export function Sidebar({
             window.dispatchEvent(new CustomEvent("open-weirwise-copilot"));
             onItemClick?.();
           }}
-          className="w-full flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+          className="w-full flex items-center justify-between rounded-lg border border-brand-secondary/40 bg-brand-secondary/10 px-3 py-2 text-xs font-semibold text-brand-secondary hover:bg-brand-secondary/20 transition-colors shadow-xs"
         >
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
+            <Sparkles className="h-4 w-4 text-brand-secondary" />
             <span>Weirwise Copilot</span>
           </div>
-          <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-mono">Voice &amp; Text</span>
+          <span className="text-[10px] bg-brand-secondary/20 text-brand-secondary px-1.5 py-0.5 rounded font-mono">Voice &amp; Text</span>
         </button>
 
         <button
