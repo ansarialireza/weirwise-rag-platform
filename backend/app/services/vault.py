@@ -39,3 +39,15 @@ def decrypt_credential_secret(encrypted_secret: str) -> str:
     fernet = Fernet(_get_encryption_key())
     decrypted = fernet.decrypt(encrypted_secret.encode("utf-8")).decode("utf-8")
     return decrypted
+
+
+class CredentialVaultService:
+    @staticmethod
+    def encrypt_secret(secret: str) -> str:
+        fernet = Fernet(_get_encryption_key())
+        return fernet.encrypt(secret.strip().encode("utf-8")).decode("utf-8")
+
+    @staticmethod
+    def decrypt_secret(encrypted_secret: str) -> str:
+        return decrypt_credential_secret(encrypted_secret)
+
