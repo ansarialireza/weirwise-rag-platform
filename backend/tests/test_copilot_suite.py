@@ -5,17 +5,14 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
-
 from backend.app.core.security import create_jwt_token, hash_password
 from backend.app.db.session import async_session_factory
 from backend.app.main import app
-from backend.app.models.admin import AdminRole, AdminUserRole, TokenCostLedger
-from backend.app.models.assistant import Assistant, Conversation, Message
+from backend.app.models.admin import AdminRole, AdminUserRole
+from backend.app.models.assistant import Conversation, Message
 from backend.app.models.auth import Membership, User, Workspace
-from backend.app.models.project import KnowledgeSource, Project
-from backend.app.services.deepgram import DeepgramError, DeepgramService
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 
 @pytest.fixture
