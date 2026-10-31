@@ -248,16 +248,17 @@ def upgrade() -> None:
             conn.execute(
                 text(
                     """
-                    INSERT INTO projects (id, workspace_id, name, description, settings, created_at, updated_at)
-                    VALUES (:id, :workspace_id, :name, :description, :settings, :created_at, :updated_at)
+                    INSERT INTO projects (id, workspace_id, name, slug, description, is_active, created_at, updated_at)
+                    VALUES (:id, :workspace_id, :name, :slug, :description, :is_active, :created_at, :updated_at)
                     """
                 ),
                 {
                     "id": staff_proj_id,
                     "workspace_id": staff_ws_id,
                     "name": "Platform Operations",
+                    "slug": "platform-operations",
                     "description": "Internal Platform Staff Operations Project",
-                    "settings": "{}",
+                    "is_active": True,
                     "created_at": now,
                     "updated_at": now,
                 },
