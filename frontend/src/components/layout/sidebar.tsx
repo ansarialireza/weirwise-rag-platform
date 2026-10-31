@@ -12,6 +12,7 @@ import {
   LogOut,
   ChevronDown,
   Search,
+  X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Workspace, Project } from "@/types";
@@ -25,6 +26,8 @@ interface SidebarProps {
   workspaces: Workspace[];
   projects: Project[];
   onItemClick?: () => void;
+  onClose?: () => void;
+  isMobileDrawer?: boolean;
 }
 
 export function Sidebar({
@@ -33,6 +36,8 @@ export function Sidebar({
   workspaces,
   projects,
   onItemClick,
+  onClose,
+  isMobileDrawer = false,
 }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
@@ -85,23 +90,41 @@ export function Sidebar({
   ];
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-card transition-colors select-none">
-      {/* Brand Header */}
-      <div className="flex h-16 items-center justify-between border-b border-border px-4">
+    <aside
+      className={cn(
+        "flex flex-col border-r border-border bg-card transition-colors select-none",
+        isMobileDrawer ? "h-full w-full" : "h-screen w-64"
+      )}
+      aria-label="Workspace Navigation Sidebar"
+    >
+      {/* Brand Header & Mobile Close Button */}
+      <div className="flex h-16 items-center justify-between border-b border-border px-4 shrink-0">
         <Link
           href={baseProjUrl ? `${baseProjUrl}/overview` : "/"}
+          onClick={() => onItemClick?.()}
           className="flex items-center gap-3 group"
         >
           <WeirwiseSymbol className="h-8 w-8" />
           <span className="text-base font-bold tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
           </span>
         </Link>
+
+        {isMobileDrawer && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Close navigation drawer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Scope Pickers: Workspace & Project */}
-      <div className="p-3.5 space-y-2 border-b border-border/80 bg-card/40 text-xs">
+      <div className="p-3.5 space-y-2 border-b border-border/80 bg-card/40 text-xs shrink-0">
         {/* Workspace Dropdown */}
         <div className="relative">
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
@@ -113,7 +136,8 @@ export function Sidebar({
               setWsDropdownOpen(!wsDropdownOpen);
               setProjDropdownOpen(false);
             }}
-            className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none"
+            className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            aria-expanded={wsDropdownOpen}
           >
             <span className="truncate">{currentWorkspace?.name || "Select Workspace"}</span>
             <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", wsDropdownOpen && "rotate-180")} />
@@ -125,7 +149,10 @@ export function Sidebar({
                 <Link
                   key={ws.id}
                   href={`/workspaces/${ws.id}`}
-                  onClick={() => setWsDropdownOpen(false)}
+                  onClick={() => {
+                    setWsDropdownOpen(false);
+                    onItemClick?.();
+                  }}
                   className={cn(
                     "flex items-center justify-between px-3 py-2 transition-colors hover:bg-secondary",
                     ws.id === wsId ? "text-primary font-bold bg-primary/10" : "text-foreground"
@@ -140,7 +167,7 @@ export function Sidebar({
         </div>
 
         {/* Project Dropdown */}
-        {currentWorkspace && (
+        {wsId && (
           <div className="relative">
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               Project
@@ -151,7 +178,8 @@ export function Sidebar({
                 setProjDropdownOpen(!projDropdownOpen);
                 setWsDropdownOpen(false);
               }}
-              className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none"
+              className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+              aria-expanded={projDropdownOpen}
             >
               <span className="truncate">{currentProject?.name || "Select Project"}</span>
               <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", projDropdownOpen && "rotate-180")} />
@@ -163,7 +191,10 @@ export function Sidebar({
                   <Link
                     key={proj.id}
                     href={`/workspaces/${wsId}/projects/${proj.id}/overview`}
-                    onClick={() => setProjDropdownOpen(false)}
+                    onClick={() => {
+                      setProjDropdownOpen(false);
+                      onItemClick?.();
+                    }}
                     className={cn(
                       "flex items-center justify-between px-3 py-2 transition-colors hover:bg-secondary",
                       proj.id === pId ? "text-primary font-bold bg-primary/10" : "text-foreground"
@@ -180,11 +211,12 @@ export function Sidebar({
       </div>
 
       {/* Quick Command Palette Shortcut Trigger */}
-      <div className="px-3.5 pt-3">
+      <div className="px-3.5 pt-3 shrink-0">
         <button
           type="button"
           onClick={() => {
             window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+            onItemClick?.();
           }}
           className="w-full flex items-center justify-between rounded-lg border border-border/80 bg-input/70 px-3 py-2 text-xs text-muted-foreground hover:bg-input hover:text-foreground transition-colors"
         >
@@ -206,7 +238,7 @@ export function Sidebar({
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground/40 cursor-not-allowed"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/40 cursor-not-allowed"
               >
                 <Icon className="h-4 w-4" />
                 <span>{item.label}</span>
@@ -220,7 +252,7 @@ export function Sidebar({
               href={item.href}
               onClick={() => onItemClick?.()}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                 item.active
                   ? "bg-secondary text-primary font-semibold shadow-xs"
                   : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
@@ -233,11 +265,11 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* User Profile & Discreet Theme Preference Footer */}
-      <div className="border-t border-border p-3.5 space-y-2.5 bg-card/60">
+      {/* User Profile & Theme Preference Footer */}
+      <div className="border-t border-border p-3.5 space-y-2.5 bg-card/60 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary border border-border text-xs font-bold text-foreground flex-shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary border border-border text-xs font-bold text-foreground shrink-0">
               {user?.full_name?.charAt(0) || "U"}
             </div>
             <div className="flex flex-col truncate">
@@ -260,7 +292,7 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Compact, discreet theme selector */}
+        {/* Compact theme selector */}
         <div className="flex items-center justify-between pt-2 border-t border-border/50">
           <span className="text-xs text-muted-foreground font-medium">Appearance</span>
           <CompactThemeMenu />

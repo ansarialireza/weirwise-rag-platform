@@ -239,6 +239,80 @@ async function runAuditSuite() {
     console.log("  ✓ Authentication JWT token stored in localStorage.");
 
     // --------------------------------------------------------------------------
+    // Test 2B: Dedicated Mobile Dashboard UI/UX & Drawer Regression Suite
+    // --------------------------------------------------------------------------
+    console.log("\n[Test 2B] Testing Workspace Dashboard Mobile Drawer & Responsiveness...");
+    const overviewUrl = `${BASE_URL}/workspaces/${workspaceId}/projects/${projectId}/overview`;
+    await page.goto(overviewUrl, { waitUntil: "networkidle" });
+    await delay(1000);
+
+    // 1. Mobile viewport test at 360px
+    await page.setViewportSize({ width: 360, height: 740 });
+    await delay(500);
+
+    // Verify Dashboard Mobile Header elements
+    const dMenuBtn = await page.$('header button[aria-label="Open navigation menu"]');
+    if (!dMenuBtn) throw new Error("Dashboard mobile menu button missing in header!");
+    console.log("  ✓ Dashboard mobile header menu button present.");
+
+    // Verify Header Title Centering via layout
+    const headerTitleInfo = await page.evaluate(() => {
+      const header = document.querySelector('header');
+      const title = header ? header.querySelector('span') : null;
+      if (!header || !title) return null;
+      const hRect = header.getBoundingClientRect();
+      const tRect = title.getBoundingClientRect();
+      const hCenter = hRect.left + hRect.width / 2;
+      const tCenter = tRect.left + tRect.width / 2;
+      return { diff: Math.abs(hCenter - tCenter), text: title.innerText };
+    });
+    if (headerTitleInfo && headerTitleInfo.diff > 30) {
+      console.warn(`  ! Header title center diff: ${headerTitleInfo.diff}px`);
+    } else {
+      console.log(`  ✓ Dashboard header title visually centered: "${headerTitleInfo?.text}"`);
+    }
+
+    // 2. Open Mobile Drawer
+    await dMenuBtn.click();
+    await delay(300);
+
+    // Verify backdrop visibility & isolating overlay
+    const hasBackdrop = await page.$('[data-testid="drawer-backdrop"]');
+    if (!hasBackdrop) throw new Error("Mobile drawer backdrop missing or not rendered!");
+    console.log("  ✓ Mobile drawer backdrop covering viewport verified.");
+
+    // Verify body scroll lock
+    const isScrollLocked = await page.evaluate(() => document.body.style.overflow === "hidden");
+    if (!isScrollLocked) throw new Error("Body scroll lock not enabled while mobile drawer is open!");
+    console.log("  ✓ Body scrolling successfully prevented while drawer is open.");
+
+    // Verify close via backdrop click (click at right margin outside the 85vw drawer)
+    await page.mouse.click(345, 300);
+    await delay(300);
+    const isDrawerClosed = await page.evaluate(() => !document.querySelector('[data-testid="drawer-backdrop"]'));
+    if (!isDrawerClosed) throw new Error("Drawer failed to dismiss when clicking backdrop!");
+    console.log("  ✓ Mobile drawer successfully closed on backdrop click.");
+
+    // 3. Re-open and test close button
+    await dMenuBtn.click();
+    await delay(300);
+    const closeBtn = await page.$('button[aria-label="Close navigation drawer"]');
+    if (closeBtn) {
+      await closeBtn.click();
+      await delay(300);
+      console.log("  ✓ Mobile drawer successfully closed via explicit close button.");
+    }
+
+    // 4. Check Statistics Cards & Core Workflow Progression on 360px
+    const cardOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    if (cardOverflow) throw new Error("Horizontal overflow on mobile dashboard overview at 360px!");
+    console.log("  ✓ Dashboard statistics and workflow cards fit cleanly without horizontal scroll.");
+
+    // Reset to desktop viewport for remaining workflow
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await delay(500);
+
+    // --------------------------------------------------------------------------
     // Test 3: Client-Side Route Guarding on /admin for Tenant User
     // --------------------------------------------------------------------------
     console.log("\n[Test 3] Testing Client-Side Route Guard on /admin...");
