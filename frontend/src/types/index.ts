@@ -88,11 +88,45 @@ export interface Assistant {
   max_tokens: number;
   score_threshold: number;
   top_k: number;
+  language?: string;
+  tone?: string;
+  fallback_message?: string;
+  escalation_email?: string;
   status: AssistantStatus;
   version: number;
+  last_published_at?: string;
   knowledge_source_ids: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PublishReadiness {
+  is_ready: boolean;
+  issues: string[];
+  knowledge_sources_count: number;
+  indexed_documents_count: number;
+}
+
+export interface AssistantConversation {
+  id: string;
+  assistant_id: string;
+  title: string | null;
+  is_escalated: boolean;
+  escalation_reason?: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: any[];
+  latency_ms?: number;
+  is_grounded: boolean;
+  created_at: string;
 }
 
 export interface CitationItem {
@@ -135,4 +169,29 @@ export interface ApiCredential {
   is_active: boolean;
   created_at: string;
   raw_api_key?: string;
+}
+
+export interface CopilotCitation {
+  chunk_id: string;
+  title: string;
+  content: string;
+  similarity_score: number;
+  rank: number;
+}
+
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: CopilotCitation[];
+  is_grounded?: boolean;
+  voice_supported?: boolean;
+  created_at: string;
+}
+
+export interface CopilotConversation {
+  id: string;
+  title: string | null;
+  created_at: string;
+  messages: CopilotMessage[];
 }

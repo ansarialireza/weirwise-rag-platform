@@ -14,6 +14,7 @@ import {
   Activity,
   LogOut,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
 
@@ -59,6 +60,11 @@ export default function AdminLayout({
       name: "FinOps & Cost Intelligence",
       href: "/admin/finops",
       icon: DollarSign,
+    },
+    {
+      name: "Weirwise Copilot & Voice",
+      href: "/admin/copilot",
+      icon: Sparkles,
     },
     {
       name: "Security & Audit Trail",

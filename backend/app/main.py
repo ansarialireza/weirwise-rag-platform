@@ -9,6 +9,7 @@ from backend.app.api.v1.admin import router as admin_router
 from backend.app.api.v1.assistants import router as assistants_router
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.billing import router as billing_router
+from backend.app.api.v1.copilot import router as copilot_router
 from backend.app.api.v1.enterprise import router as enterprise_router
 from backend.app.api.v1.health import router as health_router
 from backend.app.api.v1.integrations import router as integrations_router
@@ -75,6 +76,7 @@ def create_application() -> FastAPI:
     app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
+    app.include_router(copilot_router, prefix="/api/v1")
     app.include_router(integrations_router, prefix="/api/v1")
     app.include_router(enterprise_router, prefix="/api/v1")
     app.include_router(billing_router, prefix="/api/v1")

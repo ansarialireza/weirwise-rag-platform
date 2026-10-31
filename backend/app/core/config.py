@@ -60,5 +60,11 @@ class Settings(BaseSettings):
     INITIAL_STAFF_ADMIN_EMAIL: str | None = None
     INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
 
+    # Deepgram Voice Integration (STT / TTS)
+    DEEPGRAM_API_KEY: str = ""
+    DEEPGRAM_API_BASE_URL: str = "https://api.deepgram.com"
+    DEEPGRAM_STT_MODEL: str = "nova-3"
+    DEEPGRAM_TTS_MODEL: str = "aura-2-andromeda-en"
+
 
 settings = Settings()
