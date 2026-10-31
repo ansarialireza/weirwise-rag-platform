@@ -1,72 +1,145 @@
-# Weirwise Platform API Contracts & Integration Boundaries
+# Weirwise API Contracts (v2.0)
 
-## 1. Verified Public Interface: Weirwise Core (v1.0.0)
+This specification defines the public runtime endpoints, webhook contracts, and enterprise APIs.
 
-Source verification performed directly against `C:\Users\Alireza\Desktop\weirwise\CONTRACT.md` and `C:\Users\Alireza\Desktop\weirwise\server\app\api.py`.
+---
 
-### A. Authentication
-All tenant-scoped calls from Weirwise Platform to Weirwise Core MUST include:
+## 1. Public Runtime API (For Embed Widgets)
+
+### GET `/api/v1/public/assistants/{assistant_id}/config`
+Retrieves public branding, communication settings, and visual themes for a published assistant.
+
+**Headers:**
+- `Origin` (optional, validated against assistant allowed origins)
+
+**Response (200 OK):**
+```json
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "Acme Support Bot",
+  "description": "Grounded AI support assistant",
+  "status": "published",
+  "version": 2,
+  "language": "en",
+  "tone": "friendly",
+  "fallback_message": "I apologize, but I do not have verified knowledge to answer that.",
+  "theme_color": "#4f46e5",
+  "avatar_url": null,
+  "greeting_message": "Hello! How can I assist you with Acme products today?",
+  "suggested_prompts": ["What is your return policy?", "How do I track my order?"]
+}
+```
+
+---
+
+### POST `/api/v1/public/assistants/{assistant_id}/chat`
+Interacts with the grounded assistant in real-time.
+
+**Request Body:**
+```json
+{
+  "conversation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", // optional, generated if omitted
+  "message": "What is the return policy?",
+  "visitor_id": "anon_user_12345"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "conversation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "message_id": "c73a24e2-6e2c-471f-a5b6-70e0f808beec",
+  "content": "Items can be returned within 30 days of receipt in original condition.",
+  "is_grounded": true,
+  "citations": [
+    {
+      "source_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "document_name": "Return_Policy_2026.pdf",
+      "snippet": "All customers are entitled to a full refund within 30 days...",
+      "score": 0.89
+    }
+  ]
+}
+```
+
+---
+
+### POST `/api/v1/public/messages/{message_id}/feedback`
+Records thumbs up or thumbs down feedback for quality tracking.
+
+**Request Body:**
+```json
+{
+  "rating": -1, // 1 for thumbs up, -1 for thumbs down
+  "reason": "Outdated information regarding return shipping fees"
+}
+```
+
+---
+
+### POST `/api/v1/public/conversations/{conversation_id}/handoff`
+Requests escalation to a human agent when the assistant is unable to resolve an inquiry.
+
+**Request Body:**
+```json
+{
+  "contact_info": "customer@example.com",
+  "reason": "Requires manual order status lookup"
+}
+```
+
+---
+
+## 2. Outbound Webhook Signature Contract
+
+Weirwise dispatches webhook events to user-configured webhook URLs (Zapier, n8n, internal webhooks).
+
+### Webhook Headers
 ```http
-X-API-Key: ww_<32-byte-hex>
+POST https://customer-server.example.com/webhook
+Content-Type: application/json
+X-Weirwise-Event: handoff.requested
+X-Weirwise-Timestamp: 1730363800
+X-Weirwise-Signature: t=1730363800,v1=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 ```
 
-### B. Core Endpoints & Verified Signatures
+### Signature Verification Algorithm
+```python
+import hmac, hashlib
 
-| Endpoint | Method | Input Contract | Verified Output Contract |
-| :--- | :--- | :--- | :--- |
-| `/health/live` | `GET` | None | `{"status": "alive", "database": "unverified", "version": "1.0.0"}` |
-| `/health/ready` | `GET` | None | `{"status": "ready"\|"degraded", "database": "healthy"\|"unreachable", "version": "1.0.0"}` |
-| `/api/v1/knowledge-bases` | `POST` | `{"name": str, "description": str\|null}` | `KnowledgeBaseResponse` (`id`, `name`, `description`, `created_at`, `updated_at`) |
-| `/api/v1/knowledge-bases` | `GET` | Query: `limit: int = 50, offset: int = 0` | `List[KnowledgeBaseResponse]` |
-| `/api/v1/documents/upload` | `POST` | `multipart/form-data`: `file`, `knowledge_base_id: UUID` | HTTP 202: `DocumentUploadResponse` (`id`, `knowledge_base_id`, `filename`, `status: "pending"`, `created_at`) |
-| `/api/v1/documents/{doc_id}` | `GET` | Path: `doc_id: UUID` | `DocumentResponse` (`id`, `status: "pending"\|"processing"\|"completed"\|"failed"`, `error_message`, `file_size`, etc.) |
-| `/api/v1/search` | `POST` | `{"knowledge_base_id": UUID, "query": str, "top_k": int = 4, "score_threshold": float\|null}` | `{"results": [{"chunk_id": UUID, "document_id": UUID, "content": str, "similarity_score": float, "rank": int}], "total": int}` |
-| `/api/v1/assistants` | `POST` | `{"name": str, "knowledge_base_id": UUID\|null, "system_instructions": str\|null, "model": str, "temperature": float, "max_tokens": int}` | `AssistantResponse` (`id`, `name`, `model`, etc.) |
-| `/api/v1/assistants/{id}/chat` | `POST` | `{"message": str, "conversation_id": UUID\|null}` | `ChatResponse` (`conversation_id`, `message_id`, `role: "assistant"`, `content": str, `sources`: list) |
+expected_sig = hmac.new(
+    webhook_secret.encode("utf-8"),
+    f"{timestamp}.{request_body_string}".encode("utf-8"),
+    hashlib.sha256
+).hexdigest()
+
+assert hmac.compare_digest(v1_signature, expected_sig)
+```
 
 ---
 
-## 2. Integration Adapters & Mapping
+## 3. Knowledge Ingestion & Crawler Discovery
 
-Weirwise Platform interacts with Weirwise Core strictly through an explicit adapter interface (`CoreApiClient`).
+### POST `/api/v1/projects/{project_id}/crawler/discover`
+Discovers sitemaps and recursively crawls web pages with SSRF prevention.
 
-```mermaid
-graph LR
-    subgraph Platform Backend
-        SourceService[Knowledge Source Service]
-        ChatService[Assistant Chat Service]
-        CoreAdapter[CoreApiClient Adapter]
-    end
-    
-    subgraph Weirwise Core
-        CoreHTTP[Core FastAPI /api/v1]
-    end
-
-    SourceService --> CoreAdapter
-    ChatService --> CoreAdapter
-    CoreAdapter -->|HTTP + X-API-Key| CoreHTTP
+**Request Body:**
+```json
+{
+  "start_url": "https://example.com",
+  "max_pages": 25,
+  "respect_robots": true
+}
 ```
 
-### Entity Mapping Matrix
-
-| Weirwise Platform Entity | Weirwise Core Entity | Mapping Strategy |
-| :--- | :--- | :--- |
-| `Workspace` | Core `Tenant` | 1:1 mapped or dedicated platform tenant API key provisioning. |
-| `KnowledgeSource` | Core `KnowledgeBase` | When a `KnowledgeSource` is created in Platform, Platform issues `POST /api/v1/knowledge-bases` to Core and persists `core_kb_id`. |
-| `Document` | Core `Document` | Uploading a document sends file bytes to Core `POST /api/v1/documents/upload` with `core_kb_id`, tracking Core's `doc_id`. |
-| `Assistant` | Core `Assistant` / Search | Platform Assistant maps to Core Assistant (`POST /api/v1/assistants`). If an assistant attaches multiple sources, the adapter aggregates searches across Core knowledge bases. |
-
----
-
-## 3. Discovered Discrepancies & Blockers
-
-1. **Multi-Knowledge-Base Grounding in Core:**
-   - **Discovered Invariant in Core:** Core `Assistant` schema currently accepts only one optional `knowledge_base_id` (`ForeignKey("knowledge_bases.id", ondelete="SET NULL")`).
-   - **Platform Requirement:** Platform supports an Assistant attaching **multiple** Knowledge Sources (`AssistantKnowledgeSource` M:N).
-   - **Solution in Platform Adapter:**
-     - Until Core supports multi-KB assistants natively, Platform will use Core's `/api/v1/search` endpoint across each associated `knowledge_base_id`, re-rank/merge citations by similarity score, and feed the compiled context into the synthesis prompt, OR delegate to Core's single assistant when only 1 source is attached.
-     - Documented as an adapter responsibility without modifying Core internals.
-
-2. **Web Crawl / URL Connectors:**
-   - Core v1.0.0 accepts file uploads (`multipart/form-data`) but has no built-in web scraper or headless crawler.
-   - **Solution:** Platform worker handles crawling/scraping, cleans DOM into markdown/text files, and submits the resultant artifacts to Core's document ingestion API.
+**Response (200 OK):**
+```json
+{
+  "target_url": "https://example.com",
+  "discovered_count": 12,
+  "pages": [
+    {"url": "https://example.com/about", "title": "About Us", "status": "discovered"},
+    {"url": "https://example.com/faq", "title": "Frequently Asked Questions", "status": "discovered"}
+  ]
+}
+```
