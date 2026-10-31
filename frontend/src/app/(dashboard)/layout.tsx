@@ -6,8 +6,9 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { Workspace, Project } from "@/types";
-import { Menu, Sliders } from "lucide-react";
+import { Menu, Sliders, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { CopilotModal } from "@/components/copilot/copilot-modal";
 
 export default function DashboardLayout({
   children,
@@ -24,12 +25,20 @@ export default function DashboardLayout({
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [copilotOpen, setCopilotOpen] = useState(false);
 
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   const workspaceId = params.workspaceId as string | undefined;
   const projectId = params.projectId as string | undefined;
+
+  // Listen to open-weirwise-copilot events
+  useEffect(() => {
+    const handleOpenCopilot = () => setCopilotOpen(true);
+    window.addEventListener("open-weirwise-copilot", handleOpenCopilot);
+    return () => window.removeEventListener("open-weirwise-copilot", handleOpenCopilot);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -182,7 +191,17 @@ export default function DashboardLayout({
           </div>
 
           {/* Region 3: Right Action / Profile Icon */}
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCopilotOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="Open Weirwise Copilot"
+              aria-label="Open Weirwise Copilot"
+            >
+              <Sparkles className="h-4 w-4" />
+            </button>
+
             {baseProjUrl ? (
               <Link
                 href={baseProjUrl + "/playground"}
@@ -205,6 +224,9 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* Weirwise Copilot Modal */}
+      <CopilotModal isOpen={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>
   );
 }

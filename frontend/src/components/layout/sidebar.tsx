@@ -13,6 +13,7 @@ import {
   ChevronDown,
   Search,
   X,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Workspace, Project } from "@/types";
@@ -211,7 +212,22 @@ export function Sidebar({
       </div>
 
       {/* Quick Command Palette Shortcut Trigger */}
-      <div className="px-3.5 pt-3 shrink-0">
+      <div className="px-3.5 pt-3 space-y-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent("open-weirwise-copilot"));
+            onItemClick?.();
+          }}
+          className="w-full flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>Weirwise Copilot</span>
+          </div>
+          <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-mono">Voice &amp; Text</span>
+        </button>
+
         <button
           type="button"
           onClick={() => {

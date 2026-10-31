@@ -9,6 +9,8 @@ import {
   ChatMessage,
   Deployment,
   ApiCredential,
+  CopilotMessage,
+  CopilotConversation,
 } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
@@ -322,6 +324,73 @@ class ApiClient {
 
   async getAdminAuditLogs(limit: number = 50): Promise<any[]> {
     return this.request<any[]>(`/admin/audit-logs?limit=${limit}`);
+  }
+
+  // Weirwise Copilot Endpoints
+  async chatWithCopilot(data: {
+    message: string;
+    conversation_id?: string;
+    language?: string;
+  }): Promise<{
+    conversation_id: string;
+    message_id: string;
+    role: "assistant";
+    content: string;
+    sources: any[];
+    latency_ms: number;
+    is_grounded: boolean;
+    voice_supported: boolean;
+  }> {
+    return this.request("/copilot/chat", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCopilotConversations(): Promise<CopilotConversation[]> {
+    return this.request<CopilotConversation[]>("/copilot/conversations");
+  }
+
+  async transcribeVoice(audioBlob: Blob, language: string = "en"): Promise<{
+    transcript: string;
+    confidence: number;
+    language: string;
+    duration_seconds: number;
+  }> {
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "recording.webm");
+    formData.append("language", language);
+
+    return this.request("/copilot/voice/transcribe", {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  async synthesizeVoice(text: string, language: string = "en"): Promise<Blob> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/copilot/voice/synthesize`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text, language }),
+    });
+
+    if (!response.ok) {
+      let errDetail = "Voice synthesis failed";
+      try {
+        const errJson = await response.json();
+        errDetail = errJson.detail || errDetail;
+      } catch {}
+      throw new ApiError(errDetail, response.status);
+    }
+
+    return response.blob();
   }
 }
 

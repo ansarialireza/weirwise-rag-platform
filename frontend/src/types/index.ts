@@ -136,3 +136,28 @@ export interface ApiCredential {
   created_at: string;
   raw_api_key?: string;
 }
+
+export interface CopilotCitation {
+  chunk_id: string;
+  title: string;
+  content: string;
+  similarity_score: number;
+  rank: number;
+}
+
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: CopilotCitation[];
+  is_grounded?: boolean;
+  voice_supported?: boolean;
+  created_at: string;
+}
+
+export interface CopilotConversation {
+  id: string;
+  title: string | null;
+  created_at: string;
+  messages: CopilotMessage[];
+}
