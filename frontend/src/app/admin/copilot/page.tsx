@@ -153,6 +153,7 @@ export default function AdminCopilotPage() {
                 onChange={(e) => setProvider(e.target.value)}
                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
+                <option value="openrouter">OpenRouter (Unified Multi-Model Pool)</option>
                 <option value="openai">OpenAI Global Pool</option>
                 <option value="anthropic">Anthropic Claude</option>
                 <option value="gemini">Google Gemini</option>

@@ -1,10 +1,12 @@
 """Weirwise Copilot Provisioning and System Management Service.
 
 Ensures the first-party official Weirwise Copilot assistant, its dedicated knowledge source,
-and its Core Knowledge Base are provisioned under the Platform Operations workspace.
+and its Core Knowledge Base are provisioned under the Platform Operations workspace,
+and that official product documentation is ingested and indexed into RAG Core.
 """
 
 import uuid
+from pathlib import Path
 
 from backend.app.adapters.core_client import CoreApiClient
 from backend.app.core.logging import logger
@@ -15,6 +17,7 @@ from backend.app.models.assistant import (
 )
 from backend.app.models.auth import Workspace
 from backend.app.models.project import (
+    Document,
     KnowledgeSource,
     KnowledgeSourceType,
     Project,
@@ -41,6 +44,8 @@ DEFAULT_COPILOT_FALLBACK = (
     "to answer that question accurately. Please check our documentation or contact the Weirwise support team."
 )
 
+OFFICIAL_DOC_PATH = Path(__file__).resolve().parent / "knowledge" / "official_product_knowledge.md"
+
 
 class CopilotManager:
     @staticmethod
@@ -53,11 +58,11 @@ class CopilotManager:
                 key=COPILOT_CONFIG_KEY,
                 config={
                     "is_enabled": True,
-                    "provider": "openai",
-                    "model": "gpt-4o-mini",
+                    "provider": "openrouter",
+                    "model": "meta-llama/llama-3.2-3b-instruct",
                     "temperature": 0.2,
                     "top_k": 4,
-                    "score_threshold": 0.3,
+                    "score_threshold": 0.05,
                     "voice_enabled": True,
                     "deepgram_stt_model": "nova-3",
                     "deepgram_tts_model": "aura-2-andromeda-en",
@@ -88,6 +93,8 @@ class CopilotManager:
         assistant = res.scalar_one_or_none()
 
         if assistant:
+            # Ensure documents are synced into Core
+            await CopilotManager.ensure_official_knowledge_ingested(db, assistant)
             return assistant
 
         # 2. Resolve Operations Workspace & Project
@@ -116,10 +123,10 @@ class CopilotManager:
             name="Weirwise Copilot",
             description="Official Weirwise product guide assistant",
             system_instructions=DEFAULT_COPILOT_INSTRUCTIONS,
-            model="gpt-4o-mini",
+            model="meta-llama/llama-3.2-3b-instruct",
             temperature=0.2,
             max_tokens=1024,
-            score_threshold=0.3,
+            score_threshold=0.05,
             top_k=4,
             language="en",
             tone="professional",
@@ -166,7 +173,73 @@ class CopilotManager:
 
         await db.commit()
         await db.refresh(assistant)
+
+        # Ingest document
+        await CopilotManager.ensure_official_knowledge_ingested(db, assistant)
         return assistant
+
+    @staticmethod
+    async def ensure_official_knowledge_ingested(db: AsyncSession, assistant: Assistant) -> None:
+        """Verify and ingest official product knowledge into RAG Core."""
+        if not OFFICIAL_DOC_PATH.exists():
+            logger.warning(f"Official documentation file not found at {OFFICIAL_DOC_PATH}")
+            return
+
+        # Find linked KnowledgeSource
+        sources_stmt = (
+            select(KnowledgeSource)
+            .join(AssistantKnowledgeSource, AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id)
+            .where(AssistantKnowledgeSource.assistant_id == assistant.id)
+        )
+        ks_res = await db.execute(sources_stmt)
+        ks = ks_res.scalar_one_or_none()
+        if not ks or not ks.core_kb_id:
+            logger.warning("No linked KnowledgeSource with Core KB ID for Copilot.")
+            return
+
+        # Check if Document record exists in Platform DB
+        doc_stmt = select(Document).where(
+            Document.knowledge_source_id == ks.id,
+            Document.filename == "official_product_knowledge.md",
+        )
+        doc = (await db.execute(doc_stmt)).scalar_one_or_none()
+
+        doc_bytes = OFFICIAL_DOC_PATH.read_bytes()
+        core_client = CoreApiClient()
+
+        if not doc or not doc.core_doc_id:
+            # Save file via storage service or direct path
+            try:
+                # Direct upload to Core RAG
+                upload_resp = await core_client.upload_document(
+                    kb_id=ks.core_kb_id,
+                    filename="official_product_knowledge.md",
+                    content=doc_bytes,
+                    mime_type="text/markdown",
+                )
+                core_doc_data = upload_resp.get("document", upload_resp)
+                core_doc_id = uuid.UUID(str(core_doc_data["id"]))
+
+                if not doc:
+                    doc = Document(
+                        knowledge_source_id=ks.id,
+                        filename="official_product_knowledge.md",
+                        mime_type="text/markdown",
+                        file_size_bytes=len(doc_bytes),
+                        content_hash="official_knowledge_hash",
+                        storage_path=str(OFFICIAL_DOC_PATH),
+                        status=SourceProcessingStatus.READY.value,
+                        core_doc_id=core_doc_id,
+                    )
+                    db.add(doc)
+                else:
+                    doc.core_doc_id = core_doc_id
+                    doc.status = SourceProcessingStatus.READY.value
+
+                await db.commit()
+                logger.info(f"Ingested official Copilot documentation to Core (core_doc_id={core_doc_id}).")
+            except Exception as e:
+                logger.error(f"Failed to ingest official Copilot documentation: {e!s}")
 
 
 copilot_manager = CopilotManager()

@@ -46,6 +46,7 @@ class DeepgramService:
         audio_bytes: bytes,
         content_type: str = "audio/webm",
         language: str = "en",
+        model: str | None = None,
     ) -> dict[str, Any]:
         """Transcribe speech audio to text using Deepgram STT."""
         if not self.is_configured():
@@ -60,10 +61,10 @@ class DeepgramService:
 
         # Map language codes: "fa" uses nova-3 or whisper, "en" uses nova-3
         lang_code = "fa" if language.startswith("fa") else "en"
-        model = settings.DEEPGRAM_STT_MODEL
+        stt_model = model or settings.DEEPGRAM_STT_MODEL
 
         params = {
-            "model": model,
+            "model": stt_model,
             "language": lang_code,
             "smart_format": "true",
             "punctuate": "true",
@@ -97,6 +98,7 @@ class DeepgramService:
                     "confidence": confidence,
                     "language": lang_code,
                     "duration_seconds": data.get("metadata", {}).get("duration", 0.0),
+                    "model_used": stt_model,
                 }
 
         except httpx.RequestError as e:

@@ -177,6 +177,8 @@ async def transcribe_voice(
 ) -> VoiceTranscribeResponse:
     """Transcribe speech audio file via Deepgram STT."""
     await _resolve_deepgram_key(db)
+    sys_cfg = await copilot_manager.get_or_create_system_config(db)
+    stt_model = sys_cfg.config.get("deepgram_stt_model", "nova-3")
 
     try:
         content = await audio.read()
@@ -184,6 +186,7 @@ async def transcribe_voice(
             audio_bytes=content,
             content_type=audio.content_type or "audio/webm",
             language=language,
+            model=stt_model,
         )
         return VoiceTranscribeResponse(
             transcript=res["transcript"],
@@ -209,11 +212,13 @@ async def synthesize_voice(
 ) -> Response:
     """Synthesize text to speech audio via Deepgram TTS."""
     await _resolve_deepgram_key(db)
+    sys_cfg = await copilot_manager.get_or_create_system_config(db)
+    tts_voice = payload.voice or sys_cfg.config.get("deepgram_tts_model", "aura-2-andromeda-en")
 
     try:
         audio_bytes = await deepgram_service.synthesize_speech(
             text=payload.text,
-            voice=payload.voice,
+            voice=tts_voice,
             language=payload.language,
         )
         return Response(content=audio_bytes, media_type="audio/mp3")
