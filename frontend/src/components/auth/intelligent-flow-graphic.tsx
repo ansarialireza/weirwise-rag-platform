@@ -5,14 +5,15 @@ import React from "react";
 export function IntelligentFlowGraphic() {
   return (
     <div className="relative w-full h-full flex flex-col justify-between p-12 overflow-hidden select-none bg-background/50 text-foreground transition-colors">
-      {/* Background ambient radial glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/[0.05] rounded-full blur-3xl pointer-events-none" />
+      {/* Background ambient radial glow: Dual tone Lime & Blue */}
+      <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/[0.04] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[350px] h-[350px] bg-brand-secondary/[0.05] rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header: Architecture Badge */}
       <div className="relative z-10 space-y-1">
         <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/80 backdrop-blur-md px-3 py-1 text-[11px] font-mono text-muted-foreground shadow-sm">
           <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-          <span>Intelligent Flow Control &bull; RAG Synthesis</span>
+          <span>Intelligent Flow Control &bull; RAG &amp; Copilot Synthesis</span>
         </div>
         <p className="text-xs text-muted-foreground pt-1">
           Scattered unstructured corporate knowledge routed and synthesized into verified grounded answers.
@@ -31,8 +32,8 @@ export function IntelligentFlowGraphic() {
             {/* Gradients for converging lines */}
             <linearGradient id="flowGrad1" x1="40" y1="50" x2="270" y2="140" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
-              <stop offset="60%" stopColor="#CCFF00" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#CCFF00" stopOpacity="1" />
+              <stop offset="60%" stopColor="#2563FF" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#2563FF" stopOpacity="1" />
             </linearGradient>
 
             <linearGradient id="flowGrad2" x1="40" y1="110" x2="270" y2="140" gradientUnits="userSpaceOnUse">
@@ -49,13 +50,13 @@ export function IntelligentFlowGraphic() {
 
             <linearGradient id="flowGrad4" x1="40" y1="230" x2="270" y2="140" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
-              <stop offset="60%" stopColor="#CCFF00" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#CCFF00" stopOpacity="1" />
+              <stop offset="60%" stopColor="#2563FF" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#2563FF" stopOpacity="1" />
             </linearGradient>
 
             <linearGradient id="outGrad" x1="270" y1="140" x2="500" y2="140" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#CCFF00" stopOpacity="1" />
-              <stop offset="100%" stopColor="#CCFF00" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#2563FF" stopOpacity="0.8" />
             </linearGradient>
 
             {/* Glowing filter */}
@@ -68,8 +69,8 @@ export function IntelligentFlowGraphic() {
           {/* Left Ingestion Source Nodes */}
           {/* Node 1: PDF Documents */}
           <g transform="translate(40, 50)">
-            <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#64748B" />
+            <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#2563FF" strokeWidth="1.5" strokeOpacity="0.7" />
+            <circle cx="0" cy="0" r="3" fill="#2563FF" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               PDF / Docs (Unstructured)
             </text>
@@ -78,7 +79,7 @@ export function IntelligentFlowGraphic() {
           {/* Node 2: Database / SQL */}
           <g transform="translate(40, 110)">
             <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#64748B" />
+            <circle cx="0" cy="0" r="3" fill="#CCFF00" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               Company Knowledge Bases
             </text>
@@ -87,7 +88,7 @@ export function IntelligentFlowGraphic() {
           {/* Node 3: Web Crawls / URLs */}
           <g transform="translate(40, 170)">
             <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#64748B" />
+            <circle cx="0" cy="0" r="3" fill="#CCFF00" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               Live Web &amp; API Feeds
             </text>
@@ -95,8 +96,8 @@ export function IntelligentFlowGraphic() {
 
           {/* Node 4: Policy Manuals */}
           <g transform="translate(40, 230)">
-            <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#64748B" />
+            <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#2563FF" strokeWidth="1.5" strokeOpacity="0.7" />
+            <circle cx="0" cy="0" r="3" fill="#2563FF" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               Operating Directives
             </text>
@@ -136,14 +137,14 @@ export function IntelligentFlowGraphic() {
             <circle cx="0" cy="0" r="20" fill="#CCFF00" fillOpacity="0.08" filter="url(#coreGlow)" />
             {/* Inner core */}
             <circle cx="0" cy="0" r="12" fill="#12151A" stroke="#CCFF00" strokeWidth="2" />
-            <circle cx="0" cy="0" r="4" fill="#CCFF00" />
+            <circle cx="0" cy="0" r="4" fill="#2563FF" />
             
             {/* Weir badge labels */}
             <text x="0" y="-36" fill="#CCFF00" fontSize="9" fontFamily="monospace" fontWeight="bold" textAnchor="middle" letterSpacing="0.05em">
               WEIR CORE
             </text>
-            <text x="0" y="44" fill="#64748B" fontSize="8" fontFamily="monospace" textAnchor="middle">
-              1536-dim Jina v4
+            <text x="0" y="44" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
+              1536-dim Jina v4 &bull; Copilot
             </text>
           </g>
 
@@ -156,7 +157,7 @@ export function IntelligentFlowGraphic() {
 
           {/* Right Grounded Answer Node */}
           <g transform="translate(460, 140)">
-            <rect x="-10" y="-22" width="80" height="44" rx="8" fill="#12151A" stroke="#CCFF00" strokeWidth="1.5" strokeOpacity="0.6" />
+            <rect x="-10" y="-22" width="80" height="44" rx="8" fill="#12151A" stroke="#2563FF" strokeWidth="1.5" strokeOpacity="0.8" />
             <text x="30" y="-4" fill="#F8FAFC" fontSize="10" fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">
               Verified
             </text>
