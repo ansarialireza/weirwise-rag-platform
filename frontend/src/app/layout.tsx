@@ -5,9 +5,44 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
+
 export const metadata: Metadata = {
-  title: "Weirwise Platform — Enterprise AI Assistant Studio",
-  description: "Configure, ground, and deploy production AI assistants on your business data.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Weirwise — Grounded AI Assistants for Business",
+    template: "%s | Weirwise Platform",
+  },
+  description: "Connect your business knowledge, configure behavior, test truthful responses with verified citations, and deploy conversational AI assistants across your customer touchpoints.",
+  keywords: [
+    "AI assistant",
+    "business knowledge assistant",
+    "grounded RAG",
+    "customer support AI",
+    "truthful AI",
+    "verified citations",
+  ],
+  authors: [{ name: "Weirwise Inc." }],
+  creator: "Weirwise",
+  publisher: "Weirwise",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    title: "Weirwise — Grounded AI Assistants for Business",
+    description: "Turn your business documentation and FAQs into accurate, cited AI assistants that customers and support teams can trust.",
+    siteName: "Weirwise Platform",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Weirwise — Grounded AI Assistants for Business",
+    description: "Connect business knowledge and deploy truthful AI assistants with verified citations.",
+  },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },

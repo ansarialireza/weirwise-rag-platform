@@ -219,10 +219,32 @@ class ApiClient {
     });
   }
 
+  async getPublishReadiness(assistantId: string): Promise<import("@/types").PublishReadiness> {
+    return this.request<import("@/types").PublishReadiness>(`/assistants/${assistantId}/publish-readiness`);
+  }
+
   async publishAssistant(assistantId: string): Promise<Assistant> {
     return this.request<Assistant>(`/assistants/${assistantId}/publish`, {
       method: "POST",
     });
+  }
+
+  async unpublishAssistant(assistantId: string): Promise<Assistant> {
+    return this.request<Assistant>(`/assistants/${assistantId}/unpublish`, {
+      method: "POST",
+    });
+  }
+
+  async getDeployments(assistantId: string): Promise<Deployment[]> {
+    return this.request<Deployment[]>(`/assistants/${assistantId}/deployments`);
+  }
+
+  async getAssistantConversations(assistantId: string): Promise<import("@/types").AssistantConversation[]> {
+    return this.request<import("@/types").AssistantConversation[]>(`/assistants/${assistantId}/conversations`);
+  }
+
+  async getConversationMessages(conversationId: string): Promise<import("@/types").ConversationMessage[]> {
+    return this.request<import("@/types").ConversationMessage[]>(`/conversations/${conversationId}/messages`);
   }
 
   async chatWithAssistant(assistantId: string, message: string, conversationId?: string): Promise<{

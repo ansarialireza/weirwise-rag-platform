@@ -88,11 +88,45 @@ export interface Assistant {
   max_tokens: number;
   score_threshold: number;
   top_k: number;
+  language?: string;
+  tone?: string;
+  fallback_message?: string;
+  escalation_email?: string;
   status: AssistantStatus;
   version: number;
+  last_published_at?: string;
   knowledge_source_ids: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PublishReadiness {
+  is_ready: boolean;
+  issues: string[];
+  knowledge_sources_count: number;
+  indexed_documents_count: number;
+}
+
+export interface AssistantConversation {
+  id: string;
+  assistant_id: string;
+  title: string | null;
+  is_escalated: boolean;
+  escalation_reason?: string;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: any[];
+  latency_ms?: number;
+  is_grounded: boolean;
+  created_at: string;
 }
 
 export interface CitationItem {
