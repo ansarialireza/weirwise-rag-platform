@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
-import { ArrowRight, Shield, Zap, Info, KeyRound } from "lucide-react";
+import { ArrowRight, Shield, Info, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [oauthNotice, setOauthNotice] = useState<string | null>(null);
   const { login } = useAuth();
   const { toast } = useToast();
@@ -54,21 +53,9 @@ export default function LoginPage() {
     }
   };
 
-  const handleInstantDemoLogin = async () => {
-    setEmail("admin@weirwise.local");
-    setPassword("SecretPassword123!");
-    setDemoLoading(true);
-    try {
-      await executeLogin("admin@weirwise.local", "SecretPassword123!");
-      toast({ message: "Signed in as Admin Demo user", type: "success" });
-    } finally {
-      setDemoLoading(false);
-    }
-  };
-
   const handleSocialClick = (provider: "Google" | "GitHub") => {
     setOauthNotice(
-      `${provider} Single Sign-On requires OAuth credentials configured in your environment or workspace settings. For instant access, use the 1-Click Demo Login above.`
+      `${provider} Single Sign-On requires enterprise OAuth credentials configured for your domain. Please sign in with your work email and password below.`
     );
   };
 
@@ -98,25 +85,6 @@ export default function LoginPage() {
               Access your grounded AI assistants, documents, and testing playground.
             </p>
           </div>
-
-          {/* Frictionless 1-Click Demo Login */}
-          <button
-            type="button"
-            onClick={handleInstantDemoLogin}
-            disabled={demoLoading || loading}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/20 hover:border-primary text-foreground text-xs font-medium transition-all group shadow-sm"
-          >
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-primary fill-primary group-hover:scale-110 transition-transform" />
-              <div className="text-left">
-                <span className="font-semibold block text-primary">1-Click Demo Access</span>
-                <span className="text-[11px] text-muted-foreground font-mono">admin@weirwise.local</span>
-              </div>
-            </div>
-            <span className="text-[11px] font-semibold text-primary underline underline-offset-2 flex items-center gap-1">
-              Sign in &rarr;
-            </span>
-          </button>
 
           {/* Social OAuth Affordance (Honest, Clear Guidance) */}
           <div className="space-y-2">
@@ -213,7 +181,11 @@ export default function LoginPage() {
                   href="/login"
                   onClick={(e) => {
                     e.preventDefault();
-                    toast({ message: "Password reset instructions sent to admin@weirwise.local", type: "info" });
+                    if (!email) {
+                      toast({ message: "Please enter your work email to receive password reset instructions.", type: "info" });
+                    } else {
+                      toast({ message: `Password reset instructions sent to ${email}`, type: "info" });
+                    }
                   }}
                   className="text-[11px] text-muted-foreground hover:text-primary transition-colors font-medium"
                 >

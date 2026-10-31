@@ -56,5 +56,9 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 
+    # Staff Administration (Private System Provisioning)
+    INITIAL_STAFF_ADMIN_EMAIL: str | None = None
+    INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
+
 
 settings = Settings()

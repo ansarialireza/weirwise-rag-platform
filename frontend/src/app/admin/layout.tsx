@@ -134,7 +134,7 @@ export default function AdminLayout({
                 {user?.full_name || "Platform Admin"}
               </span>
               <span className="text-[10px] text-muted-foreground font-mono truncate block">
-                {user?.email || "admin@weirwise.local"}
+                {user?.email || "staff@weirwise.com"}
               </span>
             </div>
             <button
