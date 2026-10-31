@@ -9,8 +9,11 @@ from backend.app.api.v1.admin import router as admin_router
 from backend.app.api.v1.assistants import router as assistants_router
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.billing import router as billing_router
+from backend.app.api.v1.enterprise import router as enterprise_router
 from backend.app.api.v1.health import router as health_router
+from backend.app.api.v1.integrations import router as integrations_router
 from backend.app.api.v1.knowledge import router as knowledge_router
+from backend.app.api.v1.public_runtime import router as public_runtime_router
 from backend.app.api.v1.workspaces import router as workspaces_router
 from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging, logger
@@ -27,7 +30,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan event handler initializing database tables and resources."""
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
     async with engine.begin() as conn:
-        # Create all tables on startup if not present
         await conn.run_sync(Base.metadata.create_all)
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
@@ -68,10 +70,13 @@ def create_application() -> FastAPI:
 
     # Include API Routers under /api/v1
     app.include_router(health_router)
+    app.include_router(public_runtime_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
+    app.include_router(integrations_router, prefix="/api/v1")
+    app.include_router(enterprise_router, prefix="/api/v1")
     app.include_router(billing_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
 
