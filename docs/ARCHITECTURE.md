@@ -1,63 +1,82 @@
-# Weirwise Platform Architecture Document
+# Weirwise Business Platform Architecture (v2.0)
 
-## 1. System Overview & Vision
+This document describes the architectural additions that evolve the Weirwise RAG platform into a business platform for building, deploying, managing, monitoring, and continuously improving AI assistants grounded in business knowledge.
 
-**Weirwise Platform** is a multi-tenant enterprise AI assistant platform enabling businesses to create, configure, test, deploy, and manage AI assistants grounded in their own business data.
+---
 
-The system is architected as an independent SaaS application layer, strictly decoupled from underlying retrieval and model orchestration engines:
-- **Weirwise Platform (This Service):** Owns SaaS customer boundaries, accounts, multi-tenant organizations (Workspaces), project contexts, assistant personalities, conversation workflows, deployment credentials, audit logging, and usage metering.
-- **Weirwise Core (External Service):** A headless retrieval-augmented generation (RAG) engine that handles chunking, vector indexing, dense search, and raw LLM context synthesis.
-- **Model Provider Gateway (External/Upstream):** Provider routing, fallback, and quota management.
+## 1. High-Level Architecture Overview
 
-```mermaid
-graph TD
-    Client[Web Dashboard / Playground / Embed Widget] -->|HTTPS / REST / WebSocket| PlatformAPI[Weirwise Platform FastAPI Backend]
-    PlatformAPI -->|State & Metadata| PG[(Platform PostgreSQL)]
-    PlatformAPI -->|Async Tasks & Cache| Redis[(Platform Redis)]
-    PlatformAPI -->|Document Blobs| ObjectStorage[(S3 / MinIO Storage)]
-    PlatformWorker[Platform Celery/Background Worker] --> Redis
-    PlatformWorker --> ObjectStorage
-    PlatformAPI -->|Authenticated REST API| WeirwiseCore[Weirwise Core RAG Engine]
-    PlatformWorker -->|Ingestion & Retrieval Tasks| WeirwiseCore
-    WeirwiseCore -->|Embeddings & Chat Completions| ProviderGateway[Model Provider Gateway / LLM APIs]
+```
+                                  +-----------------------+
+                                  |   Embeddable Widget   |
+                                  |   (iframe / JS SDK)   |
+                                  +-----------+-----------+
+                                              | HTTPS
+                                              v
++------------------------+        +-----------+-----------+        +------------------------+
+| Business Management UI | <----> |   Public Runtime API  | <----> | Tenant / Workspace Core|
+| (Next.js Dashboard)    |        | (/api/v1/public/*)    |        | (FastAPI + SQLAlchemy) |
++------------------------+        +-----------+-----------+        +------------------------+
+            |                                 |                                 |
+            v                                 v                                 v
++------------------------+        +-----------+-----------+        +------------------------+
+| Integration Manager    |        | RAG Engine & Core API |        | Metering, Quotas &     |
+| (Shopify/Zendesk/Vault)|        | (Jina AI Embeddings)  |        | Enterprise Controls    |
++------------------------+        +-----------------------+        +------------------------+
+            |                                 |                                 |
+            +---------------------------------+---------------------------------+
+                                              |
+                                              v
+                               +-----------------------------+
+                               | PostgreSQL 16 + pgvector    |
+                               | (Multi-tenant, Encrypted)   |
+                               +-----------------------------+
 ```
 
 ---
 
-## 2. Component Responsibilities & Boundaries
+## 2. Platform Capabilities by Phase
 
-| Component | Responsibility | Boundary & Data Ownership |
-| :--- | :--- | :--- |
-| **Platform Frontend** | Next.js 14, Tailwind CSS, TypeScript management console, playground, analytics, and widget builder. | Communicates exclusively with Weirwise Platform Backend API via JWT / session tokens. |
-| **Platform Backend** | FastAPI application hosting tenant authentication, workspace isolation, project scopes, assistant definitions, and deployment endpoints. | Owns Platform PostgreSQL database. Never directly queries Core database or Core internals. |
-| **Platform Worker** | Celery / Redis asynchronous task execution for document pre-processing, sanitization, batch sync, and audit fanout. | Consumes background jobs from Platform Redis queue. |
-| **Weirwise Core** | Document chunking, vector embedding, similarity retrieval, and RAG prompt assembly. | Separate service accessed strictly via `X-API-Key` HTTP REST API contract (v1.0.0). |
+### Phase 1 — Activation & Deployment
+- **SSRF-Resilient Website Crawler & Sitemap Parser** (`backend/app/services/scraper.py`):
+  - Strict host, IP, and scheme validation guarding against loopback, private RFC-1918, link-local, AWS/GCP/Azure cloud metadata (`169.254.169.254`), and DNS rebinding attacks.
+  - Safe XML parser for sitemaps and sitemap index files.
+  - Discovered URLs deduplicated and presented for selective ingestion.
+- **Publishing Lifecycle & Embeddable Widget** (`backend/app/api/v1/public_runtime.py`, `frontend/src/app/embed/[assistantId]/page.tsx`):
+  - Pre-flight publication checks (`/publish-readiness`) verifying knowledge sources and readiness before generating public widget credentials.
+  - Public runtime endpoints allowing anonymous or customer-authenticated interactions without exposing private API keys or workspace credentials.
+  - Responsive standalone widget iframe and custom element loader supporting dynamic theming, avatar, fallback responses, and live citations.
 
----
+### Phase 2 — Trust & Intelligence
+- **Conversation & Message Grounding Inspection**:
+  - Full audit trail of customer sessions, messages, and citations linking back to original ingested document chunks.
+- **Thumbs Feedback & Knowledge Gap Analytics** (`backend/app/services/evaluations.py`, `backend/app/api/v1/assistants.py`):
+  - End-user thumbs up/down rating with qualitative reason captures.
+  - Unanswered query clustering and automated knowledge gap identification.
+- **Golden Evaluation Cases**:
+  - Ground truth test cases (`EvaluationCase`) executed deterministically against assistant versions to compute fact-recall accuracy before and after knowledge changes.
+- **Human Handoff & Escalation**:
+  - Escalation state capture (`HumanHandoffRequest`) collecting visitor email/phone and alerting workspace staff via webhook or escalation email.
 
-## 3. Data Flows
+### Phase 3 — Business Integrations & Webhooks
+- **Fernet Encrypted Credential Vault** (`backend/app/services/integrations.py`):
+  - Secure credential storage for Shopify, Zendesk, Gorgias, Google Drive, Notion, and HubSpot.
+  - Cryptographic token masking (`shpat_****`, `zd_****`) across all administrative API responses.
+- **HMAC-SHA256 Signed Outbound Webhooks** (`backend/app/services/webhooks.py`):
+  - Dispatches event payloads to Zapier, Make, n8n, or internal business microservices.
+  - Headers include `X-Weirwise-Signature: t={timestamp},v1={hmac_sha256}` with replay attack mitigation (5-minute drift window).
+  - Outbound destination URLs undergo SSRF safety checks before HTTP dispatch.
 
-### A. Document Ingestion Flow
-1. **User Action:** Organization admin uploads documents via Platform Dashboard (`POST /api/v1/projects/{project_id}/sources/{source_id}/documents`).
-2. **Platform Validation:**
-   - Platform backend verifies workspace and project membership.
-   - Platform validates MIME type, magic bytes, and file size limits.
-   - Platform securely persists raw document to Object Storage (S3 / MinIO) with a content hash.
-3. **Async Dispatch:** Platform registers Document metadata in Platform DB (`status: pending`) and enqueues an ingestion job.
-4. **Core Synchronization:** Worker feeds the document stream to Weirwise Core's verified API (`POST /api/v1/documents/upload` with tenant-scoped API key).
-5. **Status Polling & Completion:** Worker tracks Core status (`GET /api/v1/documents/{doc_id}`) and marks platform document state as `ready` or `failed` with granular error diagnostics.
+### Phase 4 — Monetization & Entitlements
+- **Centralized Metering Engine** (`backend/app/services/metering.py`):
+  - Enforces tier quotas across Free (2 assistants, 100 turns/mo), Starter (5 assistants, 2,000 turns/mo), Pro (25 assistants, 10,000 turns/mo), and Enterprise.
+  - Real-time limit checking preventing assistant creation or chat turns when monthly quota is exhausted without overage permission.
+  - Granular `UsageEvent` recording for FinOps analysis.
 
-### B. Grounded Conversation & Playground Flow
-1. **User Prompt:** Playground or deployed widget issues a chat prompt to Platform API (`POST /api/v1/assistants/{id}/chat`).
-2. **Authorization & Rate Limiting:** Platform validates caller token/API key, checks project quotas, and logs `UsageEvent`.
-3. **Core RAG Delegation:** Platform queries Weirwise Core (`POST /api/v1/assistants/{core_id}/chat` or combined retrieval `/api/v1/search`), injecting platform-level prompt overrides, safety guidelines, and active knowledge base scopes.
-4. **Response & Citations:** Core returns content with structured chunk citations. Platform stores conversation history in Platform DB and streams output back to client.
-
----
-
-## 4. Architectural Principles
-
-1. **Strict Decoupling:** The Platform layer is a consumer of Core, not an extension of it. No shared databases, no direct internal library imports.
-2. **Multi-Tenant Isolation First:** Every query and database transaction in the Platform is scoped to an authenticated `Workspace` and `Project`.
-3. **Explicit State Machines:** Asynchronous operations (document sync, assistant deployment) transition through explicit, auditable states (`pending` -> `processing` -> `ready` / `failed`).
-4. **Enterprise Observability:** All requests carry unique correlation IDs (`X-Correlation-ID`) across Platform, Worker, and Core API requests, with zero sensitive prompt or document leakage in logs.
+### Phase 5 — Enterprise Readiness
+- **BYOK (Bring Your Own Key) & Azure OpenAI Endpoints** (`backend/app/api/v1/enterprise.py`):
+  - Per-workspace encrypted LLM credentials (OpenAI, Azure OpenAI deployment name, resource URL, API version).
+- **Automated Data Retention & Pruning** (`backend/app/services/retention.py`):
+  - Background retention pruner purging inactive conversations and audit logs past workspace-configured retention thresholds (e.g. 90 days).
+- **Audit Logging & RBAC Guardrails**:
+  - Granular RBAC (`owner`, `admin`, `member`, `viewer`) guarding configuration, publishing, integrations, and enterprise keys.
