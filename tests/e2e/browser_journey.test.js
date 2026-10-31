@@ -317,29 +317,38 @@ Protocol: Administrative users must authenticate using multi-factor credentials.
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "09_unauthorized_redirect.png") });
 
     // --------------------------------------------------------------------------
-    // Test 8: 1-Click Demo Login
+    // Test 8: Private Staff Administration Login
     // --------------------------------------------------------------------------
-    console.log("\n[Test 8] Testing 1-Click Demo Access Button...");
+    console.log("\n[Test 8] Testing Private Staff Administration Authentication...");
     await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
+    
+    // Verify Demo button is completely absent
     const demoBtn = await page.$('button:has-text("1-Click Demo Access")');
-    if (!demoBtn) {
-      throw new Error("1-Click Demo Access button not found on /login.");
+    if (demoBtn) {
+      throw new Error("Security Violation: 1-Click Demo Access button is still visible on /login!");
     }
-    await demoBtn.click();
-    console.log("  Clicked 1-Click Demo Access button. Waiting for login...");
+    console.log("  ✓ Confirmed 1-Click Demo Access button is completely removed from /login.");
+
+    // Login as Staff Admin
+    const staffEmail = process.env.STAFF_ADMIN_EMAIL || "staff@weirwise.com";
+    const staffPass = process.env.STAFF_ADMIN_PASSWORD || "850eda6b3043a4ad5b9fd2011071fad3";
+    await page.fill('input[type="email"]', staffEmail);
+    await page.fill('input[type="password"]', staffPass);
+    await page.click('button[type="submit"]');
+
     await page.waitForURL((url) => url.pathname.includes("/workspaces/"), { timeout: 10000 });
-    console.log(`  ✓ 1-Click Demo Login successful! Landed on: ${page.url()}`);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "10_demo_login_success.png") });
+    console.log(`  ✓ Staff Administrator Login successful! Landed on: ${page.url()}`);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "10_staff_login_success.png") });
 
     // Super Admin should be able to access /admin
-    console.log("  Testing superuser access to /admin with Demo Admin session...");
+    console.log("  Testing superuser access to /admin with Staff Admin session...");
     await page.goto(`${BASE_URL}/admin`, { waitUntil: "networkidle" });
     await delay(1500);
-    console.log(`  Superuser on /admin: URL is ${page.url()}`);
+    console.log(`  Staff Admin on /admin: URL is ${page.url()}`);
     if (!page.url().includes("/admin")) {
-      throw new Error(`Superuser should have access to /admin, but was redirected to: ${page.url()}`);
+      throw new Error(`Staff Admin should have access to /admin, but was redirected to: ${page.url()}`);
     }
-    console.log("  ✓ Superuser granted access to /admin control center.");
+    console.log("  ✓ Staff Admin granted access to /admin control center.");
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "11_superadmin_view.png") });
 
     console.log("\n================================================================");
