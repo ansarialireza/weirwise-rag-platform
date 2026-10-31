@@ -6,13 +6,12 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/components/ui/toast";
-import { ArrowRight, Shield, Info, KeyRound } from "lucide-react";
+import { ArrowRight, Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { IntelligentFlowGraphic } from "@/components/auth/intelligent-flow-graphic";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 
 export default function LoginPage() {
@@ -62,14 +61,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background text-foreground transition-colors">
       {/* Left Column: Form & Brand Authenticator */}
-      <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col justify-between p-8 sm:p-12 lg:p-16 border-r border-border bg-card">
+      <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col justify-between p-6 sm:p-10 lg:p-14 border-r border-border bg-card">
         {/* Top Header: Official Logo & Theme Switcher */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <WeirwiseSymbol className="h-8 w-8" />
-            <span className="font-bold text-lg tracking-tight text-foreground flex items-center gap-1.5">
+          <Link href="/" className="inline-flex items-center gap-2.5 sm:gap-3 group select-none">
+            <WeirwiseSymbol className="h-7 w-7 sm:h-8 sm:w-8" />
+            <span className="font-bold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-1.5">
               Weirwise
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
             </span>
           </Link>
           <ThemeSwitcher />
@@ -78,30 +77,30 @@ export default function LoginPage() {
         {/* Center Form Container */}
         <div className="my-auto py-8 space-y-6 max-w-sm w-full mx-auto">
           <div className="space-y-1.5">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Sign in to platform
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Access your grounded AI assistants, documents, and testing playground.
             </p>
           </div>
 
           {/* Social OAuth Affordance (Honest, Clear Guidance) */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
+                <div className="w-full border-t border-border/80" />
               </div>
-              <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-                <span className="bg-card px-2 text-muted-foreground font-mono">Or continue with</span>
+              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                <span className="bg-card px-2.5 text-muted-foreground font-semibold">Or continue with</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => handleSocialClick("Google")}
-                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-xs font-medium text-foreground transition-colors"
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-border/90 bg-secondary/70 hover:bg-secondary text-xs font-semibold text-foreground transition-colors shadow-2xs"
               >
                 <svg className="h-3.5 w-3.5" viewBox="0 0 24 24">
                   <path
@@ -123,10 +122,11 @@ export default function LoginPage() {
                 </svg>
                 Google
               </button>
+
               <button
                 type="button"
                 onClick={() => handleSocialClick("GitHub")}
-                className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-xs font-medium text-foreground transition-colors"
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-border/90 bg-secondary/70 hover:bg-secondary text-xs font-semibold text-foreground transition-colors shadow-2xs"
               >
                 <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
                   <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
@@ -137,15 +137,15 @@ export default function LoginPage() {
           </div>
 
           {oauthNotice && (
-            <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/60 p-3 text-xs text-muted-foreground animate-in fade-in">
-              <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/80 p-3 text-xs text-foreground animate-in fade-in shadow-2xs">
+              <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="font-semibold text-foreground block">SSO Setup Notice</span>
-                <p className="text-[11px] leading-relaxed">{oauthNotice}</p>
+                <span className="font-semibold block">SSO Setup Notice</span>
+                <p className="text-xs text-muted-foreground leading-relaxed">{oauthNotice}</p>
                 <button
                   type="button"
                   onClick={() => setOauthNotice(null)}
-                  className="text-[11px] text-primary hover:underline font-medium"
+                  className="text-xs text-primary hover:underline font-semibold"
                 >
                   Dismiss
                 </button>
@@ -187,7 +187,7 @@ export default function LoginPage() {
                       toast({ message: `Password reset instructions sent to ${email}`, type: "info" });
                     }
                   }}
-                  className="text-[11px] text-muted-foreground hover:text-primary transition-colors font-medium"
+                  className="text-xs text-foreground/80 hover:text-primary transition-colors font-medium underline underline-offset-2"
                 >
                   Forgot password?
                 </Link>
@@ -199,7 +199,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                className="w-full rounded-lg border border-border bg-input px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
               />
             </div>
 
@@ -226,17 +226,16 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom Security Note */}
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
-          <Shield className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+        <div className="flex items-center gap-2 text-xs text-foreground/90 font-medium">
+          <Shield className="h-4 w-4 text-primary shrink-0" />
           <span>Strict Enterprise Tenant Isolation &amp; End-to-End Encryption</span>
         </div>
       </div>
 
-      {/* Right Column: Intelligent Flow Composition (Theme-aware stage backdrop for RAG visualization) */}
+      {/* Right Column: Intelligent Flow Composition */}
       <div className="hidden lg:flex flex-1 relative bg-background/80 border-l border-border/50">
         <IntelligentFlowGraphic />
       </div>
     </div>
   );
 }
-

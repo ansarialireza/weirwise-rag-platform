@@ -1,16 +1,11 @@
+"use client";
+
 import Link from "next/link";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { SiteHeader } from "@/components/layout/site-header";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import {
-  Brain,
   Shield,
-  FileText,
-  Search,
-  Sparkles,
   CheckCircle2,
-  ArrowRight,
-  Code2,
-  Building2,
   Zap,
 } from "lucide-react";
 
@@ -67,78 +62,53 @@ export default function PricingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Navigation */}
-      <header className="border-b border-border bg-card/60 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <WeirwiseSymbol className="h-9 w-9" />
-            <span className="font-bold text-xl tracking-tight text-foreground flex items-center gap-1.5">
-              Weirwise
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Sign In
-            </Link>
-            <ThemeSwitcher />
-            <Link
-              href="/register"
-              className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
-            >
-              Get Started Free
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between transition-colors">
+      {/* 1. Shared Unified Header with Responsive Mobile Navigation */}
+      <SiteHeader />
 
-      {/* Main Pricing Hero */}
-      <main className="flex-1 py-16 px-6 max-w-6xl mx-auto w-full">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-4">
+      {/* 2. Main Pricing Content */}
+      <main className="flex-1 py-12 sm:py-16 md:py-20 px-4 sm:px-6 max-w-6xl mx-auto w-full">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary mb-4 shadow-2xs">
             <Zap className="h-3.5 w-3.5" /> Transparent, usage-based SaaS pricing
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
             Simple, predictable pricing for enterprise AI assistants
           </h1>
-          <p className="mt-4 text-sm text-muted-foreground">
+          <p className="mt-4 text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
             Connect your company documentation, test grounded citations in the studio, and embed anywhere in minutes.
           </p>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 sm:mb-16">
           {tiers.map((t) => (
             <div
               key={t.tier}
               className={`rounded-2xl border p-6 flex flex-col justify-between transition-all ${
                 t.popular
-                  ? "border-primary bg-card ring-2 ring-primary/20 shadow-xl relative"
-                  : "border-border bg-card/60 hover:border-border/80"
+                  ? "border-primary bg-card ring-2 ring-primary/20 shadow-lg relative"
+                  : "border-border/90 bg-card/80 hover:border-border hover:bg-card shadow-xs"
               }`}
             >
               {t.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-xs">
                   Most Popular
                 </div>
               )}
               <div>
-                <h3 className="text-base font-bold text-foreground">{t.name}</h3>
-                <p className="text-xs text-muted-foreground mt-1 mb-4">{t.description}</p>
+                <h2 className="text-base font-bold text-foreground">{t.name}</h2>
+                <p className="text-xs text-muted-foreground mt-1 mb-4 leading-relaxed">{t.description}</p>
                 <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-3xl sm:text-4xl font-black text-foreground">{t.price}</span>
-                  <span className="text-xs text-muted-foreground">/ month</span>
+                  <span className="text-3xl sm:text-4xl font-extrabold text-foreground">{t.price}</span>
+                  <span className="text-xs text-muted-foreground font-medium">/ month</span>
                 </div>
                 <div className="border-t border-border pt-4 mb-6">
                   <ul className="space-y-2.5 text-xs text-muted-foreground">
                     {t.features.map((feat, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                        <span>{feat}</span>
+                      <li key={idx} className="flex items-start gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                        <span className="text-foreground/90 font-medium">{feat}</span>
                       </li>
                     ))}
                   </ul>
@@ -148,8 +118,8 @@ export default function PricingPage() {
                 href="/register"
                 className={`w-full py-2.5 rounded-xl text-xs font-semibold text-center transition-all ${
                   t.popular
-                    ? "bg-primary text-primary-foreground hover:opacity-95 shadow-md"
-                    : "border border-border bg-background hover:bg-secondary text-foreground"
+                    ? "bg-primary text-primary-foreground hover:opacity-90 shadow-xs active:scale-[0.98]"
+                    : "border border-border/90 bg-secondary/80 hover:bg-secondary text-secondary-foreground active:scale-[0.98]"
                 }`}
               >
                 {t.cta}
@@ -159,18 +129,36 @@ export default function PricingPage() {
         </div>
 
         {/* Feature comparison guarantee */}
-        <div className="rounded-2xl border border-border bg-card/40 p-8 text-center max-w-3xl mx-auto">
+        <div className="rounded-2xl border border-border/80 bg-card/60 p-6 sm:p-8 text-center max-w-3xl mx-auto shadow-xs">
           <Shield className="h-8 w-8 text-primary mx-auto mb-3" />
           <h2 className="text-base font-bold text-foreground">Strict Data Privacy & Grounding Transparency</h2>
-          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed max-w-xl mx-auto">
             Every assistant answer is strictly grounded in the documents you ingest. If no knowledge chunk meets the similarity threshold, the assistant tells you honestly rather than hallucinating or inventing citations.
           </p>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border py-6 px-6 text-center text-xs text-muted-foreground">
-        Weirwise Platform &copy; 2026. All rights reserved.
+      {/* 3. Footer */}
+      <footer className="border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <WeirwiseSymbol className="h-4 w-4" />
+            <span className="font-semibold text-foreground text-xs">Weirwise</span>
+            <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
+          </div>
+
+          <div className="flex items-center gap-6 text-xs font-medium">
+            <Link href="/" className="hover:text-foreground transition-colors">
+              Home
+            </Link>
+            <Link href="/login" className="hover:text-foreground transition-colors">
+              Sign In
+            </Link>
+            <Link href="/register" className="hover:text-foreground transition-colors">
+              Register
+            </Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

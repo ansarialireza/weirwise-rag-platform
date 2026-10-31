@@ -61,14 +61,14 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-background text-foreground transition-colors">
       {/* Left Column: Register Form */}
-      <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col justify-between p-8 sm:p-12 lg:p-16 border-r border-border bg-card">
+      <div className="w-full lg:w-[480px] xl:w-[520px] flex flex-col justify-between p-6 sm:p-10 lg:p-14 border-r border-border bg-card">
         {/* Top Header: Official Logo & Theme Switcher */}
         <div className="flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <WeirwiseSymbol className="h-8 w-8" />
-            <span className="font-bold text-lg tracking-tight text-foreground flex items-center gap-1.5">
+          <Link href="/" className="inline-flex items-center gap-2.5 sm:gap-3 group select-none">
+            <WeirwiseSymbol className="h-7 w-7 sm:h-8 sm:w-8" />
+            <span className="font-bold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-1.5">
               Weirwise
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
             </span>
           </Link>
           <ThemeSwitcher />
@@ -77,10 +77,10 @@ export default function RegisterPage() {
         {/* Center Form Container */}
         <div className="my-auto py-8 space-y-6 max-w-sm w-full mx-auto">
           <div className="space-y-1.5">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Create platform account
             </h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Deploy secure AI assistants grounded in business data with Jina v4 embeddings.
             </p>
           </div>
@@ -149,13 +149,13 @@ export default function RegisterPage() {
         </div>
 
         {/* Bottom Security Note */}
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground/80">
-          <Shield className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+        <div className="flex items-center gap-2 text-xs text-foreground/90 font-medium">
+          <Shield className="h-4 w-4 text-primary shrink-0" />
           <span>Strict Enterprise Tenant Isolation &amp; End-to-End Encryption</span>
         </div>
       </div>
 
-      {/* Right Column: Intelligent Flow Composition (Theme-aware stage backdrop for RAG visualization) */}
+      {/* Right Column: Intelligent Flow Composition */}
       <div className="hidden lg:flex flex-1 relative bg-background/80 border-l border-border/50">
         <IntelligentFlowGraphic />
       </div>
