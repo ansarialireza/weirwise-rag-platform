@@ -286,8 +286,8 @@ async function runAuditSuite() {
     if (!isScrollLocked) throw new Error("Body scroll lock not enabled while mobile drawer is open!");
     console.log("  ✓ Body scrolling successfully prevented while drawer is open.");
 
-    // Verify close via backdrop click
-    await hasBackdrop.click();
+    // Verify close via backdrop click (click at right margin outside the 85vw drawer)
+    await page.mouse.click(345, 300);
     await delay(300);
     const isDrawerClosed = await page.evaluate(() => !document.querySelector('[data-testid="drawer-backdrop"]'));
     if (!isDrawerClosed) throw new Error("Drawer failed to dismiss when clicking backdrop!");
