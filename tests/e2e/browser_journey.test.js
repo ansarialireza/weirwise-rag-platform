@@ -261,20 +261,14 @@ async function runAuditSuite() {
     await delay(1500);
 
     console.log("  Opening Add Knowledge Source modal...");
-    const addSourceBtn = await page.waitForSelector('button:has-text("Add Source"), button:has-text("New Source")', { timeout: 8000 });
-    await addSourceBtn.click();
+    await page.click('button:has-text("Add Knowledge Source"), button:has-text("Create Source"), button:has-text("New Knowledge Source")');
     await delay(500);
 
     const sourceName = `Compliance Knowledge Base ${Date.now()}`;
     console.log(`  Creating knowledge source: "${sourceName}"...`);
-    await page.fill('input[placeholder*="source"], input[placeholder*="Name"], input[name="name"]', sourceName);
-    
-    // Select Manual Upload / Direct type
-    const submitBtn = await page.$('button[type="submit"]:has-text("Create"), button:has-text("Create Source")');
-    if (submitBtn) {
-      await submitBtn.click();
-      await delay(2000);
-    }
+    await page.fill('input[placeholder*="Handbook"]', sourceName);
+    await page.click('button[type="submit"]:has-text("Create Knowledge Source"), button[type="submit"]:has-text("Create Source"), form button[type="submit"]');
+    await delay(2000);
 
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "04_source_created.png") });
     console.log("  ✓ Knowledge source created and visible in list.");
@@ -291,28 +285,29 @@ async function runAuditSuite() {
     fs.writeFileSync(tempDocPath, testDocContent);
 
     const fileInput = await page.$('input[type="file"]');
-    if (fileInput) {
-      await fileInput.setInputFiles(tempDocPath);
-      await delay(1000);
-      const uploadSubmit = await page.$('button:has-text("Upload"), button[type="submit"]');
-      if (uploadSubmit) await uploadSubmit.click();
-      console.log("  File submitted. Waiting for upload completion and background ingestion...");
-      await delay(3000);
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, "05_document_uploaded.png") });
-
-      // Poll until document status becomes ready or max 15s
-      for (let i = 0; i < 15; i++) {
-        await delay(1000);
-        const isReady = await page.evaluate(() => {
-          return document.body.innerText.includes("ready") || document.body.innerText.includes("Ready");
-        });
-        if (isReady) break;
-      }
-      await page.screenshot({ path: path.join(SCREENSHOT_DIR, "06_document_ready.png") });
+    if (!fileInput) {
+      throw new Error("File input element not found on sources page.");
     }
+    await fileInput.setInputFiles(tempDocPath);
+    console.log("  File submitted. Waiting for upload completion and background ingestion...");
+    await delay(3000);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "05_document_uploaded.png") });
+
+    // Poll document status
+    let terminalStatus = false;
+    for (let i = 0; i < 15; i++) {
+      const pageText = await page.innerText("body");
+      if (pageText.includes("ready") || pageText.includes("Ready")) {
+        terminalStatus = true;
+        console.log(`  ✓ Document reached terminal state 'ready' (poll #${i + 1})`);
+        break;
+      }
+      await delay(1000);
+    }
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "06_document_ready.png") });
 
     // --------------------------------------------------------------------------
-    // Test 5: Assistant Creation & Configuration
+    // Test 5: Assistant Creation & Configuration Persistence
     // --------------------------------------------------------------------------
     console.log("\n[Test 5] Testing Assistant Creation & Configuration...");
     const assistantsUrl = `${BASE_URL}/workspaces/${workspaceId}/projects/${projectId}/assistants`;
@@ -320,26 +315,24 @@ async function runAuditSuite() {
     await delay(1500);
 
     console.log("  Opening Create Assistant dialog...");
-    const createAsstBtn = await page.waitForSelector('button:has-text("Create Assistant"), button:has-text("New Assistant")', { timeout: 8000 });
-    await createAsstBtn.click();
+    await page.click('button:has-text("New Assistant"), button:has-text("Create Assistant")');
     await delay(500);
 
     const asstName = `Enterprise Compliance Bot ${Date.now()}`;
-    await page.fill('input[placeholder*="Name"], input[name="name"]', asstName);
-    const saveAsstBtn = await page.$('button[type="submit"]:has-text("Create"), button:has-text("Save")');
-    if (saveAsstBtn) {
-      await saveAsstBtn.click();
-      await delay(2000);
-    }
+    await page.fill('input[placeholder*="e.g."]', asstName);
+    await page.click('button[type="submit"]:has-text("Create & Configure"), button[type="submit"]:has-text("Create")');
 
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07_assistant_studio.png") });
+    // Should navigate to assistant studio
+    await page.waitForURL((url) => url.pathname.includes("/assistants/"), { timeout: 10000 });
     console.log(`  ✓ Assistant created. Studio URL: ${page.url()}`);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07_assistant_studio.png") });
 
-    // Modify assistant settings to test persistence
+    // Update name and system instructions
     console.log("  Modifying instructions and testing persistence...");
-    const nameInput = await page.$('form input[type="text"], input[value*="Enterprise Compliance Bot"]');
+    const updatedName = `${asstName} (Audited)`;
+    const nameInput = await page.$('form input[type="text"]');
     if (nameInput) {
-      await nameInput.fill(`${asstName} (Audited)`);
+      await nameInput.fill(updatedName);
       await page.click('button:has-text("Save Changes")');
       await delay(1000);
 
