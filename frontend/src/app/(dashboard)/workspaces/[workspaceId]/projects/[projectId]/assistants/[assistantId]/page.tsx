@@ -15,6 +15,7 @@ import {
   FileText,
   AlertCircle,
   Copy,
+  Check,
   Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ export default function AssistantConfigurePage() {
   const [publishing, setPublishing] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedEmbed, setCopiedEmbed] = useState(false);
 
   useEffect(() => {
     if (projectId && assistantId) {
@@ -115,6 +117,12 @@ export default function AssistantConfigurePage() {
     } finally {
       setPublishing(false);
     }
+  };
+
+    const handleCopyEmbed = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedEmbed(true);
+    setTimeout(() => setCopiedEmbed(false), 2000);
   };
 
   const toggleSource = (sourceId: string) => {
@@ -323,6 +331,58 @@ export default function AssistantConfigurePage() {
             </div>
           </div>
         </div>
+
+
+        {/* Web Widget Embed & Integration Snippet (Available for Published Snapshots) */}
+        {assistant?.status === "published" && (
+          <div className="rounded-2xl border border-border bg-card p-6 space-y-4 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <ArrowUpRight className="h-4.5 w-4.5 text-primary" />
+                  Website Embed &amp; Public Integration
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Paste this responsive iframe code directly into your web application or documentation.
+                </p>
+              </div>
+              <Badge variant="success" className="text-xs shrink-0">Live Snapshot v{assistant.version}</Badge>
+            </div>
+
+            <div className="relative rounded-xl border border-border/80 bg-secondary/30 p-3 sm:p-4">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60 text-xs font-mono text-muted-foreground">
+                <span>HTML Responsive Snippet</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyEmbed(`<iframe\n  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius: 12px; border: 1px solid #2E3444;"\n  title="${name || "Weirwise AI Assistant"}"\n></iframe>`)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card hover:bg-secondary text-foreground text-xs font-medium transition-colors"
+                >
+                  {copiedEmbed ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-primary font-bold">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>Copy Snippet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <pre className="text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre p-1">
+{`<iframe
+  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"
+  width="100%"
+  height="600"
+  frameborder="0"
+  style="border-radius: 12px; border: 1px solid #2E3444;"
+  title="${name || "Weirwise AI Assistant"}"
+></iframe>`}
+              </pre>
+            </div>
+          </div>
+        )}
 
         {/* Attached Knowledge Sources */}
         <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
