@@ -12,6 +12,7 @@ OPENROUTER_TEST_KEY = os.getenv("TEST_OPENROUTER_API_KEY")
 DEEPGRAM_TEST_KEY = os.getenv("TEST_DEEPGRAM_API_KEY")
 
 
+@pytest.mark.skipif(not OPENROUTER_TEST_KEY, reason="TEST_OPENROUTER_API_KEY environment variable not set")
 @pytest.mark.asyncio
 async def test_real_openrouter_connectivity_and_generation():
     """Verify live OpenRouter chat completion, token usage, and cost metadata."""
@@ -33,6 +34,7 @@ async def test_real_openrouter_connectivity_and_generation():
     assert res.cost_usd >= 0.0
 
 
+@pytest.mark.skipif(not DEEPGRAM_TEST_KEY, reason="TEST_DEEPGRAM_API_KEY environment variable not set")
 @pytest.mark.asyncio
 async def test_real_deepgram_tts_and_stt_loop():
     """Verify live Deepgram speech synthesis and transcription round-trip."""
@@ -60,6 +62,7 @@ async def test_real_deepgram_tts_and_stt_loop():
     assert stt_res["confidence"] > 0.5
 
 
+@pytest.mark.skipif(not DEEPGRAM_TEST_KEY, reason="TEST_DEEPGRAM_API_KEY environment variable not set")
 @pytest.mark.asyncio
 async def test_real_deepgram_persian_tts_graceful_handling():
     """Verify that Persian TTS is gracefully rejected according to verified capability audit."""
