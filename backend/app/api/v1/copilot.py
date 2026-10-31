@@ -1,16 +1,16 @@
 """Weirwise Copilot API Router: Product Guidance & Deepgram Voice Conversations."""
 
-import time
-import uuid
-from typing import Optional
-
+from backend.app.api.admin_deps import require_admin_role, require_admin_user
 from backend.app.api.dependencies import get_current_user
-from backend.app.copilot.service import copilot_knowledge_store
+from backend.app.copilot.manager import copilot_manager
 from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session
+from backend.app.models.admin import AdminAuditLog, AdminRole
 from backend.app.models.assistant import Conversation, Message
 from backend.app.models.auth import User
 from backend.app.schemas.copilot import (
+    CopilotAdminConfigRequest,
+    CopilotAdminConfigResponse,
     CopilotChatRequest,
     CopilotChatResponse,
     CopilotCitation,
@@ -19,7 +19,9 @@ from backend.app.schemas.copilot import (
     VoiceSynthesizeRequest,
     VoiceTranscribeResponse,
 )
+from backend.app.services.assistant_runtime import execute_assistant_turn
 from backend.app.services.deepgram import DeepgramError, deepgram_service
+from backend.app.services.vault import decrypt_credential_secret, encrypt_credential_secret
 from fastapi import (
     APIRouter,
     Depends,
@@ -35,13 +37,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/copilot", tags=["Weirwise Copilot & Voice"])
 
-# Internal fixed Copilot Assistant ID (non-customer owned)
-COPILOT_SYSTEM_ASSISTANT_ID = uuid.UUID("00000000-0000-0000-c091-000000000001")
-COPILOT_FALLBACK_MESSAGE = (
-    "I am sorry, but I do not have enough verified official Weirwise product documentation "
-    "to answer that question accurately. "
-    "Please check our documentation or contact the Weirwise support team."
-)
+
+async def _resolve_deepgram_key(db: AsyncSession) -> None:
+    """Dynamically resolve Deepgram key from SystemConfig if present."""
+    cfg = await copilot_manager.get_or_create_system_config(db)
+    enc_keys = cfg.encrypted_secrets or {}
+    if "deepgram_api_key" in enc_keys:
+        try:
+            raw_key = decrypt_credential_secret(enc_keys["deepgram_api_key"])
+            deepgram_service.set_dynamic_key(raw_key)
+        except Exception as e:
+            logger.warning(f"Failed to decrypt stored Deepgram key: {e!s}")
 
 
 @router.post("/chat", response_model=CopilotChatResponse)
@@ -50,98 +56,56 @@ async def chat_with_copilot(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> CopilotChatResponse:
-    """Chat with the official Weirwise Copilot product guide."""
-    start_time = time.perf_counter()
-
-    # 1. Resolve or create user's Copilot conversation
-    conv: Optional[Conversation] = None
-    if payload.conversation_id:
-        c_stmt = select(Conversation).where(
-            Conversation.id == payload.conversation_id,
-            Conversation.user_id == current_user.id,
-            Conversation.assistant_id == COPILOT_SYSTEM_ASSISTANT_ID,
+    """Chat with the official Weirwise Copilot product guide via the unified Assistant Runtime."""
+    # 1. Verify Copilot is enabled in system config
+    sys_cfg = await copilot_manager.get_or_create_system_config(db)
+    if not sys_cfg.config.get("is_enabled", True):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Weirwise Copilot is currently disabled by administrators.",
         )
-        c_res = await db.execute(c_stmt)
-        conv = c_res.scalar_one_or_none()
-        if not conv:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
 
-    if not conv:
-        conv = Conversation(
-            id=uuid.uuid4(),
-            assistant_id=COPILOT_SYSTEM_ASSISTANT_ID,
-            user_id=current_user.id,
-            title=payload.message[:60],
-        )
-        db.add(conv)
-        await db.flush()
+    # 2. Resolve official Copilot assistant entity
+    assistant = await copilot_manager.get_copilot_assistant(db)
 
-    # 2. Record User Message
-    user_msg = Message(
-        id=uuid.uuid4(),
-        conversation_id=conv.id,
-        role="user",
-        content=payload.message,
-    )
-    db.add(user_msg)
-    await db.flush()
+    # Apply admin-configured model & temperature overrides
+    assistant.model = sys_cfg.config.get("model", assistant.model)
+    assistant.temperature = float(sys_cfg.config.get("temperature", assistant.temperature))
+    assistant.top_k = int(sys_cfg.config.get("top_k", assistant.top_k))
+    assistant.score_threshold = float(sys_cfg.config.get("score_threshold", assistant.score_threshold))
 
-    # 3. Retrieve verified official knowledge from curated store
-    raw_citations = copilot_knowledge_store.search(
-        query=payload.message,
-        top_k=3,
-        score_threshold=0.20,
+    # 3. Execute turn through unified Assistant Runtime
+    runtime_resp = await execute_assistant_turn(
+        db=db,
+        assistant=assistant,
+        message=payload.message,
+        user=current_user,
+        conversation_id=payload.conversation_id,
+        chat_history_limit=6,
     )
 
-    citations: list[CopilotCitation] = [
+    # Voice playback support check
+    voice_supported = not payload.language.startswith("fa") and sys_cfg.config.get("voice_enabled", True)
+
+    citations = [
         CopilotCitation(
-            chunk_id=c["chunk_id"],
-            title=c["title"],
-            content=c["content"],
-            similarity_score=c["similarity_score"],
-            rank=c["rank"],
+            chunk_id=c.chunk_id,
+            title=c.title or c.document_name or "Official Documentation",
+            content=c.content,
+            similarity_score=c.similarity_score,
+            rank=c.rank,
         )
-        for c in raw_citations
+        for c in runtime_resp.sources
     ]
 
-    is_grounded = bool(citations)
-    if is_grounded:
-        top_chunk = citations[0]
-        assistant_reply = (
-            f"According to official Weirwise documentation ({top_chunk.title}):\n\n"
-            f"{top_chunk.content}\n\n"
-            "Is there anything specific you would like me to explain further?"
-        )
-    else:
-        assistant_reply = COPILOT_FALLBACK_MESSAGE
-
-    latency_ms = int((time.perf_counter() - start_time) * 1000)
-
-    # 4. Record Assistant Message
-    assistant_msg = Message(
-        id=uuid.uuid4(),
-        conversation_id=conv.id,
-        role="assistant",
-        content=assistant_reply,
-        citations=[c.model_dump(mode="json") for c in citations],
-        latency_ms=latency_ms,
-        is_grounded=is_grounded,
-    )
-    db.add(assistant_msg)
-    await db.commit()
-    await db.refresh(assistant_msg)
-
-    # Voice playback is supported for English; Persian TTS is unverified/unsupported
-    voice_supported = not payload.language.startswith("fa")
-
     return CopilotChatResponse(
-        conversation_id=conv.id,
-        message_id=assistant_msg.id,
-        role="assistant",
-        content=assistant_reply,
+        conversation_id=runtime_resp.conversation_id,
+        message_id=runtime_resp.message_id,
+        role=runtime_resp.role,
+        content=runtime_resp.content,
         sources=citations,
-        latency_ms=latency_ms,
-        is_grounded=is_grounded,
+        latency_ms=runtime_resp.latency_ms,
+        is_grounded=runtime_resp.is_grounded,
         voice_supported=voice_supported,
     )
 
@@ -152,11 +116,13 @@ async def list_copilot_conversations(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[CopilotConversationDetail]:
     """List recent Copilot conversations for authenticated user."""
+    assistant = await copilot_manager.get_copilot_assistant(db)
+
     stmt = (
         select(Conversation)
         .where(
             Conversation.user_id == current_user.id,
-            Conversation.assistant_id == COPILOT_SYSTEM_ASSISTANT_ID,
+            Conversation.assistant_id == assistant.id,
         )
         .order_by(Conversation.created_at.desc())
         .limit(20)
@@ -166,7 +132,6 @@ async def list_copilot_conversations(
 
     result: list[CopilotConversationDetail] = []
     for c in convs:
-        # Load messages
         m_stmt = select(Message).where(Message.conversation_id == c.id).order_by(Message.created_at.asc())
         m_res = await db.execute(m_stmt)
         msgs = m_res.scalars().all()
@@ -179,7 +144,7 @@ async def list_copilot_conversations(
                 sources=[
                     CopilotCitation(
                         chunk_id=item.get("chunk_id", ""),
-                        title=item.get("title", "Official Documentation"),
+                        title=item.get("title", item.get("document_name", "Official Documentation")),
                         content=item.get("content", ""),
                         similarity_score=float(item.get("similarity_score", 0.0)),
                         rank=int(item.get("rank", 1)),
@@ -208,8 +173,11 @@ async def transcribe_voice(
     audio: UploadFile = File(...),
     language: str = Form(default="en"),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ) -> VoiceTranscribeResponse:
     """Transcribe speech audio file via Deepgram STT."""
+    await _resolve_deepgram_key(db)
+
     try:
         content = await audio.read()
         res = await deepgram_service.transcribe_audio(
@@ -237,8 +205,11 @@ async def transcribe_voice(
 async def synthesize_voice(
     payload: VoiceSynthesizeRequest,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """Synthesize text to speech audio via Deepgram TTS."""
+    await _resolve_deepgram_key(db)
+
     try:
         audio_bytes = await deepgram_service.synthesize_speech(
             text=payload.text,
@@ -254,3 +225,116 @@ async def synthesize_voice(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Speech synthesis failed: {e!s}",
         )
+
+
+# --- Super Admin Management Endpoints ---
+
+
+@router.get("/admin/config", response_model=CopilotAdminConfigResponse)
+async def get_copilot_admin_config(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> CopilotAdminConfigResponse:
+    """Super Admin endpoint: inspect active Copilot configuration with masked secrets."""
+    sys_cfg = await copilot_manager.get_or_create_system_config(db)
+    assistant = await copilot_manager.get_copilot_assistant(db)
+
+    conf = sys_cfg.config
+    enc_keys = sys_cfg.encrypted_secrets or {}
+    has_key = "deepgram_api_key" in enc_keys or bool(deepgram_service.api_key)
+    key_prefix = enc_keys.get("deepgram_key_prefix")
+
+    return CopilotAdminConfigResponse(
+        is_enabled=conf.get("is_enabled", True),
+        provider=conf.get("provider", "openai"),
+        model=conf.get("model", assistant.model),
+        temperature=float(conf.get("temperature", assistant.temperature)),
+        top_k=int(conf.get("top_k", assistant.top_k)),
+        score_threshold=float(conf.get("score_threshold", assistant.score_threshold)),
+        voice_enabled=conf.get("voice_enabled", True),
+        deepgram_stt_model=conf.get("deepgram_stt_model", "nova-3"),
+        deepgram_tts_model=conf.get("deepgram_tts_model", "aura-2-andromeda-en"),
+        supported_languages=conf.get("supported_languages", ["en", "fa"]),
+        has_deepgram_key=has_key,
+        deepgram_key_prefix=key_prefix,
+        assistant_id=assistant.id,
+    )
+
+
+@router.patch("/admin/config", response_model=CopilotAdminConfigResponse)
+async def update_copilot_admin_config(
+    payload: CopilotAdminConfigRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> CopilotAdminConfigResponse:
+    """Super Admin endpoint: update active Copilot and voice configuration with encryption at rest."""
+    sys_cfg = await copilot_manager.get_or_create_system_config(db)
+    assistant = await copilot_manager.get_copilot_assistant(db)
+
+    conf = dict(sys_cfg.config)
+    enc_keys = dict(sys_cfg.encrypted_secrets or {})
+
+    if payload.is_enabled is not None:
+        conf["is_enabled"] = payload.is_enabled
+    if payload.provider is not None:
+        conf["provider"] = payload.provider
+    if payload.model is not None:
+        conf["model"] = payload.model
+        assistant.model = payload.model
+    if payload.temperature is not None:
+        conf["temperature"] = payload.temperature
+        assistant.temperature = payload.temperature
+    if payload.top_k is not None:
+        conf["top_k"] = payload.top_k
+        assistant.top_k = payload.top_k
+    if payload.score_threshold is not None:
+        conf["score_threshold"] = payload.score_threshold
+        assistant.score_threshold = payload.score_threshold
+    if payload.voice_enabled is not None:
+        conf["voice_enabled"] = payload.voice_enabled
+    if payload.deepgram_stt_model is not None:
+        conf["deepgram_stt_model"] = payload.deepgram_stt_model
+    if payload.deepgram_tts_model is not None:
+        conf["deepgram_tts_model"] = payload.deepgram_tts_model
+    if payload.supported_languages is not None:
+        conf["supported_languages"] = payload.supported_languages
+
+    if payload.deepgram_api_key and payload.deepgram_api_key.strip():
+        raw_key = payload.deepgram_api_key.strip()
+        enc, s_hash, prefix = encrypt_credential_secret(raw_key)
+        enc_keys["deepgram_api_key"] = enc
+        enc_keys["deepgram_key_prefix"] = prefix
+        deepgram_service.set_dynamic_key(raw_key)
+
+    sys_cfg.config = conf
+    sys_cfg.encrypted_secrets = enc_keys
+
+    # Audit log
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="copilot.config_update",
+        target_entity="system_config",
+        target_id=str(sys_cfg.id),
+        details={"provider": conf.get("provider"), "model": conf.get("model")},
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(sys_cfg)
+
+    has_key = "deepgram_api_key" in enc_keys or bool(deepgram_service.api_key)
+    return CopilotAdminConfigResponse(
+        is_enabled=conf.get("is_enabled", True),
+        provider=conf.get("provider", "openai"),
+        model=conf.get("model", assistant.model),
+        temperature=float(conf.get("temperature", assistant.temperature)),
+        top_k=int(conf.get("top_k", assistant.top_k)),
+        score_threshold=float(conf.get("score_threshold", assistant.score_threshold)),
+        voice_enabled=conf.get("voice_enabled", True),
+        deepgram_stt_model=conf.get("deepgram_stt_model", "nova-3"),
+        deepgram_tts_model=conf.get("deepgram_tts_model", "aura-2-andromeda-en"),
+        supported_languages=conf.get("supported_languages", ["en", "fa"]),
+        has_deepgram_key=has_key,
+        deepgram_key_prefix=enc_keys.get("deepgram_key_prefix"),
+        assistant_id=assistant.id,
+    )

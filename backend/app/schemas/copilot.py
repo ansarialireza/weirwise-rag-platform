@@ -58,3 +58,34 @@ class VoiceSynthesizeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000)
     language: str = Field(default="en", max_length=10)
     voice: str | None = None
+
+
+class CopilotAdminConfigResponse(BaseModel):
+    is_enabled: bool
+    provider: str
+    model: str
+    temperature: float
+    top_k: int
+    score_threshold: float
+    voice_enabled: bool
+    deepgram_stt_model: str
+    deepgram_tts_model: str
+    supported_languages: list[str]
+    has_deepgram_key: bool
+    deepgram_key_prefix: str | None = None
+    official_kb_id: uuid.UUID | None = None
+    assistant_id: uuid.UUID | None = None
+
+
+class CopilotAdminConfigRequest(BaseModel):
+    is_enabled: bool | None = None
+    provider: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    top_k: int | None = None
+    score_threshold: float | None = None
+    voice_enabled: bool | None = None
+    deepgram_stt_model: str | None = None
+    deepgram_tts_model: str | None = None
+    supported_languages: list[str] | None = None
+    deepgram_api_key: str | None = None  # If provided, encrypted & stored

@@ -9,15 +9,61 @@ Copilot integrates **Deepgram** Speech-to-Text (STT) and Text-to-Speech (TTS) in
 
 ## 2. Architecture & Design Principles
 
-### Single Engine for Text and Voice
-- Both text input and speech input funnel into the same underlying Copilot conversation pipeline (`/api/v1/copilot/chat`).
-- All answers are grounded strictly in curated official Weirwise product documentation.
-- When verified knowledge is absent, Copilot honestly acknowledges uncertainty rather than hallucinating capabilities.
+### Production-Grade Assistant Runtime Execution
+Copilot is not a disconnected keyword search bot; it runs on the **same production-grade assistant runtime and infrastructure** that Weirwise provides to customer assistants:
 
-### Security & Secret Protection
-- Deepgram API credentials (`DEEPGRAM_API_KEY`) remain strictly server-side.
-- The client receives synthesized audio blobs or transcription payloads; browser network requests never receive API tokens.
-- Audio payloads are processed in memory and never persisted as raw files on the host or database.
+```
+             Weirwise Copilot UI
+                      |
+                Copilot Identity
+                      |
+             Assistant Runtime (`execute_assistant_turn`)
+                      |
+               Conversation Engine
+                      |
+              LLM Provider Router (`LLMRouter`)
+                      |
+              Admin-Selected LLM (OpenAI / Anthropic / Google)
+                      |
+                 RAG Pipeline
+                      |
+             RAG Core Gateway (`CoreClient` -> pgvector /dev-core)
+                      |
+         Official Weirwise Knowledge Base (`ws-operations`)
+                      |
+                Grounded Answer
+                      |
+      FinOps Cost Ledger & Conversation Persistence
+```
+
+Voice requests execute through the exact same conversation flow:
+```
+Microphone
+    |
+Deepgram STT (`/api/v1/copilot/voice/transcribe`)
+    |
+Transcribed Text
+    |
+Assistant Runtime (`/api/v1/copilot/chat`)
+    |
+LLM Router + RAG Core Retrieval
+    |
+Grounded Assistant Response
+    |
+Deepgram TTS (`/api/v1/copilot/voice/synthesize`)
+    |
+Audio Playback
+```
+
+### System-Managed Identity & Tenant Isolation
+- **First-Party Platform Management**: Copilot is provisioned and resolved dynamically by `CopilotManager` under the dedicated `Weirwise Operations` workspace (`ws-operations`) and `platform-operations` project owned by `staff@weirwise.com`.
+- **Tenant Isolation**: When customer users converse with Copilot, conversations and messages are persisted with their respective `user_id` and the Copilot `assistant_id`. Retrieval queries only target the official platform knowledge sources; customer private workspace documents are completely isolated.
+
+### Super Admin Control & Encryption
+Administrators manage Copilot via the dedicated Admin UI (`/admin/copilot`):
+- **Runtime Parameters**: Global enable/disable, provider selection (`openai`, `anthropic`, `google`), model selection (`gpt-4o-mini`, `claude-3-5-sonnet`, `gemini-1.5-pro`, etc.), temperature, `top_k`, and retrieval threshold.
+- **Deepgram Voice Settings**: Global voice enable/disable, STT model (`nova-3`), TTS voice (`aura-2-andromeda-en`).
+- **Encrypted Credential Storage**: Admin-configured Deepgram API keys are encrypted at rest using Fernet encryption (`encrypt_credential_secret`) and stored in `SystemConfig.encrypted_secrets`. Zero credential leakage occurs over the API; keys are returned masked (e.g., `dg-a1b2...****`).
 
 ### Verified Language Support
 Deepgram model capabilities were audited:
@@ -32,7 +78,7 @@ Deepgram model capabilities were audited:
 
 ## 3. Configuration & Environment Variables
 
-Add to `.env` or deployment secrets:
+System-wide fallback settings are defined via environment variables:
 
 ```env
 # Deepgram Voice Integration
@@ -42,14 +88,16 @@ DEEPGRAM_STT_MODEL=nova-3
 DEEPGRAM_TTS_MODEL=aura-2-andromeda-en
 ```
 
+Overrides configured through `/admin/copilot` take precedence and are persisted dynamically in the platform database (`SystemConfig`).
+
 ---
 
-## 4. Maintenance Workflow
+## 4. Ingestion & Maintenance Workflow
 
-Official product knowledge is stored in:
+Official product knowledge is maintained in the dedicated platform documentation knowledge source:
 `backend/app/copilot/knowledge/official_product_knowledge.md`
 
-To update official product knowledge:
-1. Edit or append sections in `official_product_knowledge.md` under markdown headers (`## Section Title`).
-2. The `CopilotKnowledgeStore` parses sections on startup and indexes keywords.
-3. No conversation engine changes or database migrations are required.
+On system bootstrap:
+1. `CopilotManager.ensure_copilot_assistant(db)` validates the `Weirwise Operations` workspace and provisions the official knowledge source if not already indexed in pgvector.
+2. Official product documentation can be updated by revising `official_product_knowledge.md` and triggering re-indexing via the Weirwise Knowledge API.
+3. The RAG pipeline generates chunked vector embeddings via `dev-core` (pgvector), ensuring semantic similarity search with source citations for all user queries.

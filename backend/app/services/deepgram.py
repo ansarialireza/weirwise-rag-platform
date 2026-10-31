@@ -26,6 +26,10 @@ class DeepgramService:
         self.api_key = api_key or settings.DEEPGRAM_API_KEY
         self.base_url = (base_url or settings.DEEPGRAM_API_BASE_URL).rstrip("/")
 
+    def set_dynamic_key(self, key: str | None) -> None:
+        if key and key.strip():
+            self.api_key = key.strip()
+
     def is_configured(self) -> bool:
         return bool(self.api_key and self.api_key.strip())
 

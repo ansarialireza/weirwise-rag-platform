@@ -52,6 +52,7 @@ from backend.app.models.project import (
     Project,
     SourceProcessingStatus,
 )
+from backend.app.models.system import SystemConfig
 
 __all__ = [
     "AdminAuditLog",
@@ -87,6 +88,7 @@ __all__ = [
     "ProviderCredential",
     "ProviderRoutingStrategy",
     "SourceProcessingStatus",
+    "SystemConfig",
     "TokenCostLedger",
     "UnansweredQuery",
     "UsageEvent",

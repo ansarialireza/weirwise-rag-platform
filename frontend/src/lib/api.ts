@@ -392,6 +392,18 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // Super Admin Copilot Settings
+  async getCopilotAdminConfig(): Promise<any> {
+    return this.request("/copilot/admin/config");
+  }
+
+  async updateCopilotAdminConfig(data: any): Promise<any> {
+    return this.request("/copilot/admin/config", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const api = new ApiClient();
