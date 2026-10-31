@@ -13,11 +13,12 @@ interface WeirwiseSymbolProps {
  * - shared-path: Electric Lime (#CCFF00) - Fixed official brand color across all application themes
  * - upper-path & lower-path: Electric Blue (#2563FF) - Fixed official brand color across all application themes
  *
- * Background Policy:
- * - variant="two-tone": Uses a fixed Onyx backdrop (#090A0C) with subtle border (#2E3444) to ensure
- *   WCAG AAA / AA contrast guarantees are preserved across all themes (Dark, Light, Colorful)
- *   without recoloring or distorting the official mark.
- * - variant="monochrome": Preserves currentColor inheritance and card background for single-color usage.
+ * Architectural Invariant for Two-Tone Backdrop:
+ * - variant="two-tone": Uses a fixed Onyx backdrop (#090A0C) with subtle border (#2E3444)
+ *   enforced via inline styles to protect against accidental Tailwind class collision or
+ *   consumer background utility overrides (e.g., bg-*, bg-card, bg-white), while preserving
+ *   full caller control over sizing, margins, layout positioning, and transforms.
+ * - variant="monochrome": Preserves currentColor inheritance and theme-aware card backdrop.
  */
 export function WeirwiseSymbol({ className, variant = "two-tone" }: WeirwiseSymbolProps) {
   const isTwoTone = variant === "two-tone";
@@ -27,10 +28,11 @@ export function WeirwiseSymbol({ className, variant = "two-tone" }: WeirwiseSymb
       className={cn(
         "flex items-center justify-center rounded-md p-1 shadow-xs shrink-0 select-none transition-colors",
         isTwoTone
-          ? "bg-[#090A0C] border border-[#2E3444]"
+          ? "border border-[#2E3444]"
           : "bg-card border border-border text-current",
         className
       )}
+      style={isTwoTone ? { backgroundColor: "#090A0C" } : undefined}
     >
       <svg
         viewBox="0 0 350 170"
