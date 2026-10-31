@@ -23,6 +23,11 @@ module.exports = {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
         },
+        brand: {
+          primary: "hsl(var(--primary))",
+          secondary: "hsl(var(--brand-secondary))",
+          "secondary-foreground": "hsl(var(--brand-secondary-foreground))",
+        },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -50,6 +55,7 @@ module.exports = {
       },
       boxShadow: {
         glow: "0 0 20px -5px var(--brand-glow)",
+        "glow-secondary": "0 0 20px -5px var(--brand-glow-secondary)",
       },
     },
   },
