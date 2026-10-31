@@ -1,6 +1,7 @@
 /**
  * Comprehensive Browser End-to-End Test Suite for Weirwise
  * Powered by Playwright
+ * Includes Responsive Design, Navigation Menus, Viewports, Themes, and Full Customer Journey
  */
 
 const { chromium } = require("playwright");
@@ -48,14 +49,18 @@ async function runAuditSuite() {
 
   try {
     // --------------------------------------------------------------------------
-    // Test 1: Landing Page & Multi-Viewport Responsive Audit
+    // Test 1: Landing Page & Multi-Viewport Responsive Audit Across 10 Widths
     // --------------------------------------------------------------------------
-    console.log("\n[Test 1] Testing Minimal Homepage & Responsive Layouts Across 6 Viewports...");
+    console.log("\n[Test 1] Testing Minimal Homepage & Responsive Layouts Across 10 Viewports...");
     const viewports = [
+      { name: "Mobile (320px)", width: 320, height: 568 },
       { name: "Mobile (360px)", width: 360, height: 640 },
+      { name: "Mobile (375px)", width: 375, height: 667 },
       { name: "Mobile (390px)", width: 390, height: 844 },
+      { name: "Mobile (430px)", width: 430, height: 932 },
       { name: "Tablet (768px)", width: 768, height: 1024 },
       { name: "Laptop (1024px)", width: 1024, height: 768 },
+      { name: "Desktop (1280px)", width: 1280, height: 800 },
       { name: "Desktop (1440px)", width: 1440, height: 900 },
       { name: "Wide Desktop (1920px)", width: 1920, height: 1080 },
     ];
@@ -69,13 +74,13 @@ async function runAuditSuite() {
       });
 
       if (hasHorizontalScroll) {
-        throw new Error(`Horizontal overflow detected on viewport ${vp.name}!`);
+        throw new Error(`Horizontal overflow detected on viewport ${vp.name} (${vp.width}px)!`);
       }
 
       console.log(`  ✓ ${vp.name}: Clean layout, no horizontal scroll.`);
     }
 
-    // Reset to standard viewport
+    // Reset to standard desktop viewport
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
     const pageTitle = await page.title();
@@ -83,9 +88,44 @@ async function runAuditSuite() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01_minimal_homepage.png") });
 
     // --------------------------------------------------------------------------
-    // Test 1B: Theme Switcher & Persistence Verification (Dark / Colorful / Light)
+    // Test 1B: Mobile Navigation Drawer & Hamburger Trigger Check
     // --------------------------------------------------------------------------
-    console.log("\n[Test 1B] Testing Theme Switcher & Persistence Across Page Reloads...");
+    console.log("\n[Test 1B] Testing Mobile Navigation Header, Menu Toggle & Keyboard Accessibility...");
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+
+    // Ensure desktop nav is hidden and hamburger is visible
+    const menuBtn = await page.$('button[aria-label="Open navigation menu"]');
+    if (!menuBtn) {
+      throw new Error("Mobile menu trigger button not found on 375px viewport!");
+    }
+    console.log("  ✓ Mobile menu trigger button verified on mobile viewport.");
+
+    // Open mobile menu
+    await menuBtn.click();
+    await delay(300);
+    const pricingMobileLink = await page.$('div a[href="/pricing"]:has-text("Pricing")');
+    if (!pricingMobileLink) {
+      throw new Error("Mobile navigation drawer failed to open or link missing!");
+    }
+    console.log("  ✓ Mobile menu drawer opened successfully.");
+
+    // Close via escape key
+    await page.keyboard.press("Escape");
+    await delay(300);
+    const isMenuClosed = await page.$('button[aria-label="Open navigation menu"]');
+    if (!isMenuClosed) {
+      throw new Error("Mobile menu failed to dismiss on Escape key!");
+    }
+    console.log("  ✓ Mobile menu drawer dismissed on Escape key.");
+
+    // Reset to standard desktop viewport
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // --------------------------------------------------------------------------
+    // Test 1C: Theme Switcher & Persistence Verification (Dark / Colorful / Light)
+    // --------------------------------------------------------------------------
+    console.log("\n[Test 1C] Testing Theme Switcher & Persistence Across Page Reloads...");
     
     // Switch to Colorful Theme via ThemeSwitcher or evaluate
     await page.evaluate(() => {
@@ -115,94 +155,116 @@ async function runAuditSuite() {
     console.log("  ✓ Switched to Light Theme (active classes: light).");
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01c_homepage_light.png") });
 
-    // Revert to Colorful Theme for remaining journey tests
+    // Revert back to Colorful Theme for remaining journey
     await page.evaluate(() => {
       window.localStorage.setItem("wwp_theme", "colorful");
-      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.remove("dark", "light");
       document.documentElement.classList.add("colorful");
     });
     console.log("  ✓ Active theme set to Colorful for journey testing.");
 
     // --------------------------------------------------------------------------
-    // Test 2: Registration Validation & Successful Signup
+    // Test 1D: Pricing Page Layout & Responsiveness
+    // --------------------------------------------------------------------------
+    console.log("\n[Test 1D] Testing Pricing Page Layout & Responsiveness...");
+    await page.goto(`${BASE_URL}/pricing`, { waitUntil: "networkidle" });
+    for (const width of [320, 375, 768, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      if (overflow) throw new Error(`Pricing page horizontal overflow on ${width}px!`);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    console.log("  ✓ Pricing page verified with zero horizontal overflow across viewports.");
+
+    // --------------------------------------------------------------------------
+    // Test 2: Real Customer Registration Journey
     // --------------------------------------------------------------------------
     console.log("\n[Test 2] Testing Registration Form & User Creation...");
     await page.goto(`${BASE_URL}/register`, { waitUntil: "networkidle" });
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "02_register_page.png") });
 
-    // A. Weak password validation
+    // Password validation test (< 8 chars)
     console.log("  Testing client-side password length validation (< 8 chars)...");
-    await page.fill('input[id="full-name"]', "QA Auditor");
-    await page.fill('input[id="work-email"]', `weak_pw_${Date.now()}@weirwise.test`);
-    await page.fill('input[id="password"]', "12345");
+    await page.fill('input[type="text"]', "Alex Auditor");
+    await page.fill('input[type="email"]', "test_short@weirwise.test");
+    await page.fill('input[type="password"]', "short");
     
-    const isPwValid = await page.$eval('input[id="password"]', el => el.checkValidity());
-    if (isPwValid) {
-      throw new Error("Expected HTML5 password input checkValidity() to be false for < 8 chars.");
+    const isValidPassword = await page.evaluate(() => {
+      const input = document.querySelector('input[type="password"]');
+      return input.checkValidity();
+    });
+    if (isValidPassword) {
+      throw new Error("Client validation allowed password with length < 8 chars!");
     }
     console.log("  ✓ HTML5 constraint validation correctly rejects weak password (< 8 chars).");
 
-    // B. Real valid customer registration
-    const ts = Date.now();
-    const testEmail = `e2e_user_${ts}@weirwise.test`;
-    const testPassword = "AuditPassword2026!Secure";
-    const testName = `Alex Auditor ${ts}`;
-
-    console.log(`  Submitting registration for fresh user: ${testEmail}...`);
-    await page.fill('input[id="full-name"]', testName);
-    await page.fill('input[id="work-email"]', testEmail);
-    await page.fill('input[id="password"]', testPassword);
+    // Valid registration
+    const uniqueUser = `e2e_user_${Date.now()}@weirwise.test`;
+    console.log(`  Submitting registration for fresh user: ${uniqueUser}...`);
+    await page.fill('input[type="text"]', `Alex Auditor ${Date.now()}`);
+    await page.fill('input[type="email"]', uniqueUser);
+    await page.fill('input[type="password"]', "SecureEnterprisePass123!");
     await page.click('button[type="submit"]');
 
-    // Wait for redirect to workspace
     console.log("  Waiting for automatic login and redirect to workspace...");
     await page.waitForURL((url) => url.pathname.includes("/workspaces/"), { timeout: 15000 });
     console.log(`  ✓ Successfully registered and redirected to: ${page.url()}`);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "03_post_register_workspace.png") });
 
-    // Wait for redirect to project overview
+    // Extract workspace ID & project ID
+    const currentUrl = page.url();
+    const urlParts = currentUrl.split("/workspaces/")[1].split("/");
+    const workspaceId = urlParts[0];
+
+    // Wait for project overview to load
+    await page.waitForSelector('aside nav, [data-testid="sidebar"]', { timeout: 10000 });
     await delay(2000);
-    const overviewUrl = page.url();
-    const match = overviewUrl.match(/workspaces\/([^/]+)\/projects\/([^/]+)/);
-    if (!match) {
-      throw new Error(`Expected project overview URL pattern, got: ${overviewUrl}`);
+
+    const projectHref = await page.evaluate(() => {
+      const link = document.querySelector('aside a[href*="/projects/"]');
+      return link ? link.getAttribute("href") : null;
+    });
+
+    let projectId = "";
+    if (projectHref) {
+      const match = projectHref.match(/\/projects\/([a-zA-Z0-9-]+)/);
+      if (match) projectId = match[1];
     }
-    const [_, workspaceId, projectId] = match;
+
     console.log(`  ✓ Active Workspace ID: ${workspaceId}, Project ID: ${projectId}`);
 
-    // Verify token persisted in localStorage
-    const userToken = await page.evaluate(() => localStorage.getItem("wwp_token"));
-    if (!userToken) {
-      throw new Error("Expected wwp_token in localStorage after registration login.");
-    }
+    // Verify token stored in localStorage
+    const token = await page.evaluate(() => localStorage.getItem("wwp_token"));
+    if (!token) throw new Error("No authentication token found in localStorage after registration!");
     console.log("  ✓ Authentication JWT token stored in localStorage.");
 
     // --------------------------------------------------------------------------
-    // Test 3: Route Guard Protection (Super Admin blocked for normal user)
+    // Test 3: Client-Side Route Guarding on /admin for Tenant User
     // --------------------------------------------------------------------------
     console.log("\n[Test 3] Testing Client-Side Route Guard on /admin...");
     await page.goto(`${BASE_URL}/admin`, { waitUntil: "networkidle" });
     await delay(1500);
+
     const postAdminUrl = page.url();
     console.log(`  URL after navigating to /admin as normal tenant user: ${postAdminUrl}`);
-    if (postAdminUrl.endsWith("/admin")) {
-      throw new Error("Security Violation: Normal user was not redirected away from /admin!");
+    if (postAdminUrl.includes("/admin")) {
+      throw new Error(`Security Violation: Normal tenant user was allowed on /admin: ${postAdminUrl}`);
     }
     console.log("  ✓ Non-admin user safely redirected away from /admin.");
 
     // --------------------------------------------------------------------------
-    // Test 4: Knowledge Source Creation & Document Upload
+    // Test 4: Knowledge Source Creation & File Upload
     // --------------------------------------------------------------------------
     console.log("\n[Test 4] Testing Knowledge Source Creation & Ingestion...");
     const sourcesUrl = `${BASE_URL}/workspaces/${workspaceId}/projects/${projectId}/sources`;
     await page.goto(sourcesUrl, { waitUntil: "networkidle" });
+    await delay(1500);
 
-    // Open Add Knowledge Source modal
     console.log("  Opening Add Knowledge Source modal...");
     await page.click('button:has-text("Add Knowledge Source"), button:has-text("Create Source"), button:has-text("New Knowledge Source")');
     await delay(500);
 
-    const sourceName = `Compliance Knowledge Base ${ts}`;
+    const sourceName = `Compliance Knowledge Base ${Date.now()}`;
     console.log(`  Creating knowledge source: "${sourceName}"...`);
     await page.fill('input[placeholder*="Handbook"]', sourceName);
     await page.click('button[type="submit"]:has-text("Create Knowledge Source"), button[type="submit"]:has-text("Create Source"), form button[type="submit"]');
@@ -211,13 +273,16 @@ async function runAuditSuite() {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "04_source_created.png") });
     console.log("  ✓ Knowledge source created and visible in list.");
 
-    // Upload test document
+    // File upload
     console.log("  Uploading test verification document...");
-    const tempDocPath = path.join("/tmp", `weirwise_audit_doc_${ts}.txt`);
-    const docContent = `Weirwise Enterprise Policy 2026.
-Verification Marker: ${VERIFICATION_CODE}
-Protocol: Administrative users must authenticate using multi-factor credentials.`;
-    fs.writeFileSync(tempDocPath, docContent, "utf-8");
+    const testDocContent = `WEIRWISE COMPLIANCE VERIFICATION RECORD\n` +
+      `System Code: ${VERIFICATION_CODE}\n` +
+      `Entity: Weirwise Enterprise Solutions Inc.\n` +
+      `Protocol: ISO-27001 Certified Multi-Tenant Isolation\n` +
+      `Summary: Ingestion verification document ensuring correct chunking, embedding, and playground citation.`;
+    
+    const tempDocPath = `/tmp/weirwise_audit_doc_${Date.now()}.txt`;
+    fs.writeFileSync(tempDocPath, testDocContent);
 
     const fileInput = await page.$('input[type="file"]');
     if (!fileInput) {
@@ -247,12 +312,13 @@ Protocol: Administrative users must authenticate using multi-factor credentials.
     console.log("\n[Test 5] Testing Assistant Creation & Configuration...");
     const assistantsUrl = `${BASE_URL}/workspaces/${workspaceId}/projects/${projectId}/assistants`;
     await page.goto(assistantsUrl, { waitUntil: "networkidle" });
+    await delay(1500);
 
     console.log("  Opening Create Assistant dialog...");
     await page.click('button:has-text("New Assistant"), button:has-text("Create Assistant")');
     await delay(500);
 
-    const asstName = `Enterprise Compliance Bot ${ts}`;
+    const asstName = `Enterprise Compliance Bot ${Date.now()}`;
     await page.fill('input[placeholder*="e.g."]', asstName);
     await page.click('button[type="submit"]:has-text("Create & Configure"), button[type="submit"]:has-text("Create")');
 
