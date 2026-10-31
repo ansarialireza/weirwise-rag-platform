@@ -17,7 +17,6 @@ from backend.app.models.assistant import (
     Message,
     UnansweredQuery,
 )
-from backend.app.models.audit import ApiCredential
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     AnswerFeedbackRequest,
@@ -30,7 +29,6 @@ from backend.app.schemas.assistant import (
     PublicRuntimeConfigResponse,
 )
 from backend.app.services.metering import metering_service
-from backend.app.services.routing_engine import IntelligentRoutingEngine
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
@@ -66,7 +64,7 @@ async def resolve_public_deployment(
         dep_stmt = select(Deployment).where(
             Deployment.assistant_id == assistant_id,
             Deployment.public_key == x_widget_key,
-            Deployment.is_active == True,
+            Deployment.is_active.is_(True),
         )
         dep_res = await db.execute(dep_stmt)
         deployment = dep_res.scalar_one_or_none()
@@ -107,7 +105,7 @@ async def get_public_runtime_config(
     # Retrieve active deployment theme
     dep_stmt = select(Deployment).where(
         Deployment.assistant_id == assistant_id,
-        Deployment.is_active == True,
+        Deployment.is_active.is_(True),
     )
     if x_widget_key:
         dep_stmt = dep_stmt.where(Deployment.public_key == x_widget_key)
@@ -240,8 +238,7 @@ async def public_chat(
     if is_grounded:
         context_block = "\n\n".join(retrieved_contexts[:2])
         assistant_reply = (
-            f"Based on our business knowledge: {context_block}\n\n"
-            f"Let me know if you would like more assistance!"
+            f"Based on our business knowledge: {context_block}\n\nLet me know if you would like more assistance!"
         )
     else:
         assistant_reply = assistant.fallback_message

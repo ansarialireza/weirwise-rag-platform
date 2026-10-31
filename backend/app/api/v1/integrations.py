@@ -17,7 +17,6 @@ from backend.app.schemas.assistant import (
 )
 from backend.app.services.integrations import integrations_service
 from backend.app.services.scraper import is_ssrf_safe_url
-from backend.app.services.vault import CredentialVaultService
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +49,9 @@ async def connect_integration(
 @router.get("/integrations", response_model=list[BusinessIntegrationResponse])
 async def list_integrations(
     workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])),
+    context: WorkspaceContext = Depends(
+        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
+    ),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[BusinessIntegrationResponse]:
     """List connected business integrations for workspace."""

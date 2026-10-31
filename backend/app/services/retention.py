@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from backend.app.core.logging import logger
 from backend.app.models.assistant import Conversation, WorkspacePlanEntitlement
-from backend.app.models.audit import AuditEvent, UsageEvent
+from backend.app.models.audit import AuditEvent
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,28 +27,24 @@ class RetentionService:
         from backend.app.models.assistant import Assistant
         from backend.app.models.project import Project
 
-        conv_del_stmt = (
-            delete(Conversation)
-            .where(
-                Conversation.assistant_id.in_(
-                    select(Assistant.id)
-                    .join(Project, Project.id == Assistant.project_id)
-                    .where(Project.workspace_id == workspace_id)
-                ),
-                Conversation.created_at < cutoff,
-            )
+        conv_del_stmt = delete(Conversation).where(
+            Conversation.assistant_id.in_(
+                select(Assistant.id)
+                .join(Project, Project.id == Assistant.project_id)
+                .where(Project.workspace_id == workspace_id)
+            ),
+            Conversation.created_at < cutoff,
         )
-        del_convs = (await db.execute(conv_del_stmt)).rowcount
+        res_convs = await db.execute(conv_del_stmt)
+        del_convs = int(getattr(res_convs, "rowcount", 0))
 
         # 2. Prune old audit events
-        audit_del_stmt = (
-            delete(AuditEvent)
-            .where(
-                AuditEvent.workspace_id == workspace_id,
-                AuditEvent.created_at < cutoff,
-            )
+        audit_del_stmt = delete(AuditEvent).where(
+            AuditEvent.workspace_id == workspace_id,
+            AuditEvent.created_at < cutoff,
         )
-        del_audits = (await db.execute(audit_del_stmt)).rowcount
+        res_audits = await db.execute(audit_del_stmt)
+        del_audits = int(getattr(res_audits, "rowcount", 0))
 
         await db.commit()
         logger.info(

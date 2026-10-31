@@ -3,7 +3,6 @@
 import uuid
 
 from backend.app.api.dependencies import WorkspaceContext, require_workspace
-from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session
 from backend.app.models.assistant import WorkspaceBYOKCredential
 from backend.app.models.auth import WorkspaceRole

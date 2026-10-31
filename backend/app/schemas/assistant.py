@@ -1,4 +1,6 @@
-"""Comprehensive Pydantic schemas for Assistants, Public Runtime, Conversations, Feedback, Analytics, Integrations, and Billing."""
+"""Comprehensive Pydantic schemas for Assistants, Public Runtime, Conversations,
+Feedback, Analytics, Integrations, and Billing.
+"""
 
 import uuid
 from datetime import datetime
@@ -7,10 +9,10 @@ from typing import Any
 from backend.app.models.assistant import AssistantStatus, DeploymentType
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ==============================================================================
 # PHASE 1 & 2: ASSISTANTS, CONFIGURATION, PUBLIC RUNTIME & FEEDBACK
 # ==============================================================================
+
 
 class AssistantCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
@@ -23,7 +25,9 @@ class AssistantCreateRequest(BaseModel):
     top_k: int = Field(4, ge=1, le=20)
     language: str = Field("en", max_length=20)
     tone: str = Field("professional", max_length=50)
-    fallback_message: str = Field("I am sorry, but I do not have enough verified information in my knowledge base to answer that accurately.")
+    fallback_message: str = Field(
+        "I am sorry, but I do not have enough verified information in my knowledge base to answer that accurately."
+    )
     escalation_email: str | None = None
     knowledge_source_ids: list[uuid.UUID] | None = None
 
@@ -231,6 +235,7 @@ class HumanHandoffResponse(BaseModel):
 # PHASE 3: BUSINESS INTEGRATIONS & WEBHOOKS
 # ==============================================================================
 
+
 class BusinessIntegrationCreateRequest(BaseModel):
     provider: str = Field(..., pattern="^(shopify|zendesk|gorgias|google_drive|notion)$")
     display_name: str = Field(..., min_length=2, max_length=255)
@@ -275,6 +280,7 @@ class WebhookSubscriptionResponse(BaseModel):
 # PHASE 4: MONETIZATION & USAGE
 # ==============================================================================
 
+
 class WorkspacePlanEntitlementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -301,6 +307,7 @@ class UpdateOverageRequest(BaseModel):
 # PHASE 5: ENTERPRISE BYOK
 # ==============================================================================
 
+
 class WorkspaceBYOKCreateRequest(BaseModel):
     provider_name: str = Field(..., pattern="^(openai|anthropic|azure_openai)$")
     api_key: str = Field(..., min_length=8)
@@ -325,6 +332,7 @@ class WorkspaceBYOKResponse(BaseModel):
 # ==============================================================================
 # DEPLOYMENT & API CREDENTIALS
 # ==============================================================================
+
 
 class DeploymentCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)

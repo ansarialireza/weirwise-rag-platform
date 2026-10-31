@@ -25,10 +25,9 @@ from backend.app.models.assistant import (
     UnansweredQuery,
 )
 from backend.app.models.audit import ApiCredential, UsageEvent
-from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
+from backend.app.models.auth import Membership, User, WorkspaceRole
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
-    AnswerFeedbackResponse,
     ApiCredentialCreateRequest,
     ApiCredentialResponse,
     AssistantCreateRequest,
@@ -45,12 +44,10 @@ from backend.app.schemas.assistant import (
     KnowledgeGapAnalyticsResponse,
     MessageResponse,
     PublishValidationResponse,
-    UnansweredQueryResponse,
 )
 from backend.app.services.evaluations import evaluation_service
 from backend.app.services.metering import metering_service
 from backend.app.services.routing_engine import IntelligentRoutingEngine
-from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -153,9 +150,7 @@ async def list_project_assistants(
     for a in assistants:
         resp = AssistantResponse.model_validate(a)
         links_res = await db.execute(
-            select(AssistantKnowledgeSource.knowledge_source_id).where(
-                AssistantKnowledgeSource.assistant_id == a.id
-            )
+            select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == a.id)
         )
         resp.knowledge_source_ids = list(links_res.scalars().all())
         output.append(resp)
@@ -208,6 +203,7 @@ async def update_assistant(
 
     if payload.knowledge_source_ids is not None:
         from sqlalchemy import delete
+
         await db.execute(delete(AssistantKnowledgeSource).where(AssistantKnowledgeSource.assistant_id == assistant.id))
         for sid in payload.knowledge_source_ids:
             link = AssistantKnowledgeSource(assistant_id=assistant.id, knowledge_source_id=sid)
@@ -443,7 +439,11 @@ async def get_knowledge_gap_analytics(
     await verify_project_access(assistant.project_id, current_user.id, db)
 
     # 1. Unanswered Queries
-    uq_stmt = select(UnansweredQuery).where(UnansweredQuery.assistant_id == assistant_id).order_by(UnansweredQuery.created_at.desc())
+    uq_stmt = (
+        select(UnansweredQuery)
+        .where(UnansweredQuery.assistant_id == assistant_id)
+        .order_by(UnansweredQuery.created_at.desc())
+    )
     unanswered = (await db.execute(uq_stmt)).scalars().all()
 
     top_unanswered = [
@@ -452,8 +452,12 @@ async def get_knowledge_gap_analytics(
     ]
 
     # 2. Feedback Metrics
-    pos_stmt = select(func.count(AnswerFeedback.id)).where(AnswerFeedback.assistant_id == assistant_id, AnswerFeedback.rating == "positive")
-    neg_stmt = select(func.count(AnswerFeedback.id)).where(AnswerFeedback.assistant_id == assistant_id, AnswerFeedback.rating == "negative")
+    pos_stmt = select(func.count(AnswerFeedback.id)).where(
+        AnswerFeedback.assistant_id == assistant_id, AnswerFeedback.rating == "positive"
+    )
+    neg_stmt = select(func.count(AnswerFeedback.id)).where(
+        AnswerFeedback.assistant_id == assistant_id, AnswerFeedback.rating == "negative"
+    )
     pos_count = (await db.execute(pos_stmt)).scalar() or 0
     neg_count = (await db.execute(neg_stmt)).scalar() or 0
     total_fb = pos_count + neg_count
@@ -472,7 +476,9 @@ async def get_knowledge_gap_analytics(
 # --- Automated Golden Evaluations ---
 
 
-@router.post("/assistants/{assistant_id}/evaluations", response_model=EvaluationCaseResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/assistants/{assistant_id}/evaluations", response_model=EvaluationCaseResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_evaluation_case(
     assistant_id: uuid.UUID,
     payload: EvaluationCaseCreateRequest,
@@ -514,7 +520,11 @@ async def list_evaluation_cases(
 
     await verify_project_access(assistant.project_id, current_user.id, db)
 
-    stmt = select(EvaluationCase).where(EvaluationCase.assistant_id == assistant_id).order_by(EvaluationCase.created_at.desc())
+    stmt = (
+        select(EvaluationCase)
+        .where(EvaluationCase.assistant_id == assistant_id)
+        .order_by(EvaluationCase.created_at.desc())
+    )
     cases = (await db.execute(stmt)).scalars().all()
     return [EvaluationCaseResponse.model_validate(c) for c in cases]
 
@@ -625,10 +635,7 @@ async def studio_playground_chat(
 
     if citations:
         context_block = "\n\n".join(retrieved_contexts[:2])
-        assistant_reply = (
-            f"Based on verified knowledge in {linked_sources[0].name}:\n\n"
-            f"{context_block}"
-        )
+        assistant_reply = f"Based on verified knowledge in {linked_sources[0].name}:\n\n{context_block}"
     else:
         assistant_reply = assistant.fallback_message
 

@@ -7,7 +7,7 @@ from backend.app.models.assistant import WorkspacePlanEntitlement
 from backend.app.models.audit import UsageEvent
 from backend.app.models.auth import Workspace
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 PLAN_DEFINITIONS = {
@@ -114,7 +114,10 @@ class MeteringService:
             if not ent.allow_overage:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"Workspace has reached its monthly plan limit ({ent.monthly_chat_turns_limit} chat turns). Please upgrade your plan or enable optional overage.",
+                    detail=(
+                        f"Workspace has reached its monthly plan limit ({ent.monthly_chat_turns_limit} chat turns). "
+                        "Please upgrade your plan or enable optional overage."
+                    ),
                 )
 
         # Increment usage counter
@@ -133,13 +136,18 @@ class MeteringService:
         await db.commit()
 
     @classmethod
-    async def check_assistant_creation_limit(cls, db: AsyncSession, workspace_id: uuid.UUID, current_count: int) -> None:
+    async def check_assistant_creation_limit(
+        cls, db: AsyncSession, workspace_id: uuid.UUID, current_count: int
+    ) -> None:
         """Check if workspace can create another assistant."""
         ent = await cls.get_or_create_entitlements(db, workspace_id)
         if current_count >= ent.max_assistants:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Assistant creation limit reached: your '{ent.plan_tier}' tier permits a maximum of {ent.max_assistants} assistant(s). Please upgrade your plan.",
+                detail=(
+                    f"Assistant creation limit reached: your '{ent.plan_tier}' tier permits a maximum of "
+                    f"{ent.max_assistants} assistant(s). Please upgrade your plan."
+                ),
             )
 
 

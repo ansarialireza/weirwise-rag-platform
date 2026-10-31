@@ -50,4 +50,3 @@ class CredentialVaultService:
     @staticmethod
     def decrypt_secret(encrypted_secret: str) -> str:
         return decrypt_credential_secret(encrypted_secret)
-

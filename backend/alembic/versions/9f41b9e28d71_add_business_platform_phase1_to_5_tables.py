@@ -7,8 +7,10 @@ Create Date: 2026-10-31 08:30:00.000000
 """
 
 from typing import Sequence, Union
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
 from alembic import op
 
 revision: str = "9f41b9e28d71"
@@ -31,7 +33,15 @@ def upgrade() -> None:
     except Exception:
         pass
     try:
-        op.add_column("assistants", sa.Column("fallback_message", sa.Text(), server_default="I am sorry, but I do not have enough verified information to answer that accurately.", nullable=False))
+        op.add_column(
+            "assistants",
+            sa.Column(
+                "fallback_message",
+                sa.Text(),
+                server_default="I am sorry, but I do not have enough verified information to answer that accurately.",
+                nullable=False,
+            ),
+        )
     except Exception:
         pass
     try:
@@ -71,9 +81,19 @@ def upgrade() -> None:
     op.create_table(
         "answer_feedback",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("conversation_id", guid_type, sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("message_id", guid_type, sa.ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
+        sa.Column(
+            "conversation_id",
+            guid_type,
+            sa.ForeignKey("conversations.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column(
+            "message_id", guid_type, sa.ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
         sa.Column("rating", sa.String(20), nullable=False),
         sa.Column("reason", sa.String(100), nullable=True),
         sa.Column("comment", sa.Text(), nullable=True),
@@ -84,8 +104,16 @@ def upgrade() -> None:
     op.create_table(
         "unanswered_queries",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True),
-        sa.Column("conversation_id", guid_type, sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
+        sa.Column(
+            "conversation_id",
+            guid_type,
+            sa.ForeignKey("conversations.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("query_text", sa.Text(), nullable=False),
         sa.Column("fallback_reason", sa.String(100), server_default="insufficient_grounding_evidence", nullable=False),
         sa.Column("frequency_count", sa.Integer(), server_default="1", nullable=False),
@@ -98,7 +126,9 @@ def upgrade() -> None:
     op.create_table(
         "evaluation_cases",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "assistant_id", guid_type, sa.ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("question", sa.Text(), nullable=False),
         sa.Column("expected_answer", sa.Text(), nullable=False),
@@ -113,7 +143,13 @@ def upgrade() -> None:
     op.create_table(
         "human_handoff_requests",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("conversation_id", guid_type, sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "conversation_id",
+            guid_type,
+            sa.ForeignKey("conversations.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("customer_email", sa.String(255), nullable=True),
         sa.Column("customer_name", sa.String(255), nullable=True),
         sa.Column("reason", sa.Text(), nullable=True),
@@ -126,7 +162,9 @@ def upgrade() -> None:
     op.create_table(
         "business_integrations",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
         sa.Column("provider", sa.String(50), nullable=False, index=True),
         sa.Column("display_name", sa.String(255), nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default="1", nullable=False),
@@ -144,7 +182,9 @@ def upgrade() -> None:
     op.create_table(
         "webhook_subscriptions",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
         sa.Column("target_url", sa.String(1024), nullable=False),
         sa.Column("secret_key", sa.String(128), nullable=False),
         sa.Column("events", json_type, nullable=False),
@@ -158,7 +198,13 @@ def upgrade() -> None:
     op.create_table(
         "webhook_deliveries",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("subscription_id", guid_type, sa.ForeignKey("webhook_subscriptions.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "subscription_id",
+            guid_type,
+            sa.ForeignKey("webhook_subscriptions.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("event_type", sa.String(100), nullable=False),
         sa.Column("payload", json_type, nullable=False),
         sa.Column("response_code", sa.Integer(), nullable=True),
@@ -173,7 +219,14 @@ def upgrade() -> None:
     op.create_table(
         "workspace_plan_entitlements",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, unique=True, index=True),
+        sa.Column(
+            "workspace_id",
+            guid_type,
+            sa.ForeignKey("workspaces.id", ondelete="CASCADE"),
+            nullable=False,
+            unique=True,
+            index=True,
+        ),
         sa.Column("plan_tier", sa.String(50), server_default="free", nullable=False),
         sa.Column("max_assistants", sa.Integer(), server_default="1", nullable=False),
         sa.Column("max_knowledge_sources", sa.Integer(), server_default="3", nullable=False),
@@ -194,7 +247,9 @@ def upgrade() -> None:
     op.create_table(
         "workspace_byok_credentials",
         sa.Column("id", guid_type, primary_key=True),
-        sa.Column("workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "workspace_id", guid_type, sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+        ),
         sa.Column("provider_name", sa.String(50), nullable=False),
         sa.Column("api_endpoint", sa.String(512), nullable=True),
         sa.Column("deployment_id", sa.String(255), nullable=True),

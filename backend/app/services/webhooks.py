@@ -36,7 +36,7 @@ class WebhookDispatcher:
         """Dispatch event to all active subscriptions in workspace listening for this event."""
         stmt = select(WebhookSubscription).where(
             WebhookSubscription.workspace_id == workspace_id,
-            WebhookSubscription.is_active == True,
+            WebhookSubscription.is_active.is_(True),
         )
         res = await db.execute(stmt)
         subscriptions = res.scalars().all()

@@ -83,7 +83,7 @@ class IntegrationsService:
         # Handle provider-specific sync protocol
         provider = integration.provider.lower()
         logger.info(f"Triggering sync for provider '{provider}' in workspace {integration.workspace_id}")
-        
+
         # In absence of external live credentials, mock contract handles validation
         items_synced = 0
         if provider == "shopify":

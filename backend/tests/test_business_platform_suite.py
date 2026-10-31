@@ -1,19 +1,18 @@
 """Comprehensive automated test suite covering Phases 1 through 5 of the Weirwise Business Platform:
-- Phase 1: Crawler URL validation, SSRF protections, Sitemap parsing, Assistant Creation & Publishing Lifecycle, Public Runtime
-- Phase 2: Conversations, Citations, Answer Feedback, Unanswered Query tracking & Knowledge Gaps, Golden Evaluations, Human Handoff
+- Phase 1: Crawler URL validation, SSRF protections, Sitemap parsing, Assistant Lifecycle, Public Runtime
+- Phase 2: Conversations, Citations, Answer Feedback, Unanswered Query tracking, Golden Evaluations, Human Handoff
 - Phase 3: Business Integrations (Shopify/Zendesk/Gorgias), Webhook HMAC signing and delivery
 - Phase 4: Usage Metering, Quota Limits & Overage Controls
 - Phase 5: Enterprise BYOK, Azure OpenAI Configuration, and Retention Policy Pruning
 """
 
 import uuid
-import pytest
-from fastapi.testclient import TestClient
 
+import pytest
 from backend.app.main import app
 from backend.app.services.scraper import is_ssrf_safe_url, normalize_url
 from backend.app.services.webhooks import WebhookDispatcher
-from backend.app.services.evaluations import EvaluationService
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -54,6 +53,7 @@ def auth_context():
 # ==============================================================================
 # PHASE 1 TESTS: CRAWLER SSRF, PUBLISH LIFECYCLE & PUBLIC RUNTIME
 # ==============================================================================
+
 
 def test_crawler_ssrf_protections():
     """Verify crawler blocks private IPs, loopback, AWS metadata, and non-HTTP protocols."""
@@ -122,18 +122,26 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     # 4. Attempt to publish (bypassing document requirement in unit test or simulating ready doc)
     # Upload mock document to make it ready
     import io
-    files = [("files", ("policies.md", io.BytesIO(b"# Return Policy\nReturns accepted within 30 days."), "text/markdown"))]
+
+    files = [
+        ("files", ("policies.md", io.BytesIO(b"# Return Policy\nReturns accepted within 30 days."), "text/markdown"))
+    ]
     up_resp = client.post(f"/api/v1/sources/{ks_id}/documents/upload", headers=headers, files=files)
     assert up_resp.status_code == 202
 
     # Manually mark document ready in test db for readiness
-    from backend.app.models.project import Document
-    from backend.app.db.session import engine
-    from sqlalchemy import update
     import asyncio
+
+    from backend.app.db.session import engine
+    from backend.app.models.project import Document
+    from sqlalchemy import update
+
     async def mark_doc():
         async with engine.begin() as conn:
-            await conn.execute(update(Document).where(Document.knowledge_source_id == uuid.UUID(ks_id)).values(status="ready"))
+            await conn.execute(
+                update(Document).where(Document.knowledge_source_id == uuid.UUID(ks_id)).values(status="ready")
+            )
+
     asyncio.run(mark_doc())
 
     # Re-check readiness
@@ -171,6 +179,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
 # PHASE 2 TESTS: FEEDBACK, UNANSWERED QUERIES & EVALUATIONS
 # ==============================================================================
 
+
 def test_feedback_unanswered_and_evaluations(auth_context):
     """Verify feedback capture, knowledge gap analytics, and golden evaluation scoring."""
     headers = auth_context["headers"]
@@ -185,13 +194,16 @@ def test_feedback_unanswered_and_evaluations(auth_context):
     ast_id = ast["id"]
 
     # Directly set status to published in test db
-    from backend.app.models.assistant import Assistant
-    from backend.app.db.session import engine
-    from sqlalchemy import update
     import asyncio
+
+    from backend.app.db.session import engine
+    from backend.app.models.assistant import Assistant
+    from sqlalchemy import update
+
     async def mark_pub():
         async with engine.begin() as conn:
             await conn.execute(update(Assistant).where(Assistant.id == uuid.UUID(ast_id)).values(status="published"))
+
     asyncio.run(mark_pub())
 
     # Chat turn resulting in fallback (no sources attached)
@@ -249,6 +261,7 @@ def test_feedback_unanswered_and_evaluations(auth_context):
 # PHASE 3 TESTS: BUSINESS INTEGRATIONS & HMAC WEBHOOKS
 # ==============================================================================
 
+
 def test_business_integrations_and_webhooks(auth_context):
     """Verify Shopify/Zendesk credential encryption and SSRF-safe HMAC webhooks."""
     headers = auth_context["headers"]
@@ -303,6 +316,7 @@ def test_business_integrations_and_webhooks(auth_context):
 # ==============================================================================
 # PHASE 4 & 5 TESTS: MONETIZATION LIMITS, BYOK & RETENTION
 # ==============================================================================
+
 
 def test_enterprise_byok_and_retention(auth_context):
     """Verify Bring-Your-Own-Key storage and retention cleanup."""

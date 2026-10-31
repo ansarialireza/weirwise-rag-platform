@@ -24,7 +24,7 @@ from backend.app.services.storage import storage_service
 from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from backend.app.tasks.ingestion import process_document_ingestion
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,10 +100,7 @@ async def discover_website_pages(
 
     crawl_result = await crawler_engine.crawl_site(payload.url, limit=payload.max_pages)
 
-    pages = [
-        DiscoveredPageItem(url=p.url, title=p.title, word_count=p.word_count)
-        for p in crawl_result.pages
-    ]
+    pages = [DiscoveredPageItem(url=p.url, title=p.title, word_count=p.word_count) for p in crawl_result.pages]
 
     return CrawlDiscoveryResponse(
         root_url=crawl_result.root_url,
@@ -144,6 +141,7 @@ async def ingest_selected_pages(
 
         # Single page safe fetch
         from backend.app.services.scraper import fetch_webpage_content
+
         try:
             content = await fetch_webpage_content(page.url)
         except Exception:
@@ -212,6 +210,7 @@ async def create_knowledge_source(
     # If single Website Crawl target_url provided
     if payload.source_type == KnowledgeSourceType.WEBSITE_CRAWL and payload.target_url:
         from backend.app.services.scraper import fetch_webpage_content
+
         page_text = await fetch_webpage_content(payload.target_url)
         filename = f"crawl_{uuid.uuid4().hex[:8]}.md"
         storage_path = os.path.join(storage_service.base_dir, filename)

@@ -1,41 +1,68 @@
 """Advanced, resilient, SSRF-safe website crawler and sitemap discovery engine."""
 
-import asyncio
 import ipaddress
 import re
 import socket
 import urllib.robotparser
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse, urlunparse
-import xml.etree.ElementTree as ET
 
 import httpx
+from backend.app.core.logging import logger
 from bs4 import BeautifulSoup
 from fastapi import HTTPException, status
-from backend.app.core.logging import logger
 
 BLOCKED_IP_RANGES = [
-    ipaddress.ip_network("127.0.0.0/8"),      # IPv4 loopback
-    ipaddress.ip_network("10.0.0.0/8"),       # RFC1918 Private
-    ipaddress.ip_network("172.16.0.0/12"),    # RFC1918 Private
-    ipaddress.ip_network("192.168.0.0/16"),   # RFC1918 Private
-    ipaddress.ip_network("169.254.0.0/16"),   # Link-local / Cloud Metadata (AWS/GCP/Azure)
-    ipaddress.ip_network("100.64.0.0/10"),    # Carrier-grade NAT
-    ipaddress.ip_network("192.0.0.0/24"),     # IETF Protocol Assignments
-    ipaddress.ip_network("198.18.0.0/15"),    # Network benchmark tests
-    ipaddress.ip_network("224.0.0.0/4"),      # Multicast
-    ipaddress.ip_network("240.0.0.0/4"),      # Reserved
-    ipaddress.ip_network("0.0.0.0/8"),        # Current network
-    ipaddress.ip_network("::1/128"),          # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),         # IPv6 Unique Local
-    ipaddress.ip_network("fe80::/10"),        # IPv6 Link-local
+    ipaddress.ip_network("127.0.0.0/8"),  # IPv4 loopback
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC1918 Private
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC1918 Private
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC1918 Private
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local / Cloud Metadata (AWS/GCP/Azure)
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+    ipaddress.ip_network("192.0.0.0/24"),  # IETF Protocol Assignments
+    ipaddress.ip_network("198.18.0.0/15"),  # Network benchmark tests
+    ipaddress.ip_network("224.0.0.0/4"),  # Multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # Reserved
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 Unique Local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 Link-local
 ]
 
 DISALLOWED_FILE_EXTENSIONS = {
-    ".pdf", ".zip", ".tar", ".gz", ".rar", ".7z", ".exe", ".bin", ".dmg", ".iso",
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".bmp", ".ico", ".tiff",
-    ".mp3", ".wav", ".mp4", ".avi", ".mkv", ".mov", ".flv",
-    ".css", ".js", ".json", ".xml", ".rss", ".atom",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".rar",
+    ".7z",
+    ".exe",
+    ".bin",
+    ".dmg",
+    ".iso",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".bmp",
+    ".ico",
+    ".tiff",
+    ".mp3",
+    ".wav",
+    ".mp4",
+    ".avi",
+    ".mkv",
+    ".mov",
+    ".flv",
+    ".css",
+    ".js",
+    ".json",
+    ".xml",
+    ".rss",
+    ".atom",
 }
 
 
@@ -44,7 +71,7 @@ def normalize_url(url: str) -> str:
     parsed = urlparse(url.strip())
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
-    
+
     # Strip standard ports
     if ":" in netloc:
         host, port = netloc.split(":", 1)
@@ -155,7 +182,10 @@ class WebsiteCrawler:
         try:
             resp = await client.get(
                 url,
-                headers={"User-Agent": self.user_agent, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9"},
+                headers={
+                    "User-Agent": self.user_agent,
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+                },
                 follow_redirects=True,
             )
             # Re-check destination URL after redirects
@@ -167,7 +197,9 @@ class WebsiteCrawler:
             logger.debug(f"Request failed for {url}: {e!s}")
             return None
 
-    async def parse_robots_txt(self, client: httpx.AsyncClient, root_url: str) -> tuple[urllib.robotparser.RobotFileParser, list[str]]:
+    async def parse_robots_txt(
+        self, client: httpx.AsyncClient, root_url: str
+    ) -> tuple[urllib.robotparser.RobotFileParser, list[str]]:
         """Fetch robots.txt, parse rules, and extract listed sitemaps."""
         parsed = urlparse(root_url)
         robots_url = urlunparse((parsed.scheme, parsed.netloc, "/robots.txt", "", "", ""))
@@ -185,11 +217,13 @@ class WebsiteCrawler:
                         sitemaps.append(normalize_url(sm))
         else:
             # If robots.txt returns 404, default allow all
-            rp.allow_all = True
+            setattr(rp, "allow_all", True)
 
         return rp, sitemaps
 
-    async def discover_sitemaps(self, client: httpx.AsyncClient, root_url: str, candidate_sitemaps: list[str]) -> list[str]:
+    async def discover_sitemaps(
+        self, client: httpx.AsyncClient, root_url: str, candidate_sitemaps: list[str]
+    ) -> list[str]:
         """Discover and validate sitemaps including conventional locations."""
         discovered: set[str] = set()
         for sm in candidate_sitemaps:
@@ -205,12 +239,20 @@ class WebsiteCrawler:
             loc_url = normalize_url(urlunparse((parsed.scheme, parsed.netloc, loc, "", "", "")))
             if loc_url not in discovered and is_ssrf_safe_url(loc_url):
                 resp = await self._safe_get(client, loc_url)
-                if resp and resp.status_code == 200 and ("xml" in resp.headers.get("content-type", "") or "<url" in resp.text or "<sitemap" in resp.text):
+                if (
+                    resp
+                    and resp.status_code == 200
+                    and (
+                        "xml" in resp.headers.get("content-type", "") or "<url" in resp.text or "<sitemap" in resp.text
+                    )
+                ):
                     discovered.add(loc_url)
 
         return list(discovered)
 
-    async def parse_sitemap_urls(self, client: httpx.AsyncClient, sitemap_url: str, base_domain: str, max_urls: int = 100) -> list[str]:
+    async def parse_sitemap_urls(
+        self, client: httpx.AsyncClient, sitemap_url: str, base_domain: str, max_urls: int = 100
+    ) -> list[str]:
         """Safely parse XML sitemap, handling sitemap indexes recursively."""
         urls: set[str] = set()
         to_process = [sitemap_url]
@@ -262,7 +304,7 @@ class WebsiteCrawler:
     def extract_page_content(self, html: str, url: str) -> tuple[str, str, int]:
         """Extract clean text content, page title, and word count from HTML DOM."""
         soup = BeautifulSoup(html, "html.parser")
-        
+
         # Extract title
         title = ""
         if soup.title and soup.title.string:
@@ -301,7 +343,7 @@ class WebsiteCrawler:
         async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             # 1. Parse robots.txt
             rp, initial_sitemaps = await self.parse_robots_txt(client, norm_root)
-            
+
             # 2. Discover all sitemaps
             all_sitemaps = await self.discover_sitemaps(client, norm_root, initial_sitemaps)
             result.sitemaps_found = all_sitemaps
@@ -370,7 +412,7 @@ class WebsiteCrawler:
                 if depth < self.max_depth and len(visited) + len(queue) < max_p * 2:
                     soup = BeautifulSoup(resp.text, "html.parser")
                     for a_tag in soup.find_all("a", href=True):
-                        raw_href = a_tag["href"]
+                        raw_href = str(a_tag["href"])
                         joined = urljoin(norm_curr, raw_href)
                         norm_child = normalize_url(joined)
                         if (

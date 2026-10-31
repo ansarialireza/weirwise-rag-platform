@@ -11,7 +11,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
-    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -48,7 +47,9 @@ class Assistant(Base):
     tone = Column(String(50), default="professional", nullable=False)  # friendly, professional, concise, empathetic
     fallback_message = Column(
         Text,
-        default="I am sorry, but I do not have enough verified information in my knowledge base to answer that accurately.",
+        default=(
+            "I am sorry, but I do not have enough verified information in my knowledge base to answer that accurately."
+        ),
         nullable=False,
     )
     escalation_email = Column(String(255), nullable=True)

@@ -1,13 +1,11 @@
 """Grounded golden test evaluation engine for assistants."""
 
-import time
 import uuid
 from typing import Any
 
 from backend.app.adapters.core_client import CoreApiClient
 from backend.app.core.logging import logger
 from backend.app.models.assistant import Assistant, EvaluationCase
-from backend.app.services.routing_engine import IntelligentRoutingEngine
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +14,9 @@ class EvaluationService:
     """Evaluates assistant answers against golden expected answers and facts using deterministic fact matching."""
 
     @staticmethod
-    def calculate_score(generated_answer: str, expected_answer: str, expected_facts: list[str]) -> tuple[float, dict[str, Any]]:
+    def calculate_score(
+        generated_answer: str, expected_answer: str, expected_facts: list[str]
+    ) -> tuple[float, dict[str, Any]]:
         """Compute grounded accuracy score combining lexical overlap and key facts presence."""
         gen_lower = generated_answer.lower()
         exp_lower = expected_answer.lower()
@@ -108,6 +108,7 @@ class EvaluationService:
         case.last_run_score = score
         case.last_run_result = details
         from datetime import UTC, datetime
+
         case.last_run_at = datetime.now(UTC)
 
         await db.commit()
