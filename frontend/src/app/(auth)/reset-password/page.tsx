@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
-import { ArrowRight, CheckCircle2, LockKeyhole, ArrowLeft } from "lucide-react";
+import { ArrowRight, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -62,14 +62,7 @@ function ResetPasswordForm() {
 
   return (
     <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-2 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-mono text-primary font-semibold">
-            <LockKeyhole className="h-3 w-3" />
-            <span>Step 2 &bull; New Password</span>
-          </div>
-          <span className="text-xs text-muted-foreground font-medium">Account Security</span>
-        </div>
+      <CardHeader className="space-y-1.5 pb-4">
         <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
           Choose new password
         </CardTitle>
@@ -88,8 +81,8 @@ function ResetPasswordForm() {
         )}
 
         {success && (
-          <div className="flex items-center gap-2.5 rounded-xl border border-primary/40 bg-primary/10 p-3.5 text-xs text-foreground animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/40 p-3.5 text-xs text-foreground animate-in fade-in">
+            <CheckCircle2 className="h-4 w-4 text-foreground shrink-0" />
             <span className="font-medium">{success} Redirecting to sign in...</span>
           </div>
         )}
@@ -116,7 +109,7 @@ function ResetPasswordForm() {
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="e.g. 123456"
-              className="w-full tracking-[0.25em] font-mono text-center text-lg font-bold rounded-xl border-2 border-border bg-input/80 px-4 py-2.5 text-foreground placeholder:text-muted-foreground/40 placeholder:tracking-normal placeholder:font-sans focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 shadow-inner transition-all"
+              className="w-full tracking-[0.25em] font-mono text-center text-lg font-bold rounded-xl border border-border bg-input/80 px-4 py-2.5 text-foreground placeholder:text-muted-foreground/40 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-foreground/20 shadow-inner transition-all"
             />
           </div>
 
@@ -142,30 +135,30 @@ function ResetPasswordForm() {
             placeholder="Confirm minimum 8 characters"
           />
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={loading}
             disabled={loading || !!success}
-            className="w-full mt-2 font-semibold shadow-md hover:shadow-lg transition-all"
+            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
-            Update Password &amp; Sign In <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-current mr-2" />
+            ) : null}
+            Update Password &amp; Sign In <ArrowRight className="h-4 w-4 ml-1.5" />
+          </button>
         </form>
       </CardContent>
 
       <CardFooter className="flex items-center justify-between pt-3 pb-5 border-t border-border/50 text-xs text-muted-foreground">
         <Link
           href="/forgot-password"
-          className="text-foreground hover:text-primary transition-colors underline underline-offset-2"
+          className="text-foreground hover:underline transition-colors underline underline-offset-2"
         >
           Request new code
         </Link>
 
         <Link
           href="/login"
-          className="font-semibold text-primary hover:underline underline-offset-4 inline-flex items-center gap-1 transition-colors"
+          className="font-semibold text-foreground hover:underline underline-offset-4 inline-flex items-center gap-1 transition-colors"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
         </Link>

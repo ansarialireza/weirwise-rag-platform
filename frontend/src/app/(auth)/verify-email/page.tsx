@@ -68,14 +68,7 @@ function VerifyEmailForm() {
 
   return (
     <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-2 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-mono text-primary font-semibold">
-            <MailCheck className="h-3 w-3" />
-            <span>Step 2 &bull; Verification</span>
-          </div>
-          <span className="text-xs text-muted-foreground font-medium">One-Time Password</span>
-        </div>
+      <CardHeader className="space-y-1.5 pb-4">
         <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
           Verify your email
         </CardTitle>
@@ -94,8 +87,8 @@ function VerifyEmailForm() {
         )}
 
         {success && (
-          <div className="flex items-center gap-2.5 rounded-lg border border-primary/40 bg-primary/10 p-3.5 text-xs text-foreground animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+          <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-muted/40 p-3.5 text-xs text-foreground animate-in fade-in">
+            <CheckCircle2 className="h-4 w-4 text-foreground shrink-0" />
             <span className="font-medium">{success} Redirecting to sign in...</span>
           </div>
         )}
@@ -125,7 +118,7 @@ function VerifyEmailForm() {
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
                 placeholder="••••••"
-                className="w-full tracking-[0.5em] font-mono text-center text-2xl font-extrabold rounded-xl border-2 border-border bg-input/80 px-4 py-3 text-foreground placeholder:text-muted-foreground/40 placeholder:tracking-normal placeholder:font-sans focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 shadow-inner transition-all"
+                className="w-full tracking-[0.5em] font-mono text-center text-2xl font-extrabold rounded-xl border border-border bg-input/80 px-4 py-3 text-foreground placeholder:text-muted-foreground/40 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-foreground/20 shadow-inner transition-all"
               />
             </div>
             <p className="text-[11px] text-muted-foreground text-center">
@@ -133,16 +126,16 @@ function VerifyEmailForm() {
             </p>
           </div>
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={loading}
             disabled={loading || !!success}
-            className="w-full mt-2 font-semibold shadow-md hover:shadow-lg transition-all"
+            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
-            Verify &amp; Activate Account <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            {loading ? (
+              <RotateCw className="h-4 w-4 animate-spin text-current mr-2" />
+            ) : null}
+            Verify &amp; Activate Account <ArrowRight className="h-4 w-4 ml-1.5" />
+          </button>
         </form>
       </CardContent>
 
@@ -151,15 +144,15 @@ function VerifyEmailForm() {
           type="button"
           onClick={handleResend}
           disabled={resending || !!success}
-          className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline transition-colors disabled:opacity-50"
         >
-          <RotateCw className={`h-3 w-3 ${resending ? "animate-spin text-primary" : ""}`} />
+          <RotateCw className={`h-3 w-3 ${resending ? "animate-spin text-foreground" : ""}`} />
           Resend code
         </button>
 
         <Link
           href="/login"
-          className="font-semibold text-primary hover:underline underline-offset-4 transition-colors"
+          className="font-semibold text-foreground hover:underline underline-offset-4 transition-colors"
         >
           Back to sign in
         </Link>

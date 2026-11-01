@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowRight, Lock, Mail, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -53,14 +53,7 @@ export default function LoginPage() {
 
   return (
     <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-2 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-mono text-primary font-semibold">
-            <Sparkles className="h-3 w-3" />
-            <span>Sign In</span>
-          </div>
-          <span className="text-xs text-muted-foreground font-medium">Enterprise Studio</span>
-        </div>
+      <CardHeader className="space-y-1.5 pb-4">
         <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
           Welcome back
         </CardTitle>
@@ -96,7 +89,7 @@ export default function LoginPage() {
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-2"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
               >
                 Forgot password?
               </Link>
@@ -111,15 +104,16 @@ export default function LoginPage() {
             />
           </div>
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={loading}
-            className="w-full mt-2 font-semibold shadow-md hover:shadow-lg transition-all"
+            disabled={loading}
+            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
-            Sign In <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-current mr-2" />
+            ) : null}
+            Sign In <ArrowRight className="h-4 w-4 ml-1.5" />
+          </button>
         </form>
       </CardContent>
 
@@ -127,7 +121,7 @@ export default function LoginPage() {
         <span>Don&apos;t have an account yet?</span>
         <Link
           href="/register"
-          className="font-semibold text-primary hover:underline underline-offset-4 transition-colors"
+          className="font-semibold text-foreground hover:underline underline-offset-4 transition-colors"
         >
           Create account
         </Link>

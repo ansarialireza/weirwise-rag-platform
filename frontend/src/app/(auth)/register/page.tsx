@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -44,14 +44,7 @@ export default function RegisterPage() {
 
   return (
     <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-2 pb-4">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-[11px] font-mono text-primary font-semibold">
-            <Sparkles className="h-3 w-3" />
-            <span>Instant Setup</span>
-          </div>
-          <span className="text-xs text-muted-foreground font-medium">Free Trial Quotas</span>
-        </div>
+      <CardHeader className="space-y-1.5 pb-4">
         <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
           Create platform account
         </CardTitle>
@@ -102,15 +95,16 @@ export default function RegisterPage() {
             hint="8+ characters with a mix of letters, numbers, and symbols."
           />
 
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="lg"
-            isLoading={loading}
-            className="w-full mt-2 font-semibold shadow-md hover:shadow-lg transition-all"
+            disabled={loading}
+            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
-            Create Account &amp; Continue <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-current mr-2" />
+            ) : null}
+            Create Account &amp; Continue <ArrowRight className="h-4 w-4 ml-1.5" />
+          </button>
         </form>
       </CardContent>
 
@@ -118,7 +112,7 @@ export default function RegisterPage() {
         <span>Already have an account?</span>
         <Link
           href="/login"
-          className="font-semibold text-primary hover:underline underline-offset-4 transition-colors"
+          className="font-semibold text-foreground hover:underline underline-offset-4 transition-colors"
         >
           Sign in
         </Link>
