@@ -20,6 +20,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export default function DedicatedPlaygroundPage() {
   const params = useParams();
@@ -157,17 +158,18 @@ export default function DedicatedPlaygroundPage() {
           {hasAssistants ? (
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-semibold text-muted-foreground shrink-0 hidden sm:inline">Assistant:</span>
-              <select
-                value={selectedAssistant?.id || ""}
-                onChange={(e) => handleSelectAssistant(e.target.value)}
-                className="h-8 rounded-xl bg-muted/60 hover:bg-muted px-2.5 text-xs font-semibold text-foreground focus:outline-none border-none cursor-pointer truncate max-w-[200px] sm:max-w-xs transition-colors"
-              >
-                {assistants.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({a.model})
-                  </option>
-                ))}
-              </select>
+              <div className="w-48 sm:w-60 shrink-0">
+                <CustomSelect
+                  value={selectedAssistant?.id || ""}
+                  onChange={(val) => handleSelectAssistant(val)}
+                  triggerClassName="h-8 rounded-xl bg-muted/60 hover:bg-muted px-2.5 text-xs font-semibold text-foreground border-none"
+                  options={assistants.map((a) => ({
+                    value: a.id,
+                    label: a.name,
+                    description: a.model,
+                  }))}
+                />
+              </div>
             </div>
           ) : (
             <span className="text-xs font-medium text-muted-foreground">Playground</span>

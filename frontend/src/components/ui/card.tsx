@@ -7,15 +7,15 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Card({ className, variant = "default", ...props }: CardProps) {
   const variants = {
-    default: "border border-border bg-card text-card-foreground shadow-sm",
+    default: "border border-border/40 bg-card/60 backdrop-blur-sm text-card-foreground shadow-xs",
     interactive:
-      "border border-border bg-card text-card-foreground shadow-sm hover:border-primary/50 hover:shadow-md transition-all cursor-pointer",
-    subtle: "border border-border/60 bg-card/50 text-card-foreground",
+      "border border-border/40 bg-card/60 backdrop-blur-sm text-card-foreground shadow-xs hover:border-foreground/30 hover:bg-card/90 transition-all cursor-pointer",
+    subtle: "bg-muted/30 text-card-foreground",
   };
 
   return (
     <div
-      className={cn("rounded-xl transition-colors", variants[variant], className)}
+      className={cn("rounded-2xl transition-colors", variants[variant], className)}
       {...props}
     />
   );
@@ -27,7 +27,7 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col space-y-1.5 p-5 border-b border-border/50", className)}
+      className={cn("flex flex-col space-y-1.5 p-5 border-b border-border/30", className)}
       {...props}
     />
   );

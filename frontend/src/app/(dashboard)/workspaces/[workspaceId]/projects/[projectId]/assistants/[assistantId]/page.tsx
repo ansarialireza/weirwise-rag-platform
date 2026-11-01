@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, Alert } from "@/components/ui/alert";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export default function AssistantConfigurePage() {
   const params = useParams();
@@ -247,15 +248,16 @@ export default function AssistantConfigurePage() {
 
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Routing Strategy</label>
-              <select
+              <CustomSelect
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground focus:border-primary focus:outline-none shadow-xs"
-              >
-                <option value="Auto">Auto (Balanced Speed & Reasoning)</option>
-                <option value="Fast">Fast (Low Latency)</option>
-                <option value="Deep Thinking">Deep Thinking (Complex Analysis)</option>
-              </select>
+                onChange={(val) => setModel(val)}
+                triggerClassName="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground shadow-xs"
+                options={[
+                  { value: "Auto", label: "Auto", description: "Balanced Speed & Reasoning" },
+                  { value: "Fast", label: "Fast", description: "Low Latency inference" },
+                  { value: "Deep Thinking", label: "Deep Thinking", description: "Complex Analysis and multi-step reasoning" },
+                ]}
+              />
             </div>
           </div>
 

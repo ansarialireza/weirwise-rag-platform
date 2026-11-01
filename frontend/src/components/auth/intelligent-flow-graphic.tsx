@@ -38,14 +38,14 @@ export function IntelligentFlowGraphic() {
 
             <linearGradient id="flowGrad2" x1="40" y1="110" x2="270" y2="140" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
-              <stop offset="70%" stopColor="#CCFF00" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#CCFF00" stopOpacity="1" />
+              <stop offset="70%" stopColor="#94A3B8" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
             </linearGradient>
 
             <linearGradient id="flowGrad3" x1="40" y1="170" x2="270" y2="140" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#334155" stopOpacity="0.4" />
-              <stop offset="70%" stopColor="#CCFF00" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#CCFF00" stopOpacity="1" />
+              <stop offset="70%" stopColor="#94A3B8" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="1" />
             </linearGradient>
 
             <linearGradient id="flowGrad4" x1="40" y1="230" x2="270" y2="140" gradientUnits="userSpaceOnUse">
@@ -55,7 +55,7 @@ export function IntelligentFlowGraphic() {
             </linearGradient>
 
             <linearGradient id="outGrad" x1="270" y1="140" x2="500" y2="140" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#CCFF00" stopOpacity="1" />
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
               <stop offset="100%" stopColor="#2563FF" stopOpacity="0.8" />
             </linearGradient>
 
@@ -79,7 +79,7 @@ export function IntelligentFlowGraphic() {
           {/* Node 2: Database / SQL */}
           <g transform="translate(40, 110)">
             <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#CCFF00" />
+            <circle cx="0" cy="0" r="3" fill="#FFFFFF" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               Company Knowledge Bases
             </text>
@@ -88,7 +88,7 @@ export function IntelligentFlowGraphic() {
           {/* Node 3: Web Crawls / URLs */}
           <g transform="translate(40, 170)">
             <circle cx="0" cy="0" r="14" fill="#12151A" stroke="#262D3D" strokeWidth="1.5" />
-            <circle cx="0" cy="0" r="3" fill="#CCFF00" />
+            <circle cx="0" cy="0" r="3" fill="#FFFFFF" />
             <text x="22" y="4" fill="#94A3B8" fontSize="10" fontFamily="monospace" fontWeight="500">
               Live Web &amp; API Feeds
             </text>
@@ -134,13 +134,13 @@ export function IntelligentFlowGraphic() {
             {/* Outer precision ring */}
             <circle cx="0" cy="0" r="28" fill="#090A0C" stroke="#262D3D" strokeWidth="1.5" />
             {/* Energy halo */}
-            <circle cx="0" cy="0" r="20" fill="#CCFF00" fillOpacity="0.08" filter="url(#coreGlow)" />
+            <circle cx="0" cy="0" r="20" fill="#FFFFFF" fillOpacity="0.08" filter="url(#coreGlow)" />
             {/* Inner core */}
-            <circle cx="0" cy="0" r="12" fill="#12151A" stroke="#CCFF00" strokeWidth="2" />
+            <circle cx="0" cy="0" r="12" fill="#12151A" stroke="#FFFFFF" strokeWidth="1.5" />
             <circle cx="0" cy="0" r="4" fill="#2563FF" />
             
             {/* Weir badge labels */}
-            <text x="0" y="-36" fill="#CCFF00" fontSize="9" fontFamily="monospace" fontWeight="bold" textAnchor="middle" letterSpacing="0.05em">
+            <text x="0" y="-36" fill="#FFFFFF" fontSize="9" fontFamily="monospace" fontWeight="bold" textAnchor="middle" letterSpacing="0.05em">
               WEIR CORE
             </text>
             <text x="0" y="44" fill="#94A3B8" fontSize="8" fontFamily="monospace" textAnchor="middle">
@@ -161,7 +161,7 @@ export function IntelligentFlowGraphic() {
             <text x="30" y="-4" fill="#F8FAFC" fontSize="10" fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">
               Verified
             </text>
-            <text x="30" y="10" fill="#CCFF00" fontSize="8" fontFamily="monospace" textAnchor="middle">
+            <text x="30" y="10" fill="#E2E8F0" fontSize="8" fontFamily="monospace" textAnchor="middle">
               Cited Answer
             </text>
           </g>
