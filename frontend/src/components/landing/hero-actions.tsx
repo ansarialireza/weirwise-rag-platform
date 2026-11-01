@@ -27,17 +27,17 @@ export function HeroActions() {
     <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full max-w-md mx-auto">
       <Link
         href={dashboardUrl || "/register"}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#090A0C] text-[#CCFF00] dark:bg-primary dark:text-primary-foreground px-7 py-3.5 text-sm font-bold shadow-md hover:bg-[#14161C] active:scale-[0.98] transition-all border border-[#2E3444]/40"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-foreground text-background px-7 py-3.5 text-sm font-semibold shadow-xs hover:opacity-90 active:scale-[0.98] transition-all"
       >
         <span>{dashboardUrl ? "Open Workspace" : "Start Free Trial"}</span>
         <ArrowRight className="h-4 w-4" />
       </Link>
 
       <Link
-        href="/pricing"
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/80 px-6 py-3.5 text-sm font-semibold text-foreground hover:bg-secondary hover:border-border active:scale-[0.98] transition-all shadow-xs"
+        href="/login"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-border/80 bg-secondary/80 px-6 py-3.5 text-sm font-semibold text-foreground hover:bg-secondary hover:border-border active:scale-[0.98] transition-all shadow-xs"
       >
-        Explore Subscription Tiers
+        Sign In
       </Link>
     </div>
   );
