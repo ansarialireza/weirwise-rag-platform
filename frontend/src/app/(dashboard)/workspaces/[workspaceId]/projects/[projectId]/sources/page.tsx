@@ -9,20 +9,19 @@ import {
   Database,
   Upload,
   FileText,
-  CheckCircle2,
-  AlertCircle,
   Plus,
   X,
-  Layers,
   RefreshCw,
-  Search,
   ExternalLink,
+  ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge, Alert } from "@/components/ui/alert";
+import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
@@ -144,24 +143,21 @@ export default function SourcesKnowledgePage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-200">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-200">
+      {/* Top Header: Clean, Typographic, Minimalist */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Knowledge Base
-            </h1>
-            <Badge variant="primary" className="text-xs px-2.5 py-0.5">{sources.length} Sources</Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-relaxed">
-            Ingest and index company documents for grounded vector similarity search with Jina AI embeddings.
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Knowledge Base
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Manage reference documents and data sources for grounded semantic retrieval.
           </p>
         </div>
 
@@ -169,7 +165,7 @@ export default function SourcesKnowledgePage() {
           onClick={() => setShowModal(true)}
           variant="primary"
           size="sm"
-          className="h-9 px-4 text-xs font-bold gap-2 shrink-0 self-start sm:self-center"
+          className="rounded-2xl h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
         >
           <Plus className="h-4 w-4" /> Add Knowledge Source
         </Button>
@@ -193,68 +189,83 @@ export default function SourcesKnowledgePage() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column: Sources List */}
+          {/* Left Column: Clean Bento-style Dataset List */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Knowledge Datasets
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Datasets ({sources.length})
               </span>
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-secondary text-foreground">{sources.length}</span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {sources.map((src) => {
                 const isSelected = selectedSource?.id === src.id;
                 return (
-                  <div
+                  <button
                     key={src.id}
+                    type="button"
                     onClick={() => setSelectedSource(src)}
-                    className={`flex items-start justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                    className={`w-full text-left p-4 rounded-2xl transition-all duration-150 flex items-center justify-between gap-3 ${
                       isSelected
-                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
-                        : "border-border bg-card hover:bg-secondary/40 hover:border-border/80"
+                        ? "bg-muted text-foreground shadow-xs"
+                        : "bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <div className="space-y-1.5 truncate">
-                      <div className="flex items-center gap-2.5">
-                        <Database className={`h-4.5 w-4.5 flex-shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className="text-sm font-bold text-foreground truncate">{src.name}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-xl shrink-0 ${
+                        isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                      }`}>
+                        <Database className="h-4 w-4" />
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        Type: <span className="text-foreground font-medium">{src.source_type}</span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground truncate">
+                          {src.name}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {src.source_type === "file_upload" ? "Files" : "Web Crawl"} &middot; {src.document_count ?? 0} docs
+                        </div>
                       </div>
                     </div>
-                    <Badge variant={src.status === "ready" ? "success" : "outline"} className="text-[11px] px-2 py-0.2">
-                      {src.status}
-                    </Badge>
-                  </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        Ready
+                      </span>
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground/60 transition-transform ${isSelected ? "text-primary" : ""}`} />
+                    </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Right Column: Selected Source Documents & Ingestion Area */}
+          {/* Right Column: Selected Source & Indexed Documents */}
           <div className="md:col-span-2 space-y-5">
             {selectedSource ? (
-              <div className="rounded-xl border border-border bg-card p-6 space-y-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-5">
+              <div className="rounded-3xl bg-muted/20 p-6 sm:p-7 space-y-6">
+                {/* Dataset Summary & Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border/40">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-lg font-bold text-foreground truncate">{selectedSource.name}</h2>
-                      <Badge variant="outline" className="text-xs shrink-0">{selectedSource.source_type}</Badge>
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-mono text-muted-foreground uppercase">
+                        {selectedSource.source_type}
+                      </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 truncate">
-                      Status: <span className="font-bold text-emerald-500 uppercase font-mono">{selectedSource.status}</span> • Vectorized with Jina v4 1536-dim embeddings
+                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      Vectorized with 1536-dim embeddings &middot; Ready for RAG
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={loadDocuments}
                       isLoading={refreshing}
-                      className="h-8 px-3 text-xs font-semibold gap-1.5"
+                      className="rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Refresh
                     </Button>
@@ -273,58 +284,59 @@ export default function SourcesKnowledgePage() {
                         variant="primary"
                         size="sm"
                         isLoading={uploading}
-                        className="pointer-events-none h-8 px-3.5 text-xs font-bold gap-1.5"
+                        className="pointer-events-none rounded-xl h-8 px-3.5 text-xs font-semibold gap-1.5 shadow-xs"
                       >
-                        <Upload className="h-4 w-4" /> Upload Files
+                        <Upload className="h-3.5 w-3.5" /> Upload Files
                       </Button>
                     </label>
                   </div>
                 </div>
 
-                {/* Upload Status / Documents List */}
-                <div className="space-y-3.5">
-                  <div className="flex items-center justify-between text-sm font-semibold text-foreground">
+                {/* Documents List */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-medium text-muted-foreground px-1">
                     <span>Indexed Documents ({documents.length})</span>
-                    <span className="text-xs text-muted-foreground font-mono">Supported formats: .pdf, .txt, .md</span>
+                    <span>PDF, TXT, MD</span>
                   </div>
 
                   {documents.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border p-10 text-center space-y-3 bg-secondary/10">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-primary mx-auto border border-border">
-                        <Upload className="h-6 w-6" />
+                    <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center space-y-3 bg-card/40">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground mx-auto">
+                        <Upload className="h-5 w-5" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-bold text-foreground">No documents uploaded yet</p>
+                        <p className="text-sm font-semibold text-foreground">No documents uploaded yet</p>
                         <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                          Upload reference files above to ingest, chunk, and index for semantic search grounding.
+                          Upload files to chunk and index them for grounding.
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+                    <div className="divide-y divide-border/40 rounded-2xl bg-card overflow-hidden">
                       {documents.map((doc) => (
                         <div
                           key={doc.id}
-                          className="flex items-center justify-between p-4 bg-card hover:bg-secondary/30 transition-colors"
+                          className="flex items-center justify-between p-3.5 sm:p-4 hover:bg-muted/30 transition-colors gap-3"
                         >
-                          <div className="flex items-center gap-3.5 truncate">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary flex-shrink-0">
-                              <FileText className="h-5 w-5" />
+                          <div className="flex items-center gap-3 truncate">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-primary shrink-0">
+                              <FileText className="h-4 w-4" />
                             </div>
                             <div className="truncate">
-                              <div className="text-sm font-bold text-foreground truncate">
+                              <div className="text-xs sm:text-sm font-semibold text-foreground truncate">
                                 {doc.filename}
                               </div>
-                              <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                                {formatBytes(doc.file_size_bytes)} • {doc.mime_type || "text/plain"}
+                              <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <Badge variant={doc.status === "ready" ? "success" : "outline"} className="text-xs px-2.5 py-0.5">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                               {doc.status}
-                            </Badge>
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -333,26 +345,30 @@ export default function SourcesKnowledgePage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-                Select a knowledge source to view its documents.
+              <div className="rounded-3xl bg-muted/20 p-8 text-center text-xs text-muted-foreground">
+                Select a dataset to view its documents.
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Creation Modal */}
+      {/* Modern Creation Modal with Custom Select Dropdown / Drawer */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-3xl border border-border/40 bg-card p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-border/40">
               <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-primary" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-primary">
+                  <Database className="h-4 w-4" />
+                </div>
                 <h3 className="text-sm font-bold text-foreground">Add Knowledge Source</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -367,20 +383,30 @@ export default function SourcesKnowledgePage() {
                   placeholder="e.g. Employee Handbook, Technical Specs"
                   value={sourceName}
                   onChange={(e) => setSourceName(e.target.value)}
+                  className="rounded-xl h-10 text-xs"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Source Type</label>
-                <select
-                  value={sourceType}
-                  onChange={(e) => setSourceType(e.target.value as any)}
-                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
-                >
-                  <option value="file_upload">File Upload (PDF, TXT, Markdown)</option>
-                  <option value="website_crawl">Website URL Crawl</option>
-                </select>
-              </div>
+              {/* Custom Select with Bottom-Sheet behavior on mobile */}
+              <CustomSelect
+                label="Source Type"
+                value={sourceType}
+                onChange={(val) => setSourceType(val as any)}
+                options={[
+                  {
+                    value: "file_upload",
+                    label: "File Upload (PDF, TXT, Markdown)",
+                    description: "Upload local documents to generate vector embeddings",
+                    icon: <Upload className="h-4 w-4" />,
+                  },
+                  {
+                    value: "website_crawl",
+                    label: "Website URL Crawl",
+                    description: "Extract and index live web pages or documentation",
+                    icon: <ExternalLink className="h-4 w-4" />,
+                  },
+                ]}
+              />
 
               {sourceType === "website_crawl" && (
                 <div className="space-y-1">
@@ -391,16 +417,18 @@ export default function SourcesKnowledgePage() {
                     placeholder="https://docs.example.com"
                     value={targetUrl}
                     onChange={(e) => setTargetUrl(e.target.value)}
+                    className="rounded-xl h-10 text-xs"
                   />
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <div className="flex justify-end gap-2 pt-3 border-t border-border/40">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowModal(false)}
+                  className="rounded-xl text-xs font-medium"
                 >
                   Cancel
                 </Button>
@@ -410,8 +438,9 @@ export default function SourcesKnowledgePage() {
                   size="sm"
                   isLoading={creating}
                   disabled={!sourceName.trim()}
+                  className="rounded-xl text-xs font-semibold px-4 shadow-xs"
                 >
-                  Create Knowledge Source
+                  Create Source
                 </Button>
               </div>
             </form>
