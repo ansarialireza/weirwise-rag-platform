@@ -81,7 +81,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var stored=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light","colorful");if(stored==="colorful"){root.classList.add("colorful");}else if(stored==="light"){root.classList.add("light");}else if(stored==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}}catch(e){}})();`,
+            __html: `(function(){try{var stored=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light","colorful");if(stored==="light"){root.classList.add("light");}else if(stored==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}}catch(e){}})();`,
           }}
         />
       </head>

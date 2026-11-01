@@ -162,18 +162,10 @@ export function CommandPalette() {
     {
       id: "theme-dark",
       title: "Theme: Dark Mode",
-      subtitle: "Onyx charcoal with electric lime accent",
+      subtitle: "High-contrast Onyx dark appearance",
       icon: Moon,
       category: "Preferences" as const,
       onSelect: () => setTheme("dark"),
-    },
-    {
-      id: "theme-colorful",
-      title: "Theme: Colorful Mode",
-      subtitle: "Cosmic twilight with electric violet and cyan accents",
-      icon: Palette,
-      category: "Preferences" as const,
-      onSelect: () => setTheme("colorful"),
     },
     {
       id: "theme-light",

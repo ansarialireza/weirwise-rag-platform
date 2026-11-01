@@ -102,7 +102,7 @@ export default function PricingPage() {
             <div className="space-y-3 pt-4">
               <Link
                 href="/register"
-                className="w-full py-3.5 rounded-xl text-sm font-bold text-center inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.99] transition-all shadow-md"
+                className="w-full py-3.5 rounded-xl text-sm font-semibold text-center inline-flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.99] transition-all shadow-xs"
               >
                 <span>Start Free Trial</span>
                 <ArrowRight className="h-4 w-4" />

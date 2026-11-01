@@ -3,36 +3,36 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark Theme (Default) - Weirwise Onyx Charcoal, #CCFF00 Electric Lime & #2563FF Electric Blue */
+  /* Dark Theme (Default) - Weirwise Onyx Charcoal */
   :root,
   .dark {
     --background: 240 10% 4%;        /* #090A0C */
-    --foreground: 0 0% 96%;           /* #F5F5F5 (18.17:1 WCAG AAA) */
+    --foreground: 0 0% 98%;           /* #FAFAFA (high-contrast AAA text) */
     --card: 240 12% 7%;               /* #101217 */
-    --card-foreground: 0 0% 96%;
+    --card-foreground: 0 0% 98%;
     --popover: 240 12% 7%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime (Primary Orchestration & CTA, 16.85:1 vs background) */
-    --primary-foreground: 0 0% 0%;    /* #000000 (17.87:1 WCAG AAA text on #CCFF00) */
-    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue (Cognition & Memory, 4.06:1 AA graphical/large text) */
-    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF (4.88:1 WCAG AA text on #2563FF) */
-    --secondary: 220 18% 16%;         /* #222731 elevated interactive surface */
-    --secondary-foreground: 0 0% 94%; /* #F0F0F0 */
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;              /* Clean solid primary white for dark backgrounds */
+    --primary-foreground: 240 10% 4%; /* Crisp dark text on primary button */
+    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue */
+    --brand-secondary-foreground: 0 0% 100%;
+    --secondary: 220 18% 16%;         /* #222731 */
+    --secondary-foreground: 0 0% 94%;
     --muted: 225 15% 12%;             /* #171A22 */
-    --muted-foreground: 220 15% 69%;  /* #A3ACBD (8.20:1 WCAG AAA text on #101217) */
-    --accent: 72 100% 50%;            /* #CCFF00 */
-    --accent-foreground: 0 0% 0%;
+    --muted-foreground: 220 15% 69%;  /* #A3ACBD (>8.2:1 WCAG AAA) */
+    --accent: 223 100% 57%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 4 90% 58%;         /* #FF453A */
     --destructive-foreground: 0 0% 100%;
-    --border: 222 18% 22%;            /* #2E3444 well-defined boundaries */
+    --border: 222 18% 22%;            /* #2E3444 */
     --input: 220 16% 14%;             /* #1D212A */
-    --ring: 72 100% 50%;              /* #CCFF00 */
+    --ring: 0 0% 98%;
     --radius: 0.5rem;
-    --brand-glow: rgba(204, 255, 0, 0.12);
+    --brand-glow: rgba(255, 255, 255, 0.08);
     --brand-glow-secondary: rgba(37, 99, 255, 0.18);
   }
 
-  /* Light Theme - Soft neutral off-white surfaces, crisp typography, accessible UI fills & cobalt blue */
+  /* Light Theme - Soft neutral off-white surfaces, crisp typography */
   .light {
     --background: 220 14% 96%;        /* #F3F4F6 */
     --foreground: 240 10% 4%;         /* #090A0C Onyx */
@@ -40,52 +40,24 @@
     --card-foreground: 240 10% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 4%;
-    --primary: 240 10% 4%;            /* #090A0C Onyx */
-    --primary-foreground: 72 100% 50%; /* #CCFF00 Electric Lime */
-    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue */
-    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF */
+    --primary: 240 10% 4%;            /* #090A0C Onyx solid */
+    --primary-foreground: 0 0% 98%;   /* White text on dark button */
+    --brand-secondary: 223 100% 57%;  /* #2563FF */
+    --brand-secondary-foreground: 0 0% 100%;
     --secondary: 220 13% 91%;         /* #E2E8F0 */
     --secondary-foreground: 240 10% 4%;
     --muted: 220 14% 92%;             /* #E5E7EB */
-    --muted-foreground: 215 16% 37%;  /* #505D6E */
-    --accent: 223 100% 57%;           /* #2563FF Electric Blue */
+    --muted-foreground: 215 16% 37%;  /* #505D6E (>7:1) */
+    --accent: 223 100% 57%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 56%;         /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 84%;            /* #C5D0DE */
     --input: 220 14% 94%;             /* #EFF1F5 */
-    --ring: 223 100% 57%;             /* #2563FF Electric Blue */
+    --ring: 240 10% 4%;
     --radius: 0.5rem;
-    --brand-glow: rgba(37, 99, 255, 0.16);
-    --brand-glow-secondary: rgba(9, 10, 12, 0.12);
-  }
-
-  /* Colorful Theme - Cosmic Twilight Indigo with Radiant Violet & Cyan Accents (Interface Theme) */
-  .colorful {
-    --background: 234 40% 9%;         /* #0d1124 */
-    --foreground: 210 40% 98%;        /* #f8fafc */
-    --card: 235 32% 14%;              /* #181e36 */
-    --card-foreground: 210 40% 98%;
-    --popover: 235 32% 14%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 262 83% 66%;           /* #8b5cf6 UI action accent */
-    --primary-foreground: 0 0% 100%;  /* #ffffff (4.80:1 WCAG AA text) */
-    --brand-secondary: 188 95% 48%;   /* #06b6d4 UI secondary intelligence token */
-    --brand-secondary-foreground: 0 0% 100%; /* #ffffff */
-    --secondary: 235 28% 22%;         /* #283054 */
-    --secondary-foreground: 220 35% 96%;
-    --muted: 235 30% 16%;             /* #1c223c */
-    --muted-foreground: 228 32% 74%;  /* #A8B3D4 (>8.9:1) */
-    --accent: 188 95% 48%;            /* #06b6d4 */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 348 88% 60%;       /* #f43f5e */
-    --destructive-foreground: 0 0% 100%;
-    --border: 235 24% 24%;            /* #2E365E */
-    --input: 235 28% 18%;             /* #202644 */
-    --ring: 262 83% 66%;
-    --radius: 0.5rem;
-    --brand-glow: rgba(139, 92, 246, 0.28);
-    --brand-glow-secondary: rgba(6, 182, 212, 0.24);
+    --brand-glow: rgba(9, 10, 12, 0.08);
+    --brand-glow-secondary: rgba(37, 99, 255, 0.12);
   }
 }
 

@@ -27,12 +27,10 @@ export function CompactThemeMenu({ className }: CompactThemeMenuProps) {
   const options: { id: Theme; label: string; icon: typeof Moon }[] = [
     { id: "system", label: "System (Auto)", icon: Laptop },
     { id: "dark", label: "Dark", icon: Moon },
-    { id: "colorful", label: "Colorful", icon: Palette },
     { id: "light", label: "Light", icon: Sun },
   ];
 
-  const CurrentIcon =
-    resolvedTheme === "colorful" ? Palette : resolvedTheme === "light" ? Sun : Moon;
+  const CurrentIcon = resolvedTheme === "light" ? Sun : Moon;
 
   return (
     <div ref={containerRef} className={cn("relative inline-block", className)}>

@@ -215,7 +215,7 @@ export default function BlogPostPage({ params }: Props) {
           </p>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#090A0C] text-[#CCFF00] dark:bg-primary dark:text-primary-foreground px-6 py-3 text-sm font-bold shadow-md hover:bg-[#14161C] active:scale-[0.98] transition-all"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground text-background px-6 py-3 text-sm font-semibold shadow-xs hover:opacity-90 active:scale-[0.98] transition-all"
           >
             <span>Start Free Trial</span>
             <ChevronRight className="h-4 w-4" />
