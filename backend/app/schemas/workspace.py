@@ -26,8 +26,7 @@ class WorkspaceResponse(BaseModel):
     name: str
     slug: str
     plan_tier: str
-    promotional_credit_balance: float = 100.0
-    fiat_spend_balance: float = 0.0
+    subscription_tier_id: uuid.UUID | None = None
     settings: dict[str, Any]
     is_active: bool
     created_at: datetime

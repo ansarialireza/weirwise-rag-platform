@@ -78,7 +78,7 @@ export default function RegisterPage() {
         <div className="my-auto py-8 space-y-6 max-w-sm w-full mx-auto">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
-              Includes $100 Free Welcome Credit
+              Includes Free Trial with Dynamic Quotas
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Create platform account

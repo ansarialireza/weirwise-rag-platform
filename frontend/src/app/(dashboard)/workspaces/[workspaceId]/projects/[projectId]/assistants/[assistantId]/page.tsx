@@ -37,7 +37,7 @@ export default function AssistantConfigurePage() {
   // Form State
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [model, setModel] = useState("gpt-4o-mini");
+  const [model, setModel] = useState("Auto");
   const [temperature, setTemperature] = useState(0.2);
   const [scoreThreshold, setScoreThreshold] = useState(0.7);
   const [topK, setTopK] = useState(4);
@@ -246,15 +246,15 @@ export default function AssistantConfigurePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Inference Model</label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Routing Strategy</label>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 className="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground focus:border-primary focus:outline-none shadow-xs"
               >
-                <option value="gpt-4o-mini">GPT-4o Mini (Default - High Speed)</option>
-                <option value="gpt-4o">GPT-4o (Deep Reasoning)</option>
-                <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                <option value="Auto">Auto (Balanced Speed & Reasoning)</option>
+                <option value="Fast">Fast (Low Latency)</option>
+                <option value="Deep Thinking">Deep Thinking (Complex Analysis)</option>
               </select>
             </div>
           </div>

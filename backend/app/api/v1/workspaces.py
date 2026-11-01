@@ -4,10 +4,9 @@ import re
 import uuid
 
 from backend.app.api.dependencies import WorkspaceContext, get_current_user, require_workspace
-from backend.app.core.config import settings
 from backend.app.db.session import get_db_session
 from backend.app.models.audit import AuditEvent
-from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
+from backend.app.models.auth import Membership, SubscriptionTier, User, Workspace, WorkspaceRole
 from backend.app.models.project import Project
 from backend.app.schemas.workspace import (
     MemberInviteRequest,
@@ -44,12 +43,17 @@ async def create_workspace(
     base_slug = payload.slug or slugify(payload.name)
     slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
+    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.name == "Free Trial"))
+    default_tier = tier_res.scalar_one_or_none()
+    if not default_tier:
+        tier_res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
+        default_tier = tier_res.scalars().first()
+
     workspace = Workspace(
         name=payload.name,
         slug=slug,
-        plan_tier="pay_as_you_go",
-        promotional_credit_balance=settings.DEFAULT_PROMOTIONAL_CREDIT,
-        fiat_spend_balance=0.000000,
+        plan_tier=default_tier.name.lower().replace(" ", "_") if default_tier else "free",
+        subscription_tier_id=default_tier.id if default_tier else None,
     )
     db.add(workspace)
     await db.flush()

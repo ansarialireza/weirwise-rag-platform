@@ -92,7 +92,7 @@ export default function RootPage() {
             className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary mb-6 hover:bg-primary/15 transition-all shadow-xs group"
           >
             <Gift className="h-4 w-4 text-primary" />
-            <span>New: $100 Welcome Credit for every new account</span>
+            <span>New: Free Trial with Dynamic Quotas</span>
             <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
 
@@ -115,7 +115,7 @@ export default function RootPage() {
               href={dashboardUrl || "/register"}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-primary px-7 py-3.5 text-sm font-bold text-primary-foreground shadow-md hover:opacity-90 active:scale-[0.98] transition-all"
             >
-              <span>{dashboardUrl ? "Open Workspace" : "Start with $100 Credit"}</span>
+              <span>{dashboardUrl ? "Open Workspace" : "Start Free Trial"}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
 
@@ -123,7 +123,7 @@ export default function RootPage() {
               href="/pricing"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/80 px-6 py-3.5 text-sm font-semibold text-foreground hover:bg-secondary hover:border-border active:scale-[0.98] transition-all shadow-xs"
             >
-              Explore Pay-As-You-Go
+              Explore Subscription Tiers
             </Link>
           </div>
 
@@ -245,14 +245,14 @@ export default function RootPage() {
               Ready to give your business an intelligent assistant?
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
-              Create an account now to claim your $100 free credit. Ingest documentation, test in the studio, and embed on your site in minutes.
+              Create an account now to start your free trial with dynamic quota allocation. Ingest documentation, test in the studio, and embed on your site in minutes.
             </p>
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-sm mx-auto">
               <Link
                 href="/register"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-md hover:opacity-90 active:scale-[0.98] transition-all"
               >
-                <span>Claim $100 Credit</span>
+                <span>Start Free Trial</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

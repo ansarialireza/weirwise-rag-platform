@@ -36,7 +36,7 @@ class Assistant(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     system_instructions = Column(Text, nullable=True)
-    model = Column(String(100), default="gpt-4o-mini", nullable=False)
+    model = Column(String(100), default="Auto", nullable=False)
     temperature = Column(Float, default=0.2, nullable=False)
     max_tokens = Column(Integer, default=1024, nullable=False)
     score_threshold = Column(Float, default=0.7, nullable=False)

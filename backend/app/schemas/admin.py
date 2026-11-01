@@ -4,7 +4,62 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class SubscriptionTierCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    monthly_price: float = Field(0.0, ge=0.0)
+    max_assistants: int = Field(2, ge=1)
+    max_monthly_messages: int = Field(100, ge=0)
+    max_storage_mb: int = Field(50, ge=1)
+
+
+class SubscriptionTierUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    monthly_price: Optional[float] = Field(None, ge=0.0)
+    max_assistants: Optional[int] = Field(None, ge=1)
+    max_monthly_messages: Optional[int] = Field(None, ge=0)
+    max_storage_mb: Optional[int] = Field(None, ge=1)
+
+
+class SubscriptionTierResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    monthly_price: float
+    max_assistants: int
+    max_monthly_messages: int
+    max_storage_mb: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class AIRoutingStrategyCreate(BaseModel):
+    ui_name: str = Field(..., min_length=2, max_length=50)
+    ui_description: str = Field(..., min_length=2, max_length=255)
+    target_llm_model: str = Field(..., min_length=2, max_length=100)
+    is_active: bool = True
+
+
+class AIRoutingStrategyUpdate(BaseModel):
+    ui_name: Optional[str] = Field(None, min_length=2, max_length=50)
+    ui_description: Optional[str] = Field(None, min_length=2, max_length=255)
+    target_llm_model: Optional[str] = Field(None, min_length=2, max_length=100)
+    is_active: Optional[bool] = None
+
+
+class AIRoutingStrategyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    ui_name: str
+    ui_description: str
+    target_llm_model: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProviderAccountCreate(BaseModel):

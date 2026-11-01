@@ -37,8 +37,10 @@ from backend.app.models.audit import (
     UsageEvent,
 )
 from backend.app.models.auth import (
+    AIRoutingStrategy,
     Membership,
     PasswordResetToken,
+    SubscriptionTier,
     User,
     UserSession,
     Workspace,
@@ -57,6 +59,7 @@ __all__ = [
     "AdminAuditLog",
     "AdminRole",
     "AdminUserRole",
+    "AIRoutingStrategy",
     "AnswerFeedback",
     "ApiCredential",
     "Assistant",
@@ -87,6 +90,7 @@ __all__ = [
     "ProviderCredential",
     "ProviderRoutingStrategy",
     "SourceProcessingStatus",
+    "SubscriptionTier",
     "TokenCostLedger",
     "UnansweredQuery",
     "UsageEvent",

@@ -129,8 +129,6 @@ class TokenCostLedger(Base):
     output_tokens = Column(Integer, default=0, nullable=False)
     total_tokens = Column(Integer, default=0, nullable=False)
     cost_usd = Column(Numeric(12, 6), default=0.000000, nullable=False)  # 6 decimal precision for microcents
-    covered_by_promotional_credit = Column(Numeric(12, 6), default=0.000000, nullable=False)
-    covered_by_fiat = Column(Numeric(12, 6), default=0.000000, nullable=False)
     latency_ms = Column(Integer, default=0, nullable=False)
     is_success = Column(Boolean, default=True, nullable=False)
     error_type = Column(String(100), nullable=True)
