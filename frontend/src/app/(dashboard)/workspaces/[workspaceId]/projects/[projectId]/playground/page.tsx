@@ -16,6 +16,9 @@ import {
   Check,
   ChevronRight,
   SlidersHorizontal,
+  Plus,
+  ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -134,7 +137,7 @@ export default function DedicatedPlaygroundPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -149,14 +152,14 @@ export default function DedicatedPlaygroundPage() {
     <div className="flex flex-col h-full bg-background overflow-hidden relative">
       {/* Top Header: Clean, Minimalist, Non-distracting */}
       <header className="flex h-14 items-center justify-between border-b border-border/40 px-4 sm:px-6 shrink-0 bg-background/80 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {assistants.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted-foreground">Assistant:</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold text-muted-foreground shrink-0 hidden sm:inline">Assistant:</span>
               <select
                 value={selectedAssistant?.id || ""}
                 onChange={(e) => handleSelectAssistant(e.target.value)}
-                className="h-8 rounded-xl bg-muted/50 px-2.5 text-xs font-semibold text-foreground focus:outline-none border-none cursor-pointer"
+                className="h-8 rounded-xl bg-muted/60 hover:bg-muted px-2.5 text-xs font-semibold text-foreground focus:outline-none border-none cursor-pointer truncate max-w-[200px] sm:max-w-xs transition-colors"
               >
                 {assistants.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -166,11 +169,14 @@ export default function DedicatedPlaygroundPage() {
               </select>
             </div>
           ) : (
-            <span className="text-xs font-medium text-muted-foreground">No assistant configured</span>
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-500">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="truncate">No assistant configured</span>
+            </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {messages.length > 0 && (
             <Button
               variant="ghost"
@@ -179,7 +185,7 @@ export default function DedicatedPlaygroundPage() {
                 setMessages([]);
                 setConversationId(undefined);
               }}
-              className="h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
+              className="rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5 transition-colors"
               title="Clear chat"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -187,15 +193,19 @@ export default function DedicatedPlaygroundPage() {
             </Button>
           )}
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowInspector(!showInspector)}
-            className={`h-8 px-2.5 text-xs font-medium gap-1.5 ${showInspector ? "text-primary bg-muted" : "text-muted-foreground hover:text-foreground"}`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Settings</span>
-          </Button>
+          {selectedAssistant && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowInspector(!showInspector)}
+              className={`rounded-xl h-8 px-2.5 text-xs font-medium gap-1.5 transition-colors ${
+                showInspector ? "text-primary bg-muted" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -204,38 +214,60 @@ export default function DedicatedPlaygroundPage() {
         {/* Chat Stream & Floating Input */}
         <div className="flex flex-1 flex-col overflow-hidden relative">
           {/* Scrollable Message List */}
-          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 space-y-6 max-w-3xl w-full mx-auto pb-32">
-            {messages.length === 0 ? (
-              /* Centered ChatGPT-style Empty State */
-              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 space-y-6 max-w-3xl w-full mx-auto pb-36">
+            {/* Case 1: No Assistant Configured in Project */}
+            {assistants.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-5 px-4 animate-in fade-in duration-150">
+                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
+                  <Bot className="h-7 w-7" />
+                </div>
+                <div className="space-y-2 max-w-sm">
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">
+                    No assistant configured yet
+                  </h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    To start chatting and testing semantic grounding, configure an assistant with your preferred model and persona.
+                  </p>
+                </div>
+
+                <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`} className="pt-1">
+                  <Button variant="primary" size="sm" className="rounded-2xl px-5 h-9 text-xs font-semibold gap-2 shadow-xs">
+                    <Plus className="h-4 w-4" /> Create Assistant
+                  </Button>
+                </Link>
+              </div>
+            ) : messages.length === 0 ? (
+              /* Case 2: Assistant Ready, Empty State with Clickable Prompt Chips */
+              <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-6 px-4 animate-in fade-in duration-150">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-primary">
                   <Bot className="h-6 w-6" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <h2 className="text-xl font-bold tracking-tight text-foreground">
-                    {selectedAssistant ? selectedAssistant.name : "Playground"}
+                    {selectedAssistant ? selectedAssistant.name : "Grounding Playground"}
                   </h2>
                   <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
                     Ask questions grounded directly in your uploaded knowledge sources.
                   </p>
                 </div>
 
-                {/* Prompt Suggestions */}
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2 justify-center max-w-lg pt-2">
+                {/* Prompt Suggestions with Modern Hover Affordance */}
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 justify-center max-w-lg pt-2">
                   {promptSuggestions.map((prompt) => (
                     <button
                       key={prompt}
                       type="button"
                       onClick={() => handleSendMessage(prompt)}
-                      className="rounded-full bg-muted/50 hover:bg-muted px-4 py-2 text-xs text-foreground/80 hover:text-foreground transition-colors border border-border/20 text-left sm:text-center"
+                      className="group rounded-full bg-muted/40 hover:bg-muted active:scale-98 px-4 py-2.5 text-xs text-foreground/80 hover:text-foreground transition-all duration-150 border border-border/40 hover:border-border text-left sm:text-center shadow-2xs flex items-center justify-between sm:justify-center gap-2 cursor-pointer"
                     >
-                      {prompt}
+                      <span>{prompt}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
-              /* Message Flow */
+              /* Case 3: Message Flow */
               messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -267,13 +299,13 @@ export default function DedicatedPlaygroundPage() {
                               <div className="flex justify-between items-center text-foreground font-medium mb-1">
                                 <span className="text-[11px]">Chunk #{s.rank || idx + 1}</span>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-mono text-primary">
+                                  <span className="text-[11px] font-mono text-primary font-semibold">
                                     {(s.similarity_score * 100).toFixed(1)}% match
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => handleCopyEvidence(s.content, idx)}
-                                    className="p-1 rounded-md hover:bg-muted text-muted-foreground transition-colors"
+                                    className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                                     title="Copy quote"
                                   >
                                     {copiedIndex === idx ? (
@@ -301,7 +333,7 @@ export default function DedicatedPlaygroundPage() {
             {chatting && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2 animate-pulse">
                 <span className="h-2 w-2 rounded-full bg-primary" />
-                Thinking and searching sources...
+                Searching knowledge and generating response...
               </div>
             )}
 
@@ -315,7 +347,9 @@ export default function DedicatedPlaygroundPage() {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="max-w-3xl mx-auto flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-full shadow-lg p-1.5 focus-within:ring-2 focus-within:ring-primary/20 transition-all"
+              className={`max-w-3xl mx-auto flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-full shadow-lg p-1.5 transition-all ${
+                !selectedAssistant ? "opacity-60 cursor-not-allowed" : "focus-within:ring-2 focus-within:ring-primary/20"
+              }`}
             >
               <input
                 type="text"
@@ -325,25 +359,37 @@ export default function DedicatedPlaygroundPage() {
                 placeholder={
                   selectedAssistant
                     ? `Message ${selectedAssistant.name}...`
-                    : "Configure an assistant first..."
+                    : "Configure an assistant first to start chatting..."
                 }
-                className="flex-1 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                className="flex-1 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed"
               />
-              <button
-                type="submit"
-                disabled={!inputQuery.trim() || chatting || !selectedAssistant}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-30 disabled:pointer-events-none hover:opacity-90 transition-opacity shrink-0 mr-1"
-                aria-label="Send message"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
+
+              {!selectedAssistant ? (
+                <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`}>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-muted text-[11px] font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all shrink-0 mr-1"
+                  >
+                    <Plus className="h-3 w-3" /> Create Assistant
+                  </button>
+                </Link>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!inputQuery.trim() || chatting}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-30 disabled:pointer-events-none hover:opacity-90 active:scale-95 transition-all shrink-0 mr-1"
+                  aria-label="Send message"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+              )}
             </form>
           </div>
         </div>
 
         {/* Right Parameters Drawer/Inspector */}
         {showInspector && selectedAssistant && (
-          <aside className="w-72 border-l border-border/40 bg-card/60 backdrop-blur-md p-5 overflow-y-auto space-y-5 animate-in slide-in-from-right-10 duration-200">
+          <aside className="w-72 border-l border-border/40 bg-card/60 backdrop-blur-md p-5 overflow-y-auto space-y-5 animate-in slide-in-from-right-10 duration-150">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
                 Assistant Settings
