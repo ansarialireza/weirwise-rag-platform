@@ -123,19 +123,19 @@ export default function DashboardLayout({
           aria-label="Navigation drawer"
           className="fixed inset-0 z-50 flex md:hidden"
         >
-          {/* 1. Backdrop covering entire viewport with dimming and blur */}
+          {/* Backdrop covering entire viewport with subtle blur */}
           <div
             data-testid="drawer-backdrop"
-            className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
             onClick={handleCloseDrawer}
             aria-hidden="true"
           />
 
-          {/* 2. Isolated Drawer Container */}
+          {/* Drawer Container */}
           <div
             ref={drawerRef}
             tabIndex={-1}
-            className="relative z-50 flex h-full w-[85vw] max-w-[320px] flex-col bg-card shadow-2xl outline-none animate-in slide-in-from-left duration-200 border-r border-border"
+            className="relative z-50 flex h-full w-[85vw] max-w-[300px] flex-col bg-card shadow-2xl outline-none animate-in slide-in-from-left duration-200 border-r border-border/40"
           >
             <Sidebar
               currentWorkspace={currentWorkspace}
@@ -155,45 +155,45 @@ export default function DashboardLayout({
         className="flex flex-1 flex-col overflow-hidden min-w-0"
         aria-hidden={mobileMenuOpen ? true : undefined}
       >
-        {/* Mobile Header Bar: Robust 3-Region Layout with Perfect Center Alignment */}
-        <header className="h-14 md:hidden grid grid-cols-[48px_1fr_48px] items-center border-b border-border bg-card/95 backdrop-blur-md px-3 shrink-0 select-none z-10">
-          {/* Region 1: Left Menu Trigger */}
+        {/* Mobile Header Bar: Clean & Minimalist */}
+        <header className="h-14 md:hidden grid grid-cols-[48px_1fr_48px] items-center border-b border-border/40 bg-background/80 backdrop-blur-md px-3 shrink-0 select-none z-10">
+          {/* Left Menu Trigger */}
           <div className="flex items-center justify-start">
             <button
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors focus:outline-none"
               aria-label="Open navigation menu"
               aria-expanded={mobileMenuOpen}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Region 2: True Centered Workspace/Project Title */}
+          {/* Centered Workspace/Project Title */}
           <div className="flex items-center justify-center min-w-0 px-2 text-center">
             <span
-              className="text-sm font-bold tracking-tight text-foreground truncate"
+              className="text-xs font-semibold tracking-tight text-foreground truncate"
               title={currentProject?.name || currentWorkspace?.name || "Weirwise"}
             >
               {currentProject?.name || currentWorkspace?.name || "Weirwise"}
             </span>
           </div>
 
-          {/* Region 3: Right Action / Profile Icon */}
+          {/* Right Action / Playground Shortcut */}
           <div className="flex items-center justify-end">
             {baseProjUrl ? (
               <Link
                 href={baseProjUrl + "/playground"}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-foreground hover:bg-secondary hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted hover:text-primary transition-colors focus:outline-none"
                 title="Open Playground"
                 aria-label="Open Playground"
               >
                 <Sliders className="h-4 w-4" />
               </Link>
             ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary border border-border text-xs font-bold text-foreground">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
                 {user?.full_name?.charAt(0) || "U"}
               </div>
             )}
