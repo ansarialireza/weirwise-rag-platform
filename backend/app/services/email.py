@@ -1,10 +1,11 @@
-"""Email delivery service integrating the official Resend API SDK with dev fallback."""
+"""Email delivery service integrating the official Resend API SDK with robust error handling and dev fallback."""
 
 import asyncio
 import logging
 from typing import Any
 
 import resend
+from resend.exceptions import ResendError
 from backend.app.core.config import settings
 
 logger = logging.getLogger("weirwise.email")
@@ -41,7 +42,7 @@ class EmailService:
         # Dispatch via Resend API
         if settings.RESEND_API_KEY:
             params: dict[str, Any] = {
-                # Resend Sandbox Requirement: Sender must be onboarding@resend.dev until custom domain is verified
+                # Resend Sandbox Requirement: Sender must strictly be onboarding@resend.dev until domain is verified
                 "from": "onboarding@resend.dev",
                 "to": to_email,
                 "subject": subject,
@@ -62,11 +63,28 @@ class EmailService:
                 )
                 print(f"✅ [RESEND API SUCCESS] Dispatched to {to_email} | Email ID: {email_id}", flush=True)
                 return response
+            except ResendError as resend_err:
+                logger.error(
+                    "Resend API error occurred: to=%s, code=%s, error=%s",
+                    to_email,
+                    getattr(resend_err, "code", "UNKNOWN"),
+                    resend_err,
+                )
+                print(f"⚠️ [RESEND API ERROR] ResendError for {to_email}: {resend_err}", flush=True)
+                # In sandbox mode, non-whitelisted recipients trigger ResendError (e.g. 403 Forbidden).
+                # In dev environment, log warning and allow flow to proceed without crashing FastAPI.
+                if settings.ENVIRONMENT not in ("development", "dev", "test"):
+                    raise
+                return None
+            except TimeoutError as timeout_err:
+                logger.error("Resend API network timeout sending to %s: %s", to_email, timeout_err)
+                print(f"⚠️ [RESEND TIMEOUT ERROR] Network timeout for {to_email}: {timeout_err}", flush=True)
+                if settings.ENVIRONMENT not in ("development", "dev", "test"):
+                    raise
+                return None
             except Exception as exc:
-                logger.error("Resend API email dispatch failed: to=%s, error=%s", to_email, exc)
-                print(f"⚠️ [RESEND API ERROR] Failed dispatch to {to_email}: {exc}", flush=True)
-                # In sandbox mode, Resend rejects emails to non-verified accounts with a 403 error.
-                # In dev environment, log warning and allow flow to proceed without failing the endpoint.
+                logger.error("Unexpected error during Resend email dispatch to %s: %s", to_email, exc)
+                print(f"⚠️ [RESEND UNEXPECTED ERROR] Failed dispatch to {to_email}: {exc}", flush=True)
                 if settings.ENVIRONMENT not in ("development", "dev", "test"):
                     raise
                 return None
