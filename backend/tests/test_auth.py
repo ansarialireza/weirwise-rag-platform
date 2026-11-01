@@ -13,25 +13,46 @@ def test_auth_registration_and_login_flow():
     password = "SuperSecurePassword123!"
     full_name = "Jane Doe"
 
-    # 1. Register User
+    # 1. Register User (Receives 201 Created and OTP)
     reg_resp = client.post(
         "/api/v1/auth/register",
         json={"email": email, "password": password, "full_name": full_name},
     )
     assert reg_resp.status_code == 201, reg_resp.text
-    user_data = reg_resp.json()
-    assert user_data["email"] == email
-    assert user_data["full_name"] == full_name
-    assert "id" in user_data
+    reg_data = reg_resp.json()
+    assert "verification_otp" in reg_data
+    otp = reg_data["verification_otp"]
+    assert len(otp) == 6
 
-    # Duplicate registration check
+    # 2. Login before verification must fail with 403 Forbidden
+    pre_login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+    )
+    assert pre_login_resp.status_code == 403
+
+    # 3. Invalid OTP verification must fail with 400 Bad Request
+    bad_verify_resp = client.post(
+        "/api/v1/auth/verify-email",
+        json={"email": email, "otp": "000000"},
+    )
+    assert bad_verify_resp.status_code == 400
+
+    # 4. Correct OTP verification
+    verify_resp = client.post(
+        "/api/v1/auth/verify-email",
+        json={"email": email, "otp": otp},
+    )
+    assert verify_resp.status_code == 200
+
+    # 5. Duplicate registration check for verified user
     dup_resp = client.post(
         "/api/v1/auth/register",
         json={"email": email, "password": password, "full_name": full_name},
     )
     assert dup_resp.status_code == 409
 
-    # 2. Login User
+    # 6. Login User after verification
     login_resp = client.post(
         "/api/v1/auth/login",
         json={"email": email, "password": password},
@@ -43,15 +64,16 @@ def test_auth_registration_and_login_flow():
     access_token = tokens["access_token"]
     refresh_token = tokens["refresh_token"]
 
-    # 3. Access current user profile (/me)
+    # 7. Access current user profile (/me)
     me_resp = client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert me_resp.status_code == 200
     assert me_resp.json()["email"] == email
+    assert me_resp.json()["is_verified"] is True
 
-    # 4. Token Refresh
+    # 8. Token Refresh
     ref_resp = client.post(
         "/api/v1/auth/refresh",
         json={"refresh_token": refresh_token},
@@ -61,14 +83,14 @@ def test_auth_registration_and_login_flow():
     assert "access_token" in new_tokens
     assert new_tokens["access_token"] != access_token
 
-    # 5. Old refresh token should be revoked (one-time rotation)
+    # 9. Old refresh token should be revoked (one-time rotation)
     old_ref_resp = client.post(
         "/api/v1/auth/refresh",
         json={"refresh_token": refresh_token},
     )
     assert old_ref_resp.status_code == 401
 
-    # 6. Logout
+    # 10. Logout
     logout_resp = client.post(
         "/api/v1/auth/logout",
         headers={"Authorization": f"Bearer {new_tokens['access_token']}"},
@@ -82,24 +104,25 @@ def test_password_reset_flow():
     password = "InitialPassword123!"
     new_password = "UpdatedPassword456!"
 
-    client.post(
+    reg_resp = client.post(
         "/api/v1/auth/register",
         json={"email": email, "password": password, "full_name": "Reset User"},
     )
+    assert reg_resp.status_code == 201
 
-    # Request Reset
+    # Request Reset via /forgot-password or /password-reset/request
     req_resp = client.post(
-        "/api/v1/auth/password-reset/request",
+        "/api/v1/auth/forgot-password",
         json={"email": email},
     )
     assert req_resp.status_code == 200
     reset_token = req_resp.json().get("reset_token")
     assert reset_token is not None
 
-    # Confirm Reset
+    # Confirm Reset via /reset-password
     conf_resp = client.post(
-        "/api/v1/auth/password-reset/confirm",
-        json={"token": reset_token, "new_password": new_password},
+        "/api/v1/auth/reset-password",
+        json={"email": email, "token": reset_token, "new_password": new_password},
     )
     assert conf_resp.status_code == 200
 

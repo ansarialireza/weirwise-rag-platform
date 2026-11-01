@@ -34,23 +34,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // 1. Create account
+      // 1. Create account & dispatch OTP
       await api.register({ full_name: fullName, email, password });
 
-      // 2. Immediate login
-      const loginRes = await api.login({ email, password });
-      const user = await api.getMe();
-      login(loginRes.access_token, user);
-
-      // 3. Ensure primary workspace exists
-      let workspaces = await api.getWorkspaces();
-      if (workspaces.length === 0) {
-        const defaultName = `${fullName.split(" ")[0]}'s Workspace`;
-        const newWs = await api.createWorkspace({ name: defaultName });
-        workspaces = [newWs];
-      }
-
-      router.push(`/workspaces/${workspaces[0].id}`);
+      // 2. Redirect to verify-email step with email query param
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Failed to create account. Please check your details.");
     } finally {

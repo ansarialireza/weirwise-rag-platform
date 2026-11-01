@@ -49,8 +49,18 @@ class PasswordResetRequest(BaseModel):
 
 
 class PasswordResetConfirmRequest(BaseModel):
-    token: str
+    email: EmailStrType | None = None
+    token: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStrType
+    otp: str = Field(..., min_length=6, max_length=64)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStrType
 
 
 class UserResponse(BaseModel):
@@ -60,6 +70,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     is_active: bool
+    is_verified: bool = False
     is_superuser: bool
     created_at: datetime
     updated_at: datetime
@@ -68,3 +79,4 @@ class UserResponse(BaseModel):
 class AuthMessageResponse(BaseModel):
     message: str
     reset_token: str | None = None  # Returned in development mode when email is not configured
+    verification_otp: str | None = None  # Returned in development mode

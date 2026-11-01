@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
+    EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 15
+
+    # Email / SMTP Service
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM_EMAIL: str = "noreply@weirwise.com"
+    SMTP_FROM_NAME: str = "Weirwise Platform"
+    SMTP_USE_TLS: bool = True
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./platform_dev.db"

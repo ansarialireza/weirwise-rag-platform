@@ -52,6 +52,11 @@ def generate_secure_token(prefix: str = "wwp_") -> tuple[str, str]:
     return raw, hashed
 
 
+def generate_otp_code(length: int = 6) -> str:
+    """Generate a cryptographically secure numeric OTP code (e.g. 6-digit)."""
+    return "".join(secrets.choice("0123456789") for _ in range(length))
+
+
 def create_jwt_token(data: dict[str, Any], expires_delta: timedelta) -> str:
     """Create a signed JWT token with explicit expiration and standard claims."""
     now = datetime.now(UTC)

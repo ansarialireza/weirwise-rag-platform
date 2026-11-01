@@ -180,15 +180,7 @@ export default function LoginPage() {
                   Password
                 </label>
                 <Link
-                  href="/login"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!email) {
-                      toast({ message: "Please enter your work email to receive password reset instructions.", type: "info" });
-                    } else {
-                      toast({ message: `Password reset instructions sent to ${email}`, type: "info" });
-                    }
-                  }}
+                  href="/forgot-password"
                   className="text-xs text-foreground/80 hover:text-primary transition-colors font-medium underline underline-offset-2"
                 >
                   Forgot password?
