@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -49,18 +50,20 @@ def upgrade() -> None:
     # 3. Seed initial default subscription tiers
     free_tier_id = uuid.uuid4()
     pro_tier_id = uuid.uuid4()
-    now = datetime.now(timezone.utc)
+    now_iso = datetime.now(timezone.utc).isoformat()
 
     op.execute(
         sa.text(
-            f"INSERT INTO subscription_tiers (id, name, monthly_price, max_assistants, max_monthly_messages, max_storage_mb, created_at, updated_at) "
-            f"VALUES ('{free_tier_id}', 'Free Trial', 0.00, 2, 100, 50, '{now.isoformat()}', '{now.isoformat()}')"
+            "INSERT INTO subscription_tiers "
+            "(id, name, monthly_price, max_assistants, max_monthly_messages, max_storage_mb, created_at, updated_at) "
+            f"VALUES ('{free_tier_id}', 'Free Trial', 0.00, 2, 100, 50, '{now_iso}', '{now_iso}')"
         )
     )
     op.execute(
         sa.text(
-            f"INSERT INTO subscription_tiers (id, name, monthly_price, max_assistants, max_monthly_messages, max_storage_mb, created_at, updated_at) "
-            f"VALUES ('{pro_tier_id}', 'Pro', 49.00, 25, 10000, 5000, '{now.isoformat()}', '{now.isoformat()}')"
+            "INSERT INTO subscription_tiers "
+            "(id, name, monthly_price, max_assistants, max_monthly_messages, max_storage_mb, created_at, updated_at) "
+            f"VALUES ('{pro_tier_id}', 'Pro', 49.00, 25, 10000, 5000, '{now_iso}', '{now_iso}')"
         )
     )
 
@@ -71,20 +74,29 @@ def upgrade() -> None:
 
     op.execute(
         sa.text(
-            f"INSERT INTO ai_routing_strategies (id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
-            f"VALUES ('{auto_id}', 'Auto', 'Intelligent routing balancing speed, accuracy, and reasoning', 'gpt-4o-mini', true, '{now.isoformat()}', '{now.isoformat()}')"
+            "INSERT INTO ai_routing_strategies "
+            "(id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
+            f"VALUES ('{auto_id}', 'Auto', "
+            "'Intelligent routing balancing speed, accuracy, and reasoning', 'gpt-4o-mini', true, "
+            f"'{now_iso}', '{now_iso}')"
         )
     )
     op.execute(
         sa.text(
-            f"INSERT INTO ai_routing_strategies (id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
-            f"VALUES ('{fast_id}', 'Fast', 'Optimized for lowest latency and rapid conversational responses', 'gpt-4o-mini', true, '{now.isoformat()}', '{now.isoformat()}')"
+            "INSERT INTO ai_routing_strategies "
+            "(id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
+            f"VALUES ('{fast_id}', 'Fast', "
+            "'Optimized for lowest latency and rapid conversational responses', 'gpt-4o-mini', true, "
+            f"'{now_iso}', '{now_iso}')"
         )
     )
     op.execute(
         sa.text(
-            f"INSERT INTO ai_routing_strategies (id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
-            f"VALUES ('{deep_id}', 'Deep Thinking', 'High-parameter advanced reasoning and complex analysis', 'gpt-4o', true, '{now.isoformat()}', '{now.isoformat()}')"
+            "INSERT INTO ai_routing_strategies "
+            "(id, ui_name, ui_description, target_llm_model, is_active, created_at, updated_at) "
+            f"VALUES ('{deep_id}', 'Deep Thinking', "
+            "'High-parameter advanced reasoning and complex analysis', 'gpt-4o', true, "
+            f"'{now_iso}', '{now_iso}')"
         )
     )
 
