@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Numeric,
     String,
     UniqueConstraint,
 )
@@ -20,6 +21,33 @@ class WorkspaceRole(str, enum.Enum):
     ADMIN = "admin"
     MEMBER = "member"
     VIEWER = "viewer"
+
+
+class SubscriptionTier(Base):
+    __tablename__ = "subscription_tiers"
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    monthly_price = Column(Numeric(10, 2), default=0.00, nullable=False)
+    max_assistants = Column(Numeric(10, 0), default=2, nullable=False)
+    max_monthly_messages = Column(Numeric(10, 0), default=100, nullable=False)
+    max_storage_mb = Column(Numeric(10, 0), default=50, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    workspaces = relationship("Workspace", back_populates="subscription_tier")
+
+
+class AIRoutingStrategy(Base):
+    __tablename__ = "ai_routing_strategies"
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    ui_name = Column(String(50), unique=True, nullable=False, index=True)
+    ui_description = Column(String(255), nullable=False)
+    target_llm_model = Column(String(100), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
 class User(Base):
@@ -46,11 +74,15 @@ class Workspace(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     plan_tier = Column(String(50), default="free", nullable=False)
+    subscription_tier_id = Column(
+        GUID, ForeignKey("subscription_tiers.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     settings = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
+    subscription_tier = relationship("SubscriptionTier", back_populates="workspaces")
     memberships = relationship("Membership", back_populates="workspace", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="workspace", cascade="all, delete-orphan")
     api_credentials = relationship("ApiCredential", back_populates="workspace", cascade="all, delete-orphan")

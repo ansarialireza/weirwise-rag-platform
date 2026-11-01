@@ -65,7 +65,7 @@ export default function RegisterPage() {
         {/* Top Header: Official Logo & Theme Switcher */}
         <div className="flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2.5 sm:gap-3 group select-none">
-            <WeirwiseSymbol className="h-7 w-7 sm:h-8 sm:w-8" />
+            <WeirwiseSymbol className="h-7 sm:h-8 w-auto" priority />
             <span className="font-bold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-1.5">
               Weirwise
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
@@ -76,12 +76,15 @@ export default function RegisterPage() {
 
         {/* Center Form Container */}
         <div className="my-auto py-8 space-y-6 max-w-sm w-full mx-auto">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+              Includes Free Trial with Dynamic Quotas
+            </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Create platform account
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Deploy secure AI assistants grounded in business data with Jina v4 embeddings.
+              Build truthful AI assistants grounded in your business knowledge. No credit card required.
             </p>
           </div>
 

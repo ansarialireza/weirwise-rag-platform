@@ -164,3 +164,57 @@ async def test_admin_api_rbac_and_endpoints():
         fin_data = fin_res.json()
         assert "total_revenue_usd" in fin_data
         assert "gross_margin_pct" in fin_data
+
+        # Test Admin Tiers CRUD
+        tiers_res = await client.get("/api/v1/admin/tiers", headers={"Authorization": f"Bearer {token_admin}"})
+        assert tiers_res.status_code == 200
+        tiers = tiers_res.json()
+        assert len(tiers) >= 2
+
+        new_tier_name = f"Enterprise Plus {uuid.uuid4().hex[:4]}"
+        tier_create_res = await client.post(
+            "/api/v1/admin/tiers",
+            headers={"Authorization": f"Bearer {token_admin}"},
+            json={
+                "name": new_tier_name,
+                "monthly_price": 299.0,
+                "max_assistants": 100,
+                "max_monthly_messages": 50000,
+                "max_storage_mb": 10000,
+            },
+        )
+        assert tier_create_res.status_code == 201
+        created_tier_id = tier_create_res.json()["id"]
+
+        tier_patch_res = await client.patch(
+            f"/api/v1/admin/tiers/{created_tier_id}",
+            headers={"Authorization": f"Bearer {token_admin}"},
+            json={"monthly_price": 249.0},
+        )
+        assert tier_patch_res.status_code == 200
+        assert tier_patch_res.json()["monthly_price"] == 249.0
+
+        # Test Admin Routing Strategies CRUD
+        routes_res = await client.get("/api/v1/admin/routing", headers={"Authorization": f"Bearer {token_admin}"})
+        assert routes_res.status_code == 200
+        routes = routes_res.json()
+        assert len(routes) >= 3
+
+        new_strat_res = await client.post(
+            "/api/v1/admin/routing",
+            headers={"Authorization": f"Bearer {token_admin}"},
+            json={
+                "ui_name": f"Fast Ultra {uuid.uuid4().hex[:4]}",
+                "ui_description": "Ultra low-latency streaming",
+                "target_llm_model": "gpt-4o-mini",
+                "is_active": True,
+            },
+        )
+        assert new_strat_res.status_code == 201
+        new_strat_id = new_strat_res.json()["id"]
+
+        del_strat_res = await client.delete(
+            f"/api/v1/admin/routing/{new_strat_id}",
+            headers={"Authorization": f"Bearer {token_admin}"},
+        )
+        assert del_strat_res.status_code == 204

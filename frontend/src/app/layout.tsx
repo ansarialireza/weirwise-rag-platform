@@ -1,20 +1,74 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
+
 export const metadata: Metadata = {
-  title: "Weirwise Platform — Enterprise AI Assistant Studio",
-  description: "Configure, ground, and deploy production AI assistants on your business data.",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "Weirwise — Autonomous AI Assistant Studio for Business",
+    template: "%s | Weirwise",
+  },
+  description:
+    "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+  keywords: [
+    "AI assistant",
+    "business AI",
+    "customer support assistant",
+    "knowledge base AI",
+    "conversational AI",
+    "Weirwise",
+  ],
+  authors: [{ name: "Weirwise Engineering" }],
+  creator: "Weirwise",
+  publisher: "Weirwise",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: baseUrl,
+    siteName: "Weirwise",
+    title: "Weirwise — Autonomous AI Assistant Studio for Business",
+    description:
+      "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+    images: [
+      {
+        url: "/weirwise-horizontal.svg",
+        width: 1200,
+        height: 630,
+        alt: "Weirwise Platform Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Weirwise — Autonomous AI Assistant Studio for Business",
+    description:
+      "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+    images: ["/weirwise-horizontal.svg"],
+  },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" }
+      { url: "/favicon.ico", sizes: "any" },
     ],
-    apple: "/favicon.svg"
-  }
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -31,7 +85,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground">
+      <body className={`${inter.variable} font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground`}>
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>

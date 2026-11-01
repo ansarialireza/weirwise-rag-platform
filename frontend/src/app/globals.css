@@ -3,21 +3,23 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark Theme (Default) - Weirwise Onyx Charcoal & #CCFF00 Electric Lime */
+  /* Dark Theme (Default) - Weirwise Onyx Charcoal, #CCFF00 Electric Lime & #2563FF Electric Blue */
   :root,
   .dark {
     --background: 240 10% 4%;        /* #090A0C */
-    --foreground: 0 0% 96%;           /* #F5F5F5 */
+    --foreground: 0 0% 96%;           /* #F5F5F5 (18.17:1 WCAG AAA) */
     --card: 240 12% 7%;               /* #101217 */
     --card-foreground: 0 0% 96%;
     --popover: 240 12% 7%;
     --popover-foreground: 0 0% 96%;
-    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime */
-    --primary-foreground: 0 0% 0%;    /* #000000 */
+    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime (Primary Orchestration & CTA, 16.85:1 vs background) */
+    --primary-foreground: 0 0% 0%;    /* #000000 (17.87:1 WCAG AAA text on #CCFF00) */
+    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue (Cognition & Memory, 4.06:1 AA graphical/large text) */
+    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF (4.88:1 WCAG AA text on #2563FF) */
     --secondary: 220 18% 16%;         /* #222731 elevated interactive surface */
     --secondary-foreground: 0 0% 94%; /* #F0F0F0 */
     --muted: 225 15% 12%;             /* #171A22 */
-    --muted-foreground: 220 15% 69%;  /* #A3ACBD crisp 8.6:1 WCAG AAA text */
+    --muted-foreground: 220 15% 69%;  /* #A3ACBD (8.20:1 WCAG AAA text on #101217) */
     --accent: 72 100% 50%;            /* #CCFF00 */
     --accent-foreground: 0 0% 0%;
     --destructive: 4 90% 58%;         /* #FF453A */
@@ -27,34 +29,38 @@
     --ring: 72 100% 50%;              /* #CCFF00 */
     --radius: 0.5rem;
     --brand-glow: rgba(204, 255, 0, 0.12);
+    --brand-glow-secondary: rgba(37, 99, 255, 0.18);
   }
 
-  /* Light Theme - Soft neutral off-white surfaces, crisp typography, AAA accessible brand lime-olive */
+  /* Light Theme - Soft neutral off-white surfaces, crisp typography, accessible UI fills & cobalt blue */
   .light {
     --background: 220 14% 96%;        /* #F3F4F6 */
-    --foreground: 222 47% 11%;        /* #0F172A */
+    --foreground: 240 10% 4%;         /* #090A0C Onyx */
     --card: 0 0% 100%;                /* #FFFFFF */
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 10% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 78 100% 30%;           /* #578000 accessible lime */
-    --primary-foreground: 0 0% 100%;  /* #FFFFFF */
+    --popover-foreground: 240 10% 4%;
+    --primary: 240 10% 4%;            /* #090A0C Onyx */
+    --primary-foreground: 72 100% 50%; /* #CCFF00 Electric Lime */
+    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue */
+    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF */
     --secondary: 220 13% 91%;         /* #E2E8F0 */
-    --secondary-foreground: 222 47% 11%;
+    --secondary-foreground: 240 10% 4%;
     --muted: 220 14% 92%;             /* #E5E7EB */
-    --muted-foreground: 215 16% 37%;  /* #505D6E high-contrast secondary text (>6.1:1) */
-    --accent: 78 100% 30%;
+    --muted-foreground: 215 16% 37%;  /* #505D6E */
+    --accent: 223 100% 57%;           /* #2563FF Electric Blue */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 56%;         /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 84%;            /* #C5D0DE */
     --input: 220 14% 94%;             /* #EFF1F5 */
-    --ring: 78 100% 30%;
+    --ring: 223 100% 57%;             /* #2563FF Electric Blue */
     --radius: 0.5rem;
-    --brand-glow: rgba(87, 128, 0, 0.16);
+    --brand-glow: rgba(37, 99, 255, 0.16);
+    --brand-glow-secondary: rgba(9, 10, 12, 0.12);
   }
 
-  /* Colorful Theme - Cosmic Twilight Indigo with Radiant Violet & Cyan Accents */
+  /* Colorful Theme - Cosmic Twilight Indigo with Radiant Violet & Cyan Accents (Interface Theme) */
   .colorful {
     --background: 234 40% 9%;         /* #0d1124 */
     --foreground: 210 40% 98%;        /* #f8fafc */
@@ -62,8 +68,10 @@
     --card-foreground: 210 40% 98%;
     --popover: 235 32% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 262 83% 66%;           /* #8b5cf6 */
-    --primary-foreground: 0 0% 100%;  /* #ffffff */
+    --primary: 262 83% 66%;           /* #8b5cf6 UI action accent */
+    --primary-foreground: 0 0% 100%;  /* #ffffff (4.80:1 WCAG AA text) */
+    --brand-secondary: 188 95% 48%;   /* #06b6d4 UI secondary intelligence token */
+    --brand-secondary-foreground: 0 0% 100%; /* #ffffff */
     --secondary: 235 28% 22%;         /* #283054 */
     --secondary-foreground: 220 35% 96%;
     --muted: 235 30% 16%;             /* #1c223c */
@@ -77,6 +85,7 @@
     --ring: 262 83% 66%;
     --radius: 0.5rem;
     --brand-glow: rgba(139, 92, 246, 0.28);
+    --brand-glow-secondary: rgba(6, 182, 212, 0.24);
   }
 }
 

@@ -299,7 +299,7 @@ async def upload_documents(
         )
         current_docs = (await db.execute(doc_count_stmt)).scalar() or 0
         await subscription_service.check_document_upload_entitlement(
-            workspace, current_docs, additional_docs=len(files)
+            workspace, current_docs, additional_docs=len(files), db=db
         )
 
     uploaded_records: list[Document] = []
@@ -309,6 +309,7 @@ async def upload_documents(
 
         if workspace:
             subscription_service.check_file_size_entitlement(workspace, size)
+            await subscription_service.check_storage_entitlement(workspace, size, db)
 
         doc = Document(
             knowledge_source_id=source.id,

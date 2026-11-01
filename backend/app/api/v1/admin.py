@@ -14,15 +14,21 @@ from backend.app.models.admin import (
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
-from backend.app.models.auth import User, Workspace
+from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier, User, Workspace
 from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.admin import (
     AdminAuditLogResponse,
+    AIRoutingStrategyCreate,
+    AIRoutingStrategyResponse,
+    AIRoutingStrategyUpdate,
     CredentialCreate,
     CredentialResponse,
     FinOpsSummaryResponse,
     ProviderAccountCreate,
     ProviderAccountResponse,
+    SubscriptionTierCreate,
+    SubscriptionTierResponse,
+    SubscriptionTierUpdate,
     SystemMetricsResponse,
 )
 from backend.app.services.vault import encrypt_credential_secret
@@ -279,3 +285,192 @@ async def list_audit_logs(
     stmt = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit)
     res = await db.execute(stmt)
     return res.scalars().all()
+
+
+# ==============================================================================
+# SUBSCRIPTION TIERS CRUD
+# ==============================================================================
+
+
+@router.get("/tiers", response_model=List[SubscriptionTierResponse])
+async def list_subscription_tiers(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List all subscription tiers in the system."""
+    res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
+    return res.scalars().all()
+
+
+@router.post("/tiers", response_model=SubscriptionTierResponse, status_code=status.HTTP_201_CREATED)
+async def create_subscription_tier(
+    payload: SubscriptionTierCreate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Create a new subscription tier with quota limits."""
+    existing = await db.execute(select(SubscriptionTier).where(SubscriptionTier.name == payload.name))
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Subscription tier '{payload.name}' already exists.",
+        )
+
+    tier = SubscriptionTier(
+        name=payload.name,
+        monthly_price=payload.monthly_price,
+        max_assistants=payload.max_assistants,
+        max_monthly_messages=payload.max_monthly_messages,
+        max_storage_mb=payload.max_storage_mb,
+    )
+    db.add(tier)
+    await db.commit()
+    await db.refresh(tier)
+    return tier
+
+
+@router.get("/tiers/{tier_id}", response_model=SubscriptionTierResponse)
+async def get_subscription_tier(
+    tier_id: uuid.UUID,
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Fetch a single subscription tier by ID."""
+    res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.id == tier_id))
+    tier = res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription tier not found.")
+    return tier
+
+
+@router.patch("/tiers/{tier_id}", response_model=SubscriptionTierResponse)
+async def update_subscription_tier(
+    tier_id: uuid.UUID,
+    payload: SubscriptionTierUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Update subscription tier parameters."""
+    res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.id == tier_id))
+    tier = res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription tier not found.")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(tier, field, val)
+
+    await db.commit()
+    await db.refresh(tier)
+    return tier
+
+
+@router.delete("/tiers/{tier_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subscription_tier(
+    tier_id: uuid.UUID,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Delete a subscription tier."""
+    res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.id == tier_id))
+    tier = res.scalar_one_or_none()
+    if not tier:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription tier not found.")
+
+    await db.delete(tier)
+    await db.commit()
+    return None
+
+
+# ==============================================================================
+# AI ROUTING STRATEGIES CRUD
+# ==============================================================================
+
+
+@router.get("/routing", response_model=List[AIRoutingStrategyResponse])
+async def list_routing_strategies(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List all AI routing strategies configured in the system."""
+    res = await db.execute(select(AIRoutingStrategy).order_by(AIRoutingStrategy.ui_name.asc()))
+    return res.scalars().all()
+
+
+@router.post("/routing", response_model=AIRoutingStrategyResponse, status_code=status.HTTP_201_CREATED)
+async def create_routing_strategy(
+    payload: AIRoutingStrategyCreate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Create a new AI black-box routing strategy mapping UI name to target LLM model."""
+    existing = await db.execute(select(AIRoutingStrategy).where(AIRoutingStrategy.ui_name == payload.ui_name))
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Routing strategy '{payload.ui_name}' already exists.",
+        )
+
+    strategy = AIRoutingStrategy(
+        ui_name=payload.ui_name,
+        ui_description=payload.ui_description,
+        target_llm_model=payload.target_llm_model,
+        is_active=payload.is_active,
+    )
+    db.add(strategy)
+    await db.commit()
+    await db.refresh(strategy)
+    return strategy
+
+
+@router.get("/routing/{strategy_id}", response_model=AIRoutingStrategyResponse)
+async def get_routing_strategy(
+    strategy_id: uuid.UUID,
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Fetch an AI routing strategy by ID."""
+    res = await db.execute(select(AIRoutingStrategy).where(AIRoutingStrategy.id == strategy_id))
+    strategy = res.scalar_one_or_none()
+    if not strategy:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Routing strategy not found.")
+    return strategy
+
+
+@router.patch("/routing/{strategy_id}", response_model=AIRoutingStrategyResponse)
+async def update_routing_strategy(
+    strategy_id: uuid.UUID,
+    payload: AIRoutingStrategyUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Update an AI routing strategy."""
+    res = await db.execute(select(AIRoutingStrategy).where(AIRoutingStrategy.id == strategy_id))
+    strategy = res.scalar_one_or_none()
+    if not strategy:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Routing strategy not found.")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, val in update_data.items():
+        setattr(strategy, field, val)
+
+    await db.commit()
+    await db.refresh(strategy)
+    return strategy
+
+
+@router.delete("/routing/{strategy_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_routing_strategy(
+    strategy_id: uuid.UUID,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Delete an AI routing strategy."""
+    res = await db.execute(select(AIRoutingStrategy).where(AIRoutingStrategy.id == strategy_id))
+    strategy = res.scalar_one_or_none()
+    if not strategy:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Routing strategy not found.")
+
+    await db.delete(strategy)
+    await db.commit()
+    return None

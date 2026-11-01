@@ -104,7 +104,7 @@ export function Sidebar({
           onClick={() => onItemClick?.()}
           className="flex items-center gap-3 group"
         >
-          <WeirwiseSymbol className="h-8 w-8" />
+          <WeirwiseSymbol className="h-8 w-auto" priority />
           <span className="text-base font-bold tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />

@@ -25,7 +25,7 @@ from backend.app.models.assistant import (
     UnansweredQuery,
 )
 from backend.app.models.audit import ApiCredential, UsageEvent
-from backend.app.models.auth import Membership, User, WorkspaceRole
+from backend.app.models.auth import AIRoutingStrategy, Membership, User, Workspace, WorkspaceRole
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     ApiCredentialCreateRequest,
@@ -48,6 +48,7 @@ from backend.app.schemas.assistant import (
 from backend.app.services.evaluations import evaluation_service
 from backend.app.services.metering import metering_service
 from backend.app.services.routing_engine import IntelligentRoutingEngine
+from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -569,6 +570,12 @@ async def studio_playground_chat(
 
     project = await verify_project_access(assistant.project_id, current_user.id, db)
 
+    # Quota check: ensure workspace has not exceeded monthly message quota
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        await subscription_service.check_chat_entitlement(workspace, db)
+
     # 1. Resolve or create conversation
     conv = None
     if payload.conversation_id:
@@ -642,16 +649,28 @@ async def studio_playground_chat(
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
     # 4. Route via Intelligent AI Credential Engine
+    # Resolve black-box model routing strategy if UI alias was provided (e.g. Auto, Fast, Deep Thinking)
+    actual_model = assistant.model
+    strat_res = await db.execute(
+        select(AIRoutingStrategy).where(
+            AIRoutingStrategy.ui_name == assistant.model,
+            AIRoutingStrategy.is_active.is_(True),
+        )
+    )
+    routing_strat = strat_res.scalar_one_or_none()
+    if routing_strat:
+        actual_model = routing_strat.target_llm_model
+
     provider_name = "openai"
-    if "claude" in assistant.model.lower():
+    if "claude" in actual_model.lower():
         provider_name = "anthropic"
-    elif "gemini" in assistant.model.lower():
+    elif "gemini" in actual_model.lower():
         provider_name = "gemini"
 
     resolution = await IntelligentRoutingEngine.select_credential(
         db=db,
         provider_name=provider_name,
-        model_name=assistant.model,
+        model_name=actual_model,
     )
 
     approx_input_tokens = len(payload.message.split()) * 2 + len(retrieved_contexts) * 50
@@ -664,7 +683,7 @@ async def studio_playground_chat(
             credential_id=str(resolution.credential.id),
             workspace_id=str(project.workspace_id),
             provider_name=provider_name,
-            model_name=assistant.model,
+            model_name=actual_model,
             input_tokens=approx_input_tokens,
             output_tokens=approx_output_tokens,
             cost_usd=cost_usd,

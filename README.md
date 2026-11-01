@@ -14,16 +14,22 @@
 
 ---
 
-## Overview
+## Product Overview
 
-**Weirwise Platform** is an enterprise-grade multi-tenant platform for configuring, evaluating, routing, and deploying AI assistants grounded in business knowledge.
+**Weirwise** is being built to help businesses turn trusted knowledge into useful AI assistant experiences, while keeping people in control.
 
-While core vector indexing and retrieval engines operate at the semantic layer, **Weirwise Platform** provides the enterprise operational plane:
-- **Intelligent Credential Routing**: Pool and load-balance across multiple OpenAI, Anthropic, and Gemini API keys with circuit breaking, rate-limit cooldowns, and lowest-cost routing.
-- **FinOps & Token Cost Accounting**: Micro-dollar accurate token consumption tracking and real-time SaaS gross margin analytics.
-- **Enterprise Multi-Tenancy**: Workspace isolation, role-based access control (RBAC), and team collaboration.
-- **Super Admin Control Center**: Centralized executive controls for AI provider accounts, financial metrics, and immutable audit logs.
-- **Knowledge Grounding Studio**: Interactive playground with citation attribution, confidence filtering, and embeddable chat widgets.
+The current near-term experience is intentionally focused: a simple internal Weirwise assistant, configured and maintained by the Weirwise team, grounded in curated official product knowledge, and available through text and voice conversation. It helps users understand Weirwise and its currently available capabilities.
+
+The longer-term direction is a platform where businesses can create, publish, manage, and improve assistants grounded in their own knowledge. That broader direction is not a claim that every capability is available today.
+
+### Product principles
+- **Grounded answers:** use approved knowledge and communicate uncertainty honestly.
+- **Human control:** permissions and important decisions remain with people.
+- **Progressive capability:** prioritize a reliable focused experience before adding complexity.
+- **Clear UX:** keep interactions simple, responsive, and understandable.
+- **Honest scope:** distinguish released functionality from roadmap ideas.
+
+See [Product Vision](docs/PRODUCT_VISION.md) for the product definition, current scope, principles, and longer-term direction.
 
 ---
 

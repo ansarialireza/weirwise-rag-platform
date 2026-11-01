@@ -39,7 +39,7 @@ export default function AssistantsListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newAssistantName, setNewAssistantName] = useState("");
   const [newInstructions, setNewInstructions] = useState("");
-  const [newModel, setNewModel] = useState("gpt-4o-mini");
+  const [newModel, setNewModel] = useState("Auto");
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
@@ -239,15 +239,15 @@ export default function AssistantsListPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Inference Model</label>
+                <label className="text-xs font-semibold text-foreground">AI Routing Strategy</label>
                 <select
                   value={newModel}
                   onChange={(e) => setNewModel(e.target.value)}
                   className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
                 >
-                  <option value="gpt-4o-mini">GPT-4o Mini (Fast & Cost-Efficient)</option>
-                  <option value="gpt-4o">GPT-4o (High-Precision Reasoning)</option>
-                  <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                  <option value="Auto">Auto (Balanced Speed & Reasoning)</option>
+                  <option value="Fast">Fast (Low Latency)</option>
+                  <option value="Deep Thinking">Deep Thinking (Complex Analysis)</option>
                 </select>
               </div>
 

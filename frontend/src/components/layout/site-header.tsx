@@ -60,6 +60,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
 
   const navLinks = [
     { label: "Pricing", href: "/pricing", active: pathname === "/pricing" },
+    { label: "Blog", href: "/blog", active: pathname.startsWith("/blog") },
     ...(dashboardUrl
       ? [{ label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/workspaces") }]
       : [{ label: "Sign In", href: "/login", active: pathname === "/login" }]),
@@ -75,7 +76,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
         {/* Brand identity on the left: Balanced, intentional, clean */}
         <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0 select-none">
-          <WeirwiseSymbol className="h-7 w-7 sm:h-8 sm:w-8" />
+          <WeirwiseSymbol className="h-7 sm:h-8 w-auto" priority />
           <span className="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
             <span

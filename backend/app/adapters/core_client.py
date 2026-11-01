@@ -106,7 +106,7 @@ class CoreApiClient:
         kb_id: uuid.UUID,
         query: str,
         top_k: int = 4,
-        score_threshold: float | None = 0.7,
+        score_threshold: float | None = None,
     ) -> dict[str, Any]:
         """Execute vector search query against a Core knowledge base."""
         url = f"{self.base_url}/api/v1/search"

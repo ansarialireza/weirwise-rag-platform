@@ -15,6 +15,7 @@ from backend.app.db.session import get_db_session
 from backend.app.models.auth import (
     Membership,
     PasswordResetToken,
+    SubscriptionTier,
     User,
     UserSession,
     Workspace,
@@ -56,11 +57,19 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
     db.add(user)
     await db.flush()
 
-    # Automatically create user's initial default workspace
+    # Automatically create user's initial default workspace with default subscription tier
     ws_slug = f"ws-{user.id.hex[:8]}"
+    tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.name == "Free Trial"))
+    default_tier = tier_res.scalar_one_or_none()
+    if not default_tier:
+        tier_res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
+        default_tier = tier_res.scalars().first()
+
     workspace = Workspace(
         name=f"{user.full_name}'s Workspace",
         slug=ws_slug,
+        plan_tier=default_tier.name.lower().replace(" ", "_") if default_tier else "free",
+        subscription_tier_id=default_tier.id if default_tier else None,
     )
     db.add(workspace)
     await db.flush()
@@ -248,7 +257,7 @@ async def request_password_reset(
     # Development fallback delivery
     return AuthMessageResponse(
         message="If this email is registered, password reset instructions have been dispatched.",
-        reset_token=raw_token if settings.ENVIRONMENT == "development" else None,
+        reset_token=raw_token if settings.ENVIRONMENT in ("development", "dev", "test") else None,
     )
 
 

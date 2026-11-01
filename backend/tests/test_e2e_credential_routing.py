@@ -52,7 +52,7 @@ async def test_live_chat_invokes_credential_routing_and_finops_ledger():
         asst = Assistant(
             project_id=proj.id,
             name="FinOps Routing Assistant",
-            model="gpt-4o-mini",
+            model="Auto",
             status=AssistantStatus.PUBLISHED.value,
             top_k=2,
             score_threshold=0.5,

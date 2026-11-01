@@ -60,5 +60,8 @@ class Settings(BaseSettings):
     INITIAL_STAFF_ADMIN_EMAIL: str | None = None
     INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
 
+    # RAG & Embedding Engine Default
+    DEFAULT_EMBEDDING_MODEL: str = "jina-embeddings-v4"
+
 
 settings = Settings()

@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from backend.app.models.assistant import WorkspacePlanEntitlement
 from backend.app.models.audit import UsageEvent
-from backend.app.models.auth import Workspace
+from backend.app.models.auth import SubscriptionTier, Workspace
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,21 +64,40 @@ class MeteringService:
             # Query workspace
             ws_res = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
             ws = ws_res.scalar_one_or_none()
-            tier = ws.plan_tier if ws else "free"
-            defs = PLAN_DEFINITIONS.get(tier, PLAN_DEFINITIONS["free"])
+
+            # Dynamic subscription tier lookup
+            tier_name = ws.plan_tier if ws else "free"
+            max_assts = 2
+            max_messages = 100
+            max_storage = 50
+
+            if ws and ws.subscription_tier_id:
+                st_stmt = select(SubscriptionTier).where(SubscriptionTier.id == ws.subscription_tier_id)
+                st_res = await db.execute(st_stmt)
+                st = st_res.scalar_one_or_none()
+                if st:
+                    tier_name = st.name
+                    max_assts = int(st.max_assistants)
+                    max_messages = int(st.max_monthly_messages)
+                    max_storage = int(st.max_storage_mb)
+            else:
+                defs = PLAN_DEFINITIONS.get(tier_name, PLAN_DEFINITIONS["free"])
+                max_assts = defs["max_assistants"]
+                max_messages = defs["monthly_chat_turns_limit"]
+                max_storage = defs["max_storage_mb"]
 
             now = datetime.now(UTC)
             ent = WorkspacePlanEntitlement(
                 workspace_id=workspace_id,
-                plan_tier=tier,
-                max_assistants=defs["max_assistants"],
-                max_knowledge_sources=defs["max_knowledge_sources"],
-                monthly_chat_turns_limit=defs["monthly_chat_turns_limit"],
-                max_storage_mb=defs["max_storage_mb"],
-                allow_custom_branding=defs["allow_custom_branding"],
+                plan_tier=tier_name,
+                max_assistants=max_assts,
+                max_knowledge_sources=max_assts * 3,
+                monthly_chat_turns_limit=max_messages,
+                max_storage_mb=max_storage,
+                allow_custom_branding=False,
                 allow_overage=False,
-                overage_rate_cents=defs["overage_rate_cents"],
-                data_retention_days=defs["data_retention_days"],
+                overage_rate_cents=5,
+                data_retention_days=30,
                 current_period_chat_turns=0,
                 period_start=now,
                 period_end=now + timedelta(days=30),
@@ -113,11 +132,18 @@ class MeteringService:
         if ent.current_period_chat_turns >= ent.monthly_chat_turns_limit:
             if not ent.allow_overage:
                 raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=(
-                        f"Workspace has reached its monthly plan limit ({ent.monthly_chat_turns_limit} chat turns). "
-                        "Please upgrade your plan or enable optional overage."
-                    ),
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": "quota_exceeded",
+                        "resource": "chat_turns",
+                        "current": ent.current_period_chat_turns,
+                        "limit": ent.monthly_chat_turns_limit,
+                        "tier": ent.plan_tier,
+                        "message": (
+                            f"Workspace has reached its monthly plan limit ({ent.monthly_chat_turns_limit} chat turns) "
+                            f"for tier '{ent.plan_tier}'. Upgrade required to continue."
+                        ),
+                    },
                 )
 
         # Increment usage counter
@@ -144,10 +170,17 @@ class MeteringService:
         if current_count >= ent.max_assistants:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    f"Assistant creation limit reached: your '{ent.plan_tier}' tier permits a maximum of "
-                    f"{ent.max_assistants} assistant(s). Please upgrade your plan."
-                ),
+                detail={
+                    "error": "quota_exceeded",
+                    "resource": "assistants",
+                    "current": current_count,
+                    "limit": ent.max_assistants,
+                    "tier": ent.plan_tier,
+                    "message": (
+                        f"Assistant creation limit reached: your '{ent.plan_tier}' tier permits a maximum of "
+                        f"{ent.max_assistants} assistant(s). Please upgrade your plan."
+                    ),
+                },
             )
 
 
