@@ -65,7 +65,7 @@ export default function LoginPage() {
         {/* Top Header: Official Logo & Theme Switcher */}
         <div className="flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2.5 sm:gap-3 group select-none">
-            <WeirwiseSymbol className="h-7 w-7 sm:h-8 sm:w-8" />
+            <WeirwiseSymbol className="h-7 sm:h-8 w-auto" priority />
             <span className="font-bold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-1.5">
               Weirwise
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />

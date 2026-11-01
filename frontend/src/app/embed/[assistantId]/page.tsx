@@ -81,7 +81,7 @@ export default function AssistantWidgetPage() {
       {/* Widget Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <WeirwiseSymbol className="h-8 w-8" />
+          <WeirwiseSymbol className="h-8 w-auto" priority />
           <div>
             <div className="text-sm font-bold text-foreground flex items-center gap-1.5">
               Weirwise Assistant

@@ -181,7 +181,7 @@ export default function PricingPage() {
       <footer className="border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-4 w-4" />
+            <WeirwiseSymbol className="h-5 w-auto" />
             <span className="font-semibold text-foreground text-xs">Weirwise</span>
             <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
           </div>

@@ -5,6 +5,7 @@ interface WeirwiseSymbolProps {
   className?: string;
   variant?: "two-tone" | "monochrome";
   size?: number | string;
+  priority?: boolean;
 }
 
 /**
@@ -13,12 +14,13 @@ interface WeirwiseSymbolProps {
  * - shared-path: Electric Lime (#CCFF00) - Fixed official brand color across all application themes
  * - upper-path & lower-path: Electric Blue (#2563FF) - Fixed official brand color across all application themes
  *
- * Architectural Invariant for Two-Tone Backdrop:
- * - variant="two-tone": Uses a fixed Onyx backdrop (#090A0C) with subtle border (#2E3444)
- *   enforced via inline styles to protect against accidental Tailwind class collision or
- *   consumer background utility overrides (e.g., bg-*, bg-card, bg-white), while preserving
- *   full caller control over sizing, margins, layout positioning, and transforms.
- * - variant="monochrome": Preserves currentColor inheritance and theme-aware card backdrop.
+ * Sizing & Rendering Invariants:
+ * - viewBox: Strictly preserved at 0 0 350 170 (aspect ratio ~2.06:1) with object-contain.
+ * - Aspect ratio: Default aspect-[350/170] and w-auto prevent square-compression artifacts.
+ * - Container: Uses padding px-1.5 py-0.5 with Onyx backdrop (#090A0C) and border (#2E3444)
+ *   to ensure maximum contrast against both dark (#090A0C) and light (#F3F4F6) surfaces.
+ * - Crisp Vector Scaling: Vector paths render with shape-rendering="geometricPrecision" to prevent
+ *   subpixel antialiasing blurriness on high-DPI and standard screens.
  */
 export function WeirwiseSymbol({ className, variant = "two-tone" }: WeirwiseSymbolProps) {
   const isTwoTone = variant === "two-tone";
@@ -26,7 +28,7 @@ export function WeirwiseSymbol({ className, variant = "two-tone" }: WeirwiseSymb
   return (
     <div
       className={cn(
-        "flex items-center justify-center rounded-md p-1 shadow-xs shrink-0 select-none transition-colors",
+        "flex items-center justify-center rounded-md px-1.5 py-0.5 shadow-xs shrink-0 select-none transition-colors w-auto aspect-[350/170]",
         isTwoTone
           ? "border border-[#2E3444]"
           : "bg-card border border-border text-current",
@@ -36,9 +38,10 @@ export function WeirwiseSymbol({ className, variant = "two-tone" }: WeirwiseSymb
     >
       <svg
         viewBox="0 0 350 170"
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain overflow-visible"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
+        shapeRendering="geometricPrecision"
       >
         <g transform="translate(10, 10)">
           {/* Primary Flow Bridge: Official Electric Lime (#CCFF00) */}

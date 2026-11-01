@@ -8,7 +8,7 @@ export default function NotFound() {
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-background text-foreground transition-colors select-none">
       <div className="w-full max-w-md text-center space-y-6">
         <div className="flex justify-center">
-          <WeirwiseSymbol className="h-12 w-12" />
+          <WeirwiseSymbol className="h-12 w-auto" priority />
         </div>
         
         <div className="space-y-2">

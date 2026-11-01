@@ -159,8 +159,8 @@ export default function RootPage() {
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="h-7 w-7 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5">
-                  <WeirwiseSymbol className="h-3.5 w-3.5" />
+                <div className="rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5 p-1">
+                  <WeirwiseSymbol className="h-4 w-auto" />
                 </div>
                 <div className="bg-secondary/50 border border-border/80 text-foreground p-4 rounded-2xl rounded-tl-xs max-w-lg space-y-2.5 shadow-xs">
                   <p className="leading-relaxed">
@@ -264,7 +264,7 @@ export default function RootPage() {
       <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-4 w-4" />
+            <WeirwiseSymbol className="h-5 w-auto" />
             <span className="font-semibold text-foreground text-xs">Weirwise</span>
             <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
           </div>
