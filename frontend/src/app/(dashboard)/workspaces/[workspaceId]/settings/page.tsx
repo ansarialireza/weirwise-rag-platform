@@ -25,7 +25,7 @@ export default function WorkspaceSettingsPage() {
   const workspaceId = params.workspaceId as string;
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"general" | "usage" | "api_keys" | "members">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "api_keys" | "members">("general");
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -34,12 +34,6 @@ export default function WorkspaceSettingsPage() {
 
   const [members, setMembers] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Billing & Usage State
-  const [billing, setBilling] = useState<any | null>(null);
-  const [plans, setPlans] = useState<any[]>([]);
-  const [changingPlan, setChangingPlan] = useState<string | null>(null);
-  const [billingNotice, setBillingNotice] = useState<string | null>(null);
 
   // Invitation State
   const [inviteEmail, setInviteEmail] = useState("");
@@ -57,25 +51,11 @@ export default function WorkspaceSettingsPage() {
       Promise.all([
         api.getWorkspace(workspaceId),
         api.getMembers(workspaceId),
-        api.getBillingStatus(workspaceId).catch(() => null),
-        api.getPlans().catch(() => []),
       ])
-        .then(([ws, mList, bData, pList]) => {
+        .then(([ws, mList]) => {
           setWorkspace(ws);
           setWorkspaceName(ws.name);
           setMembers(mList);
-          if (bData) setBilling(bData);
-          if (pList) {
-            // Defensive: deduplicate plans and take max 3 standard pricing tiers (Free, Pro, Enterprise)
-            const seenTiers = new Set<string>();
-            const uniquePlans = pList.filter((p: any) => {
-              const baseTier = (p.tier || p.name || "").toLowerCase().split(" ")[0];
-              if (seenTiers.has(baseTier)) return false;
-              seenTiers.add(baseTier);
-              return true;
-            }).slice(0, 3);
-            setPlans(uniquePlans);
-          }
         })
         .finally(() => {
           setLoading(false);
@@ -97,24 +77,6 @@ export default function WorkspaceSettingsPage() {
       setWsNotice(err.message || "Failed to update workspace.");
     } finally {
       setSavingWs(false);
-    }
-  };
-
-  const handlePlanChange = async (tier: string) => {
-    setChangingPlan(tier);
-    setBillingNotice(null);
-    try {
-      const res = await api.changePlan(workspaceId, tier);
-      setBillingNotice(res.message || `Switched to ${tier} tier.`);
-      const updatedBilling = await api.getBillingStatus(workspaceId);
-      setBilling(updatedBilling);
-      if (workspace) {
-        setWorkspace({ ...workspace, plan_tier: tier });
-      }
-    } catch (err: any) {
-      setBillingNotice(err.message || "Failed to update subscription.");
-    } finally {
-      setChangingPlan(null);
     }
   };
 
@@ -204,19 +166,6 @@ export default function WorkspaceSettingsPage() {
             )}
           </button>
           <button
-            onClick={() => setActiveTab("usage")}
-            className={`pb-3 transition-colors whitespace-nowrap shrink-0 relative ${
-              activeTab === "usage"
-                ? "text-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Usage &amp; Subscription
-            {activeTab === "usage" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
-            )}
-          </button>
-          <button
             onClick={() => setActiveTab("api_keys")}
             className={`pb-3 transition-colors whitespace-nowrap shrink-0 relative ${
               activeTab === "api_keys"
@@ -282,133 +231,7 @@ export default function WorkspaceSettingsPage() {
         </div>
       )}
 
-      {/* Tab 2: Usage & Subscription */}
-      {activeTab === "usage" && (
-        <div className="space-y-6">
-          {billingNotice && (
-            <div className="rounded-2xl bg-muted p-3.5 text-xs text-foreground font-medium">
-              {billingNotice}
-            </div>
-          )}
-
-          {billing && (
-            <div className="rounded-3xl bg-muted/30 p-6 sm:p-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-foreground">Current Plan &amp; Quotas</h2>
-                  <p className="text-xs text-muted-foreground">Resource usage for current billing cycle</p>
-                </div>
-                <span className="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-muted text-foreground font-semibold">
-                  {billing.plan_tier || workspace?.plan_tier || "free"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="rounded-2xl bg-background/80 p-4 space-y-2 border border-border/20">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-foreground">Monthly Chat Turns</span>
-                    <span className="font-mono text-muted-foreground font-semibold">
-                      {billing.chat_turns_used} / {billing.chat_turns_limit}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-foreground rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(100, (billing.chat_turns_used / (billing.chat_turns_limit || 1)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-background/80 p-4 space-y-2 border border-border/20">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-foreground">Indexed Document Chunks</span>
-                    <span className="font-mono text-muted-foreground font-semibold">
-                      {billing.documents_indexed} / {billing.documents_limit}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-foreground rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(100, (billing.documents_indexed / (billing.documents_limit || 1)) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Tier Switcher - Clean, maximum 3 realistic tiers */}
-          {plans.length > 0 && (
-            <div className="rounded-3xl bg-muted/30 p-6 sm:p-8 space-y-6">
-              <div className="space-y-1">
-                <h2 className="text-base font-semibold text-foreground">Available Subscriptions</h2>
-                <p className="text-xs text-muted-foreground">Select a plan matching your scale and team requirements</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {plans.map((p) => {
-                  const isCurrent = (workspace?.plan_tier || "free") === p.tier;
-                  return (
-                    <div
-                      key={p.tier}
-                      className={`flex flex-col justify-between p-5 rounded-2xl transition-all duration-150 ${
-                        isCurrent
-                          ? "bg-background/90 shadow-xs ring-1 ring-border/60"
-                          : "bg-background/50 hover:bg-background/80"
-                      }`}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-bold uppercase text-foreground">{p.name}</span>
-                          {isCurrent && (
-                            <span className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-muted flex items-center gap-1">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Current
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="text-2xl font-bold tracking-tight text-foreground">
-                          ${p.monthly_price_usd ?? p.price_monthly_usd ?? 0}{" "}
-                          <span className="text-xs font-normal text-muted-foreground">/mo</span>
-                        </div>
-
-                        <ul className="text-xs text-muted-foreground space-y-1.5 pt-2 border-t border-border/30">
-                          <li>&middot; Up to {p.max_assistants || p.features?.max_assistants || 3} Assistants</li>
-                          <li>&middot; {(p.max_chat_turns_monthly || p.features?.monthly_chat_turns || 500).toLocaleString()} Queries / mo</li>
-                          <li>&middot; {(p.max_documents || p.features?.max_documents || 50).toLocaleString()} Documents</li>
-                        </ul>
-                      </div>
-
-                      <div className="pt-5 mt-2">
-                        {isCurrent ? (
-                          <div className="w-full rounded-xl text-xs font-semibold h-9 border border-border bg-card/80 text-muted-foreground flex items-center justify-center cursor-default">
-                            Active Plan
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={changingPlan === p.tier}
-                            onClick={() => handlePlanChange(p.tier)}
-                            className="w-full rounded-xl text-xs font-semibold h-9 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
-                          >
-                            {changingPlan === p.tier ? "Updating..." : `Switch to ${p.name}`}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 3: API Keys */}
+      {/* Tab 2: API Keys */}
       {activeTab === "api_keys" && (
         <div className="space-y-6">
           <div className="rounded-3xl bg-muted/30 p-6 sm:p-8 space-y-5">
