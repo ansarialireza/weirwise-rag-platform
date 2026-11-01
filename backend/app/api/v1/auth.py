@@ -248,7 +248,7 @@ async def request_password_reset(
     # Development fallback delivery
     return AuthMessageResponse(
         message="If this email is registered, password reset instructions have been dispatched.",
-        reset_token=raw_token if settings.ENVIRONMENT == "development" else None,
+        reset_token=raw_token if settings.ENVIRONMENT in ("development", "dev", "test") else None,
     )
 
 

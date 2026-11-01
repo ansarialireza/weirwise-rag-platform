@@ -155,16 +155,20 @@ def test_complete_product_workflow(mock_core_client):
     assert published_ast["version"] == 2
 
     # Manually configure source core_kb_id for chat retrieval testing
-    from backend.app.core.config import settings
-    from sqlalchemy import create_engine, text
+    import asyncio
 
-    sync_url = settings.DATABASE_URL.replace("+aiosqlite", "").replace("+asyncpg", "")
-    with create_engine(sync_url).connect() as conn:
-        conn.execute(
-            text("UPDATE knowledge_sources SET core_kb_id = :kb_id, status = 'ready' WHERE id = :source_id"),
-            {"kb_id": mock_core_client["fake_kb_id"], "source_id": source_id},
-        )
-        conn.commit()
+    from backend.app.db.session import async_session_factory
+    from sqlalchemy import text
+
+    async def update_source():
+        async with async_session_factory() as session:
+            await session.execute(
+                text("UPDATE knowledge_sources SET core_kb_id = :kb_id, status = 'ready' WHERE id = :source_id"),
+                {"kb_id": mock_core_client["fake_kb_id"], "source_id": source_id},
+            )
+            await session.commit()
+
+    asyncio.run(update_source())
 
     # 7. Execute Chat Query & Observe Citations
     chat_resp = client.post(
