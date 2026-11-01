@@ -18,7 +18,6 @@ import {
   SlidersHorizontal,
   Plus,
   ArrowRight,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -137,7 +136,7 @@ export default function DedicatedPlaygroundPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -148,12 +147,14 @@ export default function DedicatedPlaygroundPage() {
     "Explain our customer onboarding workflow",
   ];
 
+  const hasAssistants = assistants.length > 0;
+
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden relative">
-      {/* Top Header: Clean, Minimalist, Non-distracting */}
+      {/* Top Header: Clean & Minimalist. No warning text when no assistant is configured */}
       <header className="flex h-14 items-center justify-between border-b border-border/40 px-4 sm:px-6 shrink-0 bg-background/80 backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
-          {assistants.length > 0 ? (
+          {hasAssistants ? (
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-semibold text-muted-foreground shrink-0 hidden sm:inline">Assistant:</span>
               <select
@@ -169,10 +170,7 @@ export default function DedicatedPlaygroundPage() {
               </select>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-xs font-medium text-amber-500">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span className="truncate">No assistant configured</span>
-            </div>
+            <span className="text-xs font-medium text-muted-foreground">Playground</span>
           )}
         </div>
 
@@ -215,23 +213,24 @@ export default function DedicatedPlaygroundPage() {
         <div className="flex flex-1 flex-col overflow-hidden relative">
           {/* Scrollable Message List */}
           <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 space-y-6 max-w-3xl w-full mx-auto pb-36">
-            {/* Case 1: No Assistant Configured in Project */}
-            {assistants.length === 0 ? (
+            {/* Case 1: No Assistant Configured in Project (Single focused hero action) */}
+            {!hasAssistants ? (
               <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-5 px-4 animate-in fade-in duration-150">
                 <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
                   <Bot className="h-7 w-7" />
                 </div>
-                <div className="space-y-2 max-w-sm">
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">
+                <div className="space-y-1.5 max-w-sm">
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground">
                     No assistant configured yet
                   </h2>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    To start chatting and testing semantic grounding, configure an assistant with your preferred model and persona.
+                    Configure an assistant with your model and instructions to start testing grounded responses.
                   </p>
                 </div>
 
+                {/* Single, Primary Centered Action Button with Solid Clean Styling */}
                 <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`} className="pt-1">
-                  <Button variant="primary" size="sm" className="rounded-2xl px-5 h-9 text-xs font-semibold gap-2 shadow-xs">
+                  <Button variant="primary" size="lg" className="rounded-2xl px-6 h-10 text-xs sm:text-sm font-semibold gap-2 shadow-xs">
                     <Plus className="h-4 w-4" /> Create Assistant
                   </Button>
                 </Link>
@@ -251,7 +250,7 @@ export default function DedicatedPlaygroundPage() {
                   </p>
                 </div>
 
-                {/* Prompt Suggestions with Modern Hover Affordance */}
+                {/* Prompt Suggestions with Tactile Hover Affordance */}
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 justify-center max-w-lg pt-2">
                   {promptSuggestions.map((prompt) => (
                     <button
@@ -348,32 +347,24 @@ export default function DedicatedPlaygroundPage() {
                 handleSendMessage();
               }}
               className={`max-w-3xl mx-auto flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-full shadow-lg p-1.5 transition-all ${
-                !selectedAssistant ? "opacity-60 cursor-not-allowed" : "focus-within:ring-2 focus-within:ring-primary/20"
+                !hasAssistants ? "opacity-50 cursor-not-allowed" : "focus-within:ring-2 focus-within:ring-primary/20"
               }`}
             >
               <input
                 type="text"
                 value={inputQuery}
-                disabled={chatting || !selectedAssistant}
+                disabled={chatting || !hasAssistants}
                 onChange={(e) => setInputQuery(e.target.value)}
                 placeholder={
-                  selectedAssistant
+                  hasAssistants && selectedAssistant
                     ? `Message ${selectedAssistant.name}...`
                     : "Configure an assistant first to start chatting..."
                 }
                 className="flex-1 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed"
               />
 
-              {!selectedAssistant ? (
-                <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`}>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-muted text-[11px] font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all shrink-0 mr-1"
-                  >
-                    <Plus className="h-3 w-3" /> Create Assistant
-                  </button>
-                </Link>
-              ) : (
+              {/* Only render send button when assistant exists */}
+              {hasAssistants && (
                 <button
                   type="submit"
                   disabled={!inputQuery.trim() || chatting}

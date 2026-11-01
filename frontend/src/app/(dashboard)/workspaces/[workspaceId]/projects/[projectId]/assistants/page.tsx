@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -9,18 +9,15 @@ import {
   Bot,
   Plus,
   Sliders,
-  Settings2,
-  FileText,
   CheckCircle2,
   X,
   Search,
-  ArrowUpRight,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge, Alert } from "@/components/ui/alert";
-import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { cn } from "@/lib/utils";
 
 export default function AssistantsListPage() {
   const params = useParams();
@@ -35,13 +32,17 @@ export default function AssistantsListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Modal State
+  // Modal / Drawer State
   const [showCreate, setShowCreate] = useState(false);
   const [newAssistantName, setNewAssistantName] = useState("");
   const [newInstructions, setNewInstructions] = useState("");
   const [newModel, setNewModel] = useState("Auto");
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+
+  // Swipe-to-dismiss gesture handling for mobile bottom drawer
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [drawerTranslateY, setDrawerTranslateY] = useState(0);
 
   const loadData = useCallback(async () => {
     if (projectId) {
@@ -63,6 +64,20 @@ export default function AssistantsListPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Lock body scroll when modal/drawer is open
+  useEffect(() => {
+    if (showCreate) {
+      document.body.style.overflow = "hidden";
+      setDrawerTranslateY(0);
+    } else {
+      document.body.style.overflow = "";
+      setDrawerTranslateY(0);
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [showCreate]);
 
   const handleCreateAssistant = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,119 +103,177 @@ export default function AssistantsListPage() {
     }
   };
 
+  const hasAssistants = assistants.length > 0;
+
   const filteredAssistants = assistants.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (a.description && a.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  // Touch handlers for drawer swipe-down
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY === null) return;
+    const deltaY = e.touches[0].clientY - touchStartY;
+    if (deltaY > 0) {
+      setDrawerTranslateY(deltaY);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (drawerTranslateY > 100) {
+      setShowCreate(false);
+    } else {
+      setDrawerTranslateY(0);
+    }
+    setTouchStartY(null);
+  };
+
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-150">
+      {/* Header with Progressive Disclosure: Only show count badge & "+ New Assistant" button when assistants exist */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Assistants
             </h1>
-            <Badge variant="primary" className="text-xs px-2.5 py-0.5">{assistants.length} Configured</Badge>
+            {hasAssistants && (
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {assistants.length}
+              </span>
+            )}
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-relaxed">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Build and configure specialized RAG assistants grounded in project knowledge.
           </p>
         </div>
 
-        <Button
-          onClick={() => setShowCreate(true)}
-          variant="primary"
-          size="sm"
-          className="h-9 px-4 text-xs font-bold gap-2 shrink-0 self-start sm:self-center"
-        >
-          <Plus className="h-4 w-4" /> New Assistant
-        </Button>
+        {hasAssistants && (
+          <Button
+            onClick={() => setShowCreate(true)}
+            variant="primary"
+            size="sm"
+            className="rounded-2xl h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
+          >
+            <Plus className="h-4 w-4" /> New Assistant
+          </Button>
+        )}
       </div>
 
-      {/* Filter / Search Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search assistants by name or description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-border bg-input pl-10 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/40 shadow-xs"
-          />
+      {/* Progressive Disclosure: Only reveal Search when assistants exist */}
+      {hasAssistants && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search assistants..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-2xl bg-muted/40 hover:bg-muted/60 pl-10 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Assistants Grid */}
-      {filteredAssistants.length === 0 ? (
-        <EmptyState
-          icon={Bot}
-          title="No assistants found"
-          description={
-            searchQuery
-              ? "No assistants match your search filter."
-              : "Create your first assistant to begin testing grounded answers against your knowledge sources."
-          }
-          actionLabel="Create Assistant"
-          onAction={() => setShowCreate(true)}
-        />
+      {/* Main Content Area */}
+      {!hasAssistants ? (
+        /* Ruthlessly Clean Zero-State: Beautiful centered hero with soft bg-muted/30, no dotted borders, clean solid CTA */
+        <div className="rounded-3xl bg-muted/30 p-8 sm:p-14 text-center flex flex-col items-center justify-center space-y-5 animate-in fade-in duration-150">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-primary">
+            <Bot className="h-7 w-7" />
+          </div>
+
+          <div className="max-w-md space-y-1.5">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground">
+              No assistants configured yet
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Create an assistant to define custom system instructions, response strictness, and connect your knowledge datasets.
+            </p>
+          </div>
+
+          <Button
+            onClick={() => setShowCreate(true)}
+            variant="primary"
+            size="lg"
+            className="rounded-2xl px-6 font-semibold gap-2 shadow-xs text-xs sm:text-sm h-10"
+          >
+            <Plus className="h-4 w-4" /> Create Assistant
+          </Button>
+        </div>
+      ) : filteredAssistants.length === 0 ? (
+        /* Filter Zero-State */
+        <div className="rounded-2xl bg-muted/20 p-8 text-center text-xs text-muted-foreground space-y-2">
+          <p>No assistants match &quot;{searchQuery}&quot;</p>
+          <button
+            onClick={() => setSearchQuery("")}
+            className="text-primary hover:underline font-medium"
+          >
+            Clear filter
+          </button>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        /* Bento-Grid / Borderless Assistant Cards */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredAssistants.map((a) => (
             <div
               key={a.id}
-              className="group flex flex-col justify-between rounded-2xl border border-border bg-card p-6 hover:border-primary/50 transition-all shadow-sm"
+              className="group flex flex-col justify-between rounded-2xl bg-muted/30 hover:bg-muted/50 p-5 transition-all duration-150"
             >
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary text-primary border border-border/80">
-                    <Bot className="h-6 w-6" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-primary">
+                    <Bot className="h-5 w-5" />
                   </div>
-                  <Badge variant={a.status === "published" ? "success" : "outline"} className="text-xs px-2.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                     {a.status}
-                  </Badge>
+                  </span>
                 </div>
 
                 <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
+                  <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
                     {a.name}
                   </h3>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1.5 leading-relaxed">
-                    {a.system_instructions || "No system instructions configured."}
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                    {a.system_instructions || "Default assistant persona."}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground font-mono">
-                  <span>Model: <span className="text-foreground font-semibold">{a.model}</span></span>
-                  <span>Sources: <span className="text-foreground font-semibold">{a.knowledge_source_ids?.length || 0}</span></span>
+                <div className="pt-2 text-[11px] text-muted-foreground font-mono flex items-center justify-between">
+                  <span>Routing: <span className="text-foreground font-medium">{a.model}</span></span>
+                  <span>{a.knowledge_source_ids?.length || 0} sources</span>
                 </div>
               </div>
 
-              <div className="mt-5 pt-3.5 border-t border-border flex items-center gap-2.5">
+              <div className="mt-4 pt-3 border-t border-border/30 flex items-center gap-2">
                 <Link
                   href={`/workspaces/${workspaceId}/projects/${projectId}/assistants/${a.id}`}
                   className="flex-1"
                 >
-                  <Button variant="outline" size="sm" className="w-full h-8 px-3 text-xs font-semibold gap-1.5">
-                    <Settings2 className="h-4 w-4" /> Configure
+                  <Button variant="ghost" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                    Configure
                   </Button>
                 </Link>
                 <Link
                   href={`/workspaces/${workspaceId}/projects/${projectId}/playground?assistantId=${a.id}`}
                   className="flex-1"
                 >
-                  <Button variant="primary" size="sm" className="w-full h-8 px-3 text-xs font-bold gap-1.5">
-                    <Sliders className="h-4 w-4" /> Test
+                  <Button variant="primary" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-semibold gap-1.5 shadow-xs">
+                    <Sliders className="h-3.5 w-3.5" /> Test
                   </Button>
                 </Link>
               </div>
@@ -209,96 +282,154 @@ export default function AssistantsListPage() {
         </div>
       )}
 
-      {/* Creation Modal */}
+      {/* 
+        Responsive Creation Component:
+        - Mobile (< md): Native Bottom Drawer with swipe-down dismissal and safe spacing for virtual keyboards
+        - Desktop (>= md): Floating Dialog Modal centered on screen
+      */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-primary" />
+        <div
+          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-4"
+          onClick={() => setShowCreate(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create New Assistant"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              transform: drawerTranslateY > 0 ? `translateY(${drawerTranslateY}px)` : undefined,
+              transition: touchStartY === null ? "transform 0.15s ease-out" : "none",
+            }}
+            className={cn(
+              "w-full bg-card text-card-foreground border-border/40 shadow-2xl overflow-hidden flex flex-col relative",
+              // Mobile (< md): Slides up from bottom as Drawer
+              "mt-auto md:mt-0 rounded-t-3xl md:rounded-3xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
+            )}
+          >
+            {/* Mobile Swipe-Down Handle */}
+            <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
+              <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30 hover:bg-muted-foreground/50 transition-colors" />
+            </div>
+
+            {/* Header with Title and 'X' Button */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-primary shrink-0">
+                  <Bot className="h-4 w-4" />
+                </div>
                 <h3 className="text-sm font-bold text-foreground">Create New Assistant</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setShowCreate(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateAssistant} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">Assistant Name</label>
-                <Input
-                  type="text"
-                  required
-                  placeholder="e.g. Compliance Analyst, Legal Advisor"
-                  value={newAssistantName}
-                  onChange={(e) => setNewAssistantName(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">AI Routing Strategy</label>
-                <select
-                  value={newModel}
-                  onChange={(e) => setNewModel(e.target.value)}
-                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
-                >
-                  <option value="Auto">Auto (Balanced Speed & Reasoning)</option>
-                  <option value="Fast">Fast (Low Latency)</option>
-                  <option value="Deep Thinking">Deep Thinking (Complex Analysis)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground">System Instructions</label>
-                <textarea
-                  rows={3}
-                  placeholder="Describe role, tone, grounding rules, and response structure..."
-                  value={newInstructions}
-                  onChange={(e) => setNewInstructions(e.target.value)}
-                  className="w-full rounded-md border border-border bg-input p-3 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                />
-              </div>
-
-              {sources.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-foreground">Attach Initial Knowledge</label>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto border border-border rounded-lg p-2 bg-input/40">
-                    {sources.map((s) => {
-                      const isSelected = selectedSourceIds.includes(s.id);
-                      return (
-                        <div
-                          key={s.id}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedSourceIds(selectedSourceIds.filter((id) => id !== s.id));
-                            } else {
-                              setSelectedSourceIds([...selectedSourceIds, s.id]);
-                            }
-                          }}
-                          className={`flex items-center justify-between p-2 rounded-md cursor-pointer text-xs transition-colors ${
-                            isSelected
-                              ? "bg-primary/10 border border-primary/30 text-foreground"
-                              : "hover:bg-secondary text-muted-foreground"
-                          }`}
-                        >
-                          <span className="truncate">{s.name}</span>
-                          {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
-                        </div>
-                      );
-                    })}
-                  </div>
+            {/* Form Body - Scrollable on mobile so virtual keyboard doesn't occlude fields */}
+            <form onSubmit={handleCreateAssistant} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                {/* Assistant Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Assistant Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Compliance Analyst, Legal Advisor"
+                    value={newAssistantName}
+                    onChange={(e) => setNewAssistantName(e.target.value)}
+                    className="w-full rounded-xl bg-muted/50 border border-transparent px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors"
+                  />
                 </div>
-              )}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
+                {/* AI Routing Strategy (CustomSelect with Mobile Bottom Sheet) */}
+                <CustomSelect
+                  label="AI Routing Strategy"
+                  value={newModel}
+                  onChange={(val) => setNewModel(val)}
+                  triggerClassName="bg-muted/50 border-transparent focus:ring-2 focus:ring-primary/20"
+                  options={[
+                    {
+                      value: "Auto",
+                      label: "Auto Routing",
+                      description: "Balanced reasoning latency and citation precision",
+                    },
+                    {
+                      value: "Fast",
+                      label: "Fast Response",
+                      description: "Optimized for minimal response times and summary tasks",
+                    },
+                    {
+                      value: "Deep Thinking",
+                      label: "Deep Thinking",
+                      description: "High-reasoning multi-step analysis for complex docs",
+                    },
+                  ]}
+                />
+
+                {/* System Instructions (Textarea with comfortable height) */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">System Instructions</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Describe role, tone, grounding rules, and response structure..."
+                    value={newInstructions}
+                    onChange={(e) => setNewInstructions(e.target.value)}
+                    className="w-full rounded-2xl bg-muted/50 border border-transparent p-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors leading-relaxed resize-none"
+                  />
+                </div>
+
+                {/* Knowledge Sources Checklist */}
+                {sources.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-foreground">Attach Knowledge Sources</label>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto rounded-2xl p-2 bg-muted/40">
+                      {sources.map((s) => {
+                        const isSelected = selectedSourceIds.includes(s.id);
+                        return (
+                          <div
+                            key={s.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedSourceIds(selectedSourceIds.filter((id) => id !== s.id));
+                              } else {
+                                setSelectedSourceIds([...selectedSourceIds, s.id]);
+                              }
+                            }}
+                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors ${
+                              isSelected
+                                ? "bg-primary/10 text-primary font-semibold"
+                                : "hover:bg-muted/80 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <Database className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{s.name}</span>
+                            </div>
+                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons Footer */}
+              <div className="p-4 sm:p-5 border-t border-border/40 bg-card/60 flex items-center justify-end gap-2.5 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowCreate(false)}
+                  className="rounded-xl text-xs font-medium"
                 >
                   Cancel
                 </Button>
@@ -308,6 +439,7 @@ export default function AssistantsListPage() {
                   size="sm"
                   isLoading={creating}
                   disabled={!newAssistantName.trim()}
+                  className="rounded-xl text-xs font-semibold px-5 h-9 shadow-xs"
                 >
                   Create &amp; Configure
                 </Button>
