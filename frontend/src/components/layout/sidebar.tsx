@@ -13,13 +13,14 @@ import {
   ChevronDown,
   Search,
   X,
-  Plus,
+  Check,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Workspace, Project } from "@/types";
 import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface SidebarProps {
   currentWorkspace: Workspace | null;
@@ -43,14 +44,31 @@ export function Sidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
   const [projDropdownOpen, setProjDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const projRef = useRef<HTMLDivElement>(null);
 
   const wsId = currentWorkspace?.id;
   const pId = currentProject?.id;
 
   const baseProjUrl = wsId && pId ? `/workspaces/${wsId}/projects/${pId}` : "";
   const baseWsUrl = wsId ? `/workspaces/${wsId}` : "";
+
+  // Close menus on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+      if (projRef.current && !projRef.current.contains(e.target as Node)) {
+        setProjDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const navItems = [
     {
@@ -124,74 +142,27 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Scope Pickers: Sleek Minimalist Switcher */}
-      <div className="p-3.5 space-y-1.5 shrink-0">
-        {/* Workspace Dropdown */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setWsDropdownOpen(!wsDropdownOpen);
-              setProjDropdownOpen(false);
-            }}
-            className="w-full flex items-center justify-between rounded-xl bg-muted/40 hover:bg-muted/80 px-3 py-2 text-xs font-semibold text-foreground transition-colors focus:outline-none"
-            aria-expanded={wsDropdownOpen}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
-              <span className="truncate">{currentWorkspace?.name || "Select Workspace"}</span>
-            </div>
-            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", wsDropdownOpen && "rotate-180")} />
-          </button>
-
-          {wsDropdownOpen && workspaces.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1.5 z-40 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-xl p-1.5 max-h-56 overflow-y-auto text-xs animate-in fade-in-50 zoom-in-95">
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Workspaces
-              </div>
-              {workspaces.map((ws) => (
-                <Link
-                  key={ws.id}
-                  href={`/workspaces/${ws.id}`}
-                  onClick={() => {
-                    setWsDropdownOpen(false);
-                    onItemClick?.();
-                  }}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg px-2.5 py-1.5 transition-colors",
-                    ws.id === wsId ? "bg-primary text-primary-foreground font-semibold" : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span className="truncate">{ws.name}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Project Dropdown */}
-        {wsId && (
+      {/* Clean Top Area: Only display Project selector if user has MORE THAN 1 project */}
+      {wsId && projects.length > 1 && (
+        <div className="p-3 pb-1 shrink-0" ref={projRef}>
           <div className="relative">
             <button
               type="button"
-              onClick={() => {
-                setProjDropdownOpen(!projDropdownOpen);
-                setWsDropdownOpen(false);
-              }}
+              onClick={() => setProjDropdownOpen(!projDropdownOpen)}
               className="w-full flex items-center justify-between rounded-xl bg-muted/40 hover:bg-muted/80 px-3 py-2 text-xs font-semibold text-foreground transition-colors focus:outline-none"
               aria-expanded={projDropdownOpen}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground">Proj:</span>
+                <span className="text-[10px] uppercase font-mono tracking-wider text-muted-foreground">Project:</span>
                 <span className="truncate font-medium">{currentProject?.name || "Select Project"}</span>
               </div>
               <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", projDropdownOpen && "rotate-180")} />
             </button>
 
-            {projDropdownOpen && projects.length > 0 && (
+            {projDropdownOpen && (
               <div className="absolute left-0 right-0 mt-1.5 z-40 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-xl p-1.5 max-h-56 overflow-y-auto text-xs animate-in fade-in-50 zoom-in-95">
                 <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Projects
+                  Projects ({projects.length})
                 </div>
                 {projects.map((proj) => (
                   <Link
@@ -207,16 +178,17 @@ export function Sidebar({
                     )}
                   >
                     <span className="truncate">{proj.name}</span>
+                    {proj.id === pId && <Check className="h-3.5 w-3.5 shrink-0 ml-2" />}
                   </Link>
                 ))}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Quick Search Shortcut */}
-      <div className="px-3.5 pb-2 shrink-0">
+      <div className="px-3 pt-3 pb-1 shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -270,22 +242,80 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Sleek User Profile & Appearance Footer */}
-      <div className="p-3.5 space-y-2.5 border-t border-border/40 shrink-0">
+      {/* Bottom User Profile Section with Integrated Workspace Switcher */}
+      <div className="p-3 border-t border-border/40 shrink-0 relative" ref={userMenuRef}>
+        {/* Workspace Switcher Popover from User Profile */}
+        {userMenuOpen && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 z-50 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl p-2 space-y-2 animate-in fade-in-50 zoom-in-95">
+            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+              <span>Workspaces</span>
+              <span className="font-mono text-[10px]">{workspaces.length}</span>
+            </div>
+
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {workspaces.map((ws) => (
+                <Link
+                  key={ws.id}
+                  href={`/workspaces/${ws.id}`}
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onItemClick?.();
+                  }}
+                  className={cn(
+                    "flex items-center justify-between rounded-xl px-2.5 py-2 text-xs transition-colors",
+                    ws.id === wsId
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Building2 className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{ws.name}</span>
+                  </div>
+                  {ws.id === wsId && <Check className="h-3.5 w-3.5 shrink-0 ml-1.5" />}
+                </Link>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-border/40">
+              <Link
+                href={baseWsUrl ? `${baseWsUrl}/settings` : "#"}
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  onItemClick?.();
+                }}
+                className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>Workspace Settings</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* User Profile Card Button */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            className="flex items-center gap-2.5 overflow-hidden text-left p-1 rounded-xl hover:bg-muted/60 transition-colors flex-1 mr-1"
+            title="Switch Workspace / Profile"
+          >
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground shrink-0">
               {user?.full_name?.charAt(0) || "U"}
             </div>
-            <div className="flex flex-col truncate">
-              <span className="text-xs font-semibold text-foreground truncate">
-                {user?.full_name || "User"}
-              </span>
+            <div className="flex flex-col truncate min-w-0">
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-semibold text-foreground truncate">
+                  {user?.full_name || "User"}
+                </span>
+                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", userMenuOpen && "rotate-180")} />
+              </div>
               <span className="text-[11px] text-muted-foreground truncate">
-                {user?.email || "Account"}
+                {currentWorkspace?.name || user?.email || "Account"}
               </span>
             </div>
-          </div>
+          </button>
 
           <button
             onClick={logout}
@@ -298,7 +328,7 @@ export function Sidebar({
         </div>
 
         {/* Compact theme selector */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/30">
+        <div className="flex items-center justify-between pt-2 mt-2 border-t border-border/30">
           <span className="text-[11px] text-muted-foreground font-medium">Appearance</span>
           <CompactThemeMenu />
         </div>
