@@ -61,6 +61,9 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
     workspace = Workspace(
         name=f"{user.full_name}'s Workspace",
         slug=ws_slug,
+        plan_tier="pay_as_you_go",
+        promotional_credit_balance=100.000000,
+        fiat_spend_balance=0.000000,
     )
     db.add(workspace)
     await db.flush()

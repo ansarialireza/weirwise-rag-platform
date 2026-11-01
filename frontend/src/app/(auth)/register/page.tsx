@@ -76,12 +76,15 @@ export default function RegisterPage() {
 
         {/* Center Form Container */}
         <div className="my-auto py-8 space-y-6 max-w-sm w-full mx-auto">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+              Includes $100 Free Welcome Credit
+            </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Create platform account
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Deploy secure AI assistants grounded in business data with Jina v4 embeddings.
+              Build truthful AI assistants grounded in your business knowledge. No credit card required.
             </p>
           </div>
 

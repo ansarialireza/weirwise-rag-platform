@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Numeric,
     String,
     UniqueConstraint,
 )
@@ -45,7 +46,9 @@ class Workspace(Base):
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
-    plan_tier = Column(String(50), default="free", nullable=False)
+    plan_tier = Column(String(50), default="pay_as_you_go", nullable=False)
+    promotional_credit_balance = Column(Numeric(12, 6), default=100.000000, nullable=False)
+    fiat_spend_balance = Column(Numeric(12, 6), default=0.000000, nullable=False)
     settings = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

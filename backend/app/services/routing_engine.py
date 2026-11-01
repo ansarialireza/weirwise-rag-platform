@@ -12,6 +12,7 @@ from backend.app.models.admin import (
     ProviderRoutingStrategy,
     TokenCostLedger,
 )
+from backend.app.models.auth import Workspace
 from backend.app.services.vault import decrypt_credential_secret
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -205,6 +206,26 @@ class IntelligentRoutingEngine:
         if provider:
             provider.current_month_spend_usd = float(provider.current_month_spend_usd) + cost_usd
 
+        # Credit deduction logic: deduct from promotional_credit_balance first before fiat
+        ws_stmt = select(Workspace).where(Workspace.id == workspace_id)
+        ws_res = await db.execute(ws_stmt)
+        ws = ws_res.scalar_one_or_none()
+
+        covered_by_promo = 0.0
+        covered_by_fiat = 0.0
+
+        if ws:
+            current_promo = float(ws.promotional_credit_balance or 0.0)
+            if current_promo >= cost_usd:
+                ws.promotional_credit_balance = current_promo - cost_usd
+                covered_by_promo = cost_usd
+            else:
+                remainder = cost_usd - current_promo
+                ws.promotional_credit_balance = 0.0
+                ws.fiat_spend_balance = float(ws.fiat_spend_balance or 0.0) + remainder
+                covered_by_promo = current_promo
+                covered_by_fiat = remainder
+
         # Record audit ledger entry
         total_tokens = input_tokens + output_tokens
         ledger_entry = TokenCostLedger(
@@ -216,6 +237,8 @@ class IntelligentRoutingEngine:
             output_tokens=output_tokens,
             total_tokens=total_tokens,
             cost_usd=cost_usd,
+            covered_by_promotional_credit=covered_by_promo,
+            covered_by_fiat=covered_by_fiat,
             latency_ms=latency_ms,
             is_success=True,
         )
