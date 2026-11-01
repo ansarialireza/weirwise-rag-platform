@@ -34,6 +34,8 @@ export default function LoginPage() {
       const workspaces = await api.getWorkspaces();
       if (workspaces.length > 0) {
         router.push(`/workspaces/${workspaces[0].id}`);
+      } else if (user.is_superuser) {
+        router.push("/admin");
       } else {
         router.push("/");
       }
