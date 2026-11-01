@@ -163,7 +163,7 @@ export default function WorkspaceSettingsPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
       </div>
     );
   }
@@ -177,7 +177,7 @@ export default function WorkspaceSettingsPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Workspace Settings
             </h1>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase">
+            <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground uppercase font-medium">
               {workspace?.name || "Workspace"}
             </span>
           </div>
@@ -267,19 +267,17 @@ export default function WorkspaceSettingsPage() {
                 required
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                className="w-full rounded-xl bg-background/80 border border-border/40 px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-xl bg-background/80 border border-border/40 px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
               />
             </div>
 
-            <Button
+            <button
               type="submit"
-              variant="primary"
-              size="sm"
-              isLoading={savingWs}
-              className="rounded-xl h-9 px-4 text-xs font-semibold shadow-xs"
+              disabled={savingWs}
+              className="inline-flex items-center justify-center rounded-xl h-9 px-4 text-xs font-semibold bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
             >
               Save Workspace Name
-            </Button>
+            </button>
           </form>
         </div>
       )}
@@ -315,7 +313,7 @@ export default function WorkspaceSettingsPage() {
                   </div>
                   <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-primary rounded-full transition-all"
+                      className="h-full bg-foreground rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, (billing.chat_turns_used / (billing.chat_turns_limit || 1)) * 100)}%`,
                       }}
@@ -332,7 +330,7 @@ export default function WorkspaceSettingsPage() {
                   </div>
                   <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full bg-primary rounded-full transition-all"
+                      className="h-full bg-foreground rounded-full transition-all"
                       style={{
                         width: `${Math.min(100, (billing.documents_indexed / (billing.documents_limit || 1)) * 100)}%`,
                       }}
@@ -367,7 +365,7 @@ export default function WorkspaceSettingsPage() {
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-bold uppercase text-foreground">{p.name}</span>
                           {isCurrent && (
-                            <span className="text-[10px] font-medium text-emerald-500 flex items-center gap-1">
+                            <span className="text-[10px] font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-muted flex items-center gap-1">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Current
                             </span>
                           )}
@@ -386,16 +384,20 @@ export default function WorkspaceSettingsPage() {
                       </div>
 
                       <div className="pt-5 mt-2">
-                        <Button
-                          variant={isCurrent ? "outline" : "primary"}
-                          size="sm"
-                          className="w-full rounded-xl text-xs font-semibold h-9 shadow-xs"
-                          disabled={isCurrent}
-                          isLoading={changingPlan === p.tier}
-                          onClick={() => handlePlanChange(p.tier)}
-                        >
-                          {isCurrent ? "Active Plan" : `Switch to ${p.name}`}
-                        </Button>
+                        {isCurrent ? (
+                          <div className="w-full rounded-xl text-xs font-semibold h-9 border border-border bg-card/80 text-muted-foreground flex items-center justify-center cursor-default">
+                            Active Plan
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={changingPlan === p.tier}
+                            onClick={() => handlePlanChange(p.tier)}
+                            className="w-full rounded-xl text-xs font-semibold h-9 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            {changingPlan === p.tier ? "Updating..." : `Switch to ${p.name}`}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -439,7 +441,7 @@ export default function WorkspaceSettingsPage() {
                     className="rounded-xl h-8 px-3 text-xs"
                     onClick={() => handleCopy(createdKey)}
                   >
-                    {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? <Check className="h-3.5 w-3.5 text-foreground" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               </div>
@@ -452,17 +454,15 @@ export default function WorkspaceSettingsPage() {
                 placeholder="Key label, e.g. Production Backend"
                 value={credName}
                 onChange={(e) => setCredName(e.target.value)}
-                className="flex-1 rounded-xl bg-background/80 border border-border/40 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="flex-1 rounded-xl bg-background/80 border border-border/40 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
               />
-              <Button
+              <button
                 type="submit"
-                variant="primary"
-                size="sm"
-                isLoading={creatingKey}
-                className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5 shadow-xs shrink-0"
+                disabled={creatingKey}
+                className="inline-flex items-center justify-center rounded-xl h-9 px-4 text-xs font-semibold gap-1.5 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs shrink-0 transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
                 <Plus className="h-3.5 w-3.5" /> Create Key
-              </Button>
+              </button>
             </form>
           </div>
         </div>
@@ -477,32 +477,33 @@ export default function WorkspaceSettingsPage() {
               <p className="text-xs text-muted-foreground">Add team members to collaborate on assistants and datasets.</p>
             </div>
 
-            <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 max-w-lg">
+            <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 max-w-lg items-stretch sm:items-center">
               <input
                 type="email"
                 required
                 placeholder="colleague@company.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                className="flex-1 rounded-xl bg-background/80 border border-border/40 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="flex-1 rounded-xl bg-background/80 border border-border/40 px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 h-9"
               />
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-                className="rounded-xl bg-background/80 border border-border/40 px-3 py-2 text-xs text-foreground focus:outline-none"
-              >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-              </select>
-              <Button
+              <div className="w-full sm:w-32 shrink-0">
+                <CustomSelect
+                  value={inviteRole}
+                  onChange={(val) => setInviteRole(val)}
+                  triggerClassName="rounded-xl bg-background/80 border border-border/40 px-3 py-2 text-xs text-foreground focus:outline-none h-9"
+                  options={[
+                    { value: "member", label: "Member", description: "Standard contributor access" },
+                    { value: "admin", label: "Admin", description: "Full workspace administrative access" },
+                  ]}
+                />
+              </div>
+              <button
                 type="submit"
-                variant="primary"
-                size="sm"
-                isLoading={inviting}
-                className="rounded-xl h-9 px-4 text-xs font-semibold gap-1.5 shadow-xs shrink-0"
+                disabled={inviting}
+                className="inline-flex items-center justify-center rounded-xl h-9 px-4 text-xs font-semibold gap-1.5 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs shrink-0 transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
                 <Plus className="h-3.5 w-3.5" /> Invite
-              </Button>
+              </button>
             </form>
           </div>
 

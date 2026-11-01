@@ -156,13 +156,13 @@ export function CustomSelect({
                     className={cn(
                       "flex items-center justify-between rounded-xl px-3 py-2.5 sm:py-2 text-xs font-medium cursor-pointer transition-colors",
                       isSelected
-                        ? "bg-primary/10 text-primary font-semibold"
+                        ? "bg-foreground/10 text-foreground font-semibold"
                         : "text-foreground hover:bg-muted/70 active:bg-muted"
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {opt.icon && (
-                        <span className={cn("shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}>
+                        <span className={cn("shrink-0", isSelected ? "text-foreground" : "text-muted-foreground")}>
                           {opt.icon}
                         </span>
                       )}
@@ -176,7 +176,7 @@ export function CustomSelect({
                       </div>
                     </div>
                     {isSelected && (
-                      <Check className="h-4 w-4 text-primary shrink-0 ml-2" />
+                      <Check className="h-4 w-4 text-foreground shrink-0 ml-2" />
                     )}
                   </div>
                 );
