@@ -60,6 +60,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
 
   const navLinks = [
     { label: "Pricing", href: "/pricing", active: pathname === "/pricing" },
+    { label: "Blog", href: "/blog", active: pathname.startsWith("/blog") },
     ...(dashboardUrl
       ? [{ label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/workspaces") }]
       : [{ label: "Sign In", href: "/login", active: pathname === "/login" }]),

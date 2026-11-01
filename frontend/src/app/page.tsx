@@ -1,11 +1,8 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { HeroActions } from "@/components/landing/hero-actions";
 import {
   ArrowRight,
   Shield,
@@ -16,28 +13,20 @@ import {
   Code2,
   Sliders,
   CheckCircle2,
-  ArrowUpRight,
   ChevronRight,
   Gift,
 } from "lucide-react";
 
+export const metadata: Metadata = {
+  title: "Weirwise — Autonomous AI Assistant Studio for Business",
+  description:
+    "Build, test, and publish autonomous AI assistants grounded in your company knowledge. Zero hallucinations, verified inline citations, and effortless web embedding.",
+  alternates: {
+    canonical: "https://dev.weirwise.com/",
+  },
+};
+
 export default function RootPage() {
-  const { user, loading } = useAuth();
-  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading && user) {
-      api
-        .getWorkspaces()
-        .then((workspaces) => {
-          if (workspaces.length > 0) {
-            setDashboardUrl(`/workspaces/${workspaces[0].id}`);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user, loading]);
-
   const steps = [
     {
       step: "01",
@@ -48,20 +37,20 @@ export default function RootPage() {
     {
       step: "02",
       title: "Configure & Test",
-      desc: "Define plain-English instructions and tune citation thresholds in the interactive Studio. Test answers against verified source citations.",
+      desc: "Customize prompts, test responses with inline citations, and verify that the assistant stays strictly anchored to approved company data.",
       icon: Sliders,
     },
     {
       step: "03",
-      title: "Publish & Embed",
-      desc: "Deploy immutable assistant snapshots with one click. Embed clean, responsive widgets on any website or connect via REST API.",
+      title: "Publish Everywhere",
+      desc: "Embed an interactive chat bubble on your website with one script tag, or trigger via standard REST APIs into your existing stack.",
       icon: Code2,
     },
   ];
 
   const highlights = [
     {
-      title: "Truthful, Grounded Responses",
+      title: "Deterministic Grounding",
       desc: "Assistants answer strictly from your uploaded knowledge. If evidence is lacking, the assistant responds honestly rather than inventing facts.",
       icon: Shield,
     },
@@ -77,8 +66,49 @@ export default function RootPage() {
     },
   ];
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
+
+  // Structured Data Schema for Organization & SoftwareApplication
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Weirwise Inc.",
+    url: baseUrl,
+    logo: `${baseUrl}/weirwise-horizontal.svg`,
+    description: "Enterprise Autonomous RAG Platform and AI Assistant Studio.",
+    sameAs: [
+      "https://github.com/ansarialireza/weirwise-rag-platform"
+    ],
+  };
+
+  const softwareApplicationSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Weirwise Platform",
+    operatingSystem: "Cloud / Web",
+    applicationCategory: "BusinessApplication",
+    offers: {
+      "@type": "Offer",
+      price: "0.00",
+      priceCurrency: "USD",
+    },
+    description:
+      "Autonomous AI assistant studio for business with zero-hallucination citation grounding, isolated vector stores, and intelligent model routing.",
+    url: baseUrl,
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary selection:text-primary-foreground font-sans transition-colors">
+      {/* Structured Data (JSON-LD) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+      />
+
       {/* 1. Unified Site Header */}
       <SiteHeader />
 
@@ -96,7 +126,7 @@ export default function RootPage() {
             <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
 
-          {/* Core Headline */}
+          {/* Core Headline (LCP text element rendered on server) */}
           <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-[#090A0C] dark:text-foreground leading-[1.1]">
             Custom AI Assistants <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#090A0C] via-[#2563FF] to-[#2563FF] dark:from-[#CCFF00] dark:via-[#CCFF00] dark:to-[#2563FF]">
@@ -109,23 +139,8 @@ export default function RootPage() {
             Build, test, and publish autonomous AI assistants grounded in your company knowledge. Zero hallucinations, verified inline citations, and effortless web embedding.
           </p>
 
-          {/* CTAs */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full max-w-md mx-auto">
-            <Link
-              href={dashboardUrl || "/register"}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#090A0C] text-[#CCFF00] dark:bg-primary dark:text-primary-foreground px-7 py-3.5 text-sm font-bold shadow-md hover:bg-[#14161C] active:scale-[0.98] transition-all border border-[#2E3444]/40"
-            >
-              <span>{dashboardUrl ? "Open Workspace" : "Start Free Trial"}</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-
-            <Link
-              href="/pricing"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary/80 px-6 py-3.5 text-sm font-semibold text-foreground hover:bg-secondary hover:border-border active:scale-[0.98] transition-all shadow-xs"
-            >
-              Explore Subscription Tiers
-            </Link>
-          </div>
+          {/* Interactive CTAs */}
+          <HeroActions />
 
           {/* Micro-guarantee */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -272,6 +287,9 @@ export default function RootPage() {
           <div className="flex items-center gap-6 text-xs font-medium">
             <Link href="/pricing" className="hover:text-foreground transition-colors">
               Pricing
+            </Link>
+            <Link href="/blog" className="hover:text-foreground transition-colors">
+              Blog
             </Link>
             <Link href="/login" className="hover:text-foreground transition-colors">
               Sign In
