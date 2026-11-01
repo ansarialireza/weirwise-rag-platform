@@ -3,6 +3,7 @@
 import enum
 import uuid
 
+from backend.app.core.config import settings
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from sqlalchemy import (
     Boolean,
@@ -47,7 +48,11 @@ class Workspace(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     plan_tier = Column(String(50), default="pay_as_you_go", nullable=False)
-    promotional_credit_balance = Column(Numeric(12, 6), default=100.000000, nullable=False)
+    promotional_credit_balance = Column(
+        Numeric(12, 6),
+        default=lambda: settings.DEFAULT_PROMOTIONAL_CREDIT,
+        nullable=False,
+    )
     fiat_spend_balance = Column(Numeric(12, 6), default=0.000000, nullable=False)
     settings = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)

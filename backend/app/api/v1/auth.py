@@ -62,7 +62,7 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
         name=f"{user.full_name}'s Workspace",
         slug=ws_slug,
         plan_tier="pay_as_you_go",
-        promotional_credit_balance=100.000000,
+        promotional_credit_balance=settings.DEFAULT_PROMOTIONAL_CREDIT,
         fiat_spend_balance=0.000000,
     )
     db.add(workspace)

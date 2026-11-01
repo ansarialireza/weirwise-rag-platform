@@ -1,5 +1,6 @@
 """Centralized application settings with strict validation."""
 
+from decimal import Decimal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -59,6 +60,9 @@ class Settings(BaseSettings):
     # Staff Administration (Private System Provisioning)
     INITIAL_STAFF_ADMIN_EMAIL: str | None = None
     INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
+
+    # FinOps & Billing
+    DEFAULT_PROMOTIONAL_CREDIT: Decimal = Decimal("100.00")
 
 
 settings = Settings()

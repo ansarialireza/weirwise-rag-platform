@@ -27,9 +27,11 @@ def upgrade() -> None:
             "promotional_credit_balance",
             sa.Numeric(precision=12, scale=6),
             nullable=False,
-            server_default="100.000000",
+            server_default="0.000000",
         ),
     )
+    # Remove server_default so new inserts rely dynamically on application-level defaults
+    op.alter_column("workspaces", "promotional_credit_balance", server_default=None)
     op.add_column(
         "workspaces",
         sa.Column(

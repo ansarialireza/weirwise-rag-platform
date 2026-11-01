@@ -4,6 +4,7 @@ import re
 import uuid
 
 from backend.app.api.dependencies import WorkspaceContext, get_current_user, require_workspace
+from backend.app.core.config import settings
 from backend.app.db.session import get_db_session
 from backend.app.models.audit import AuditEvent
 from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
@@ -43,7 +44,13 @@ async def create_workspace(
     base_slug = payload.slug or slugify(payload.name)
     slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
-    workspace = Workspace(name=payload.name, slug=slug)
+    workspace = Workspace(
+        name=payload.name,
+        slug=slug,
+        plan_tier="pay_as_you_go",
+        promotional_credit_balance=settings.DEFAULT_PROMOTIONAL_CREDIT,
+        fiat_spend_balance=0.000000,
+    )
     db.add(workspace)
     await db.flush()
 
