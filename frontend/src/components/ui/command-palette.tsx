@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Search,
@@ -15,7 +15,7 @@ import {
   Laptop,
   Palette,
   ArrowRight,
-  Command as CommandIcon,
+  X,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,9 @@ interface CommandItem {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   const router = useRouter();
   const params = useParams();
   const { theme, setTheme } = useTheme();
@@ -41,7 +44,7 @@ export function CommandPalette() {
 
   const baseProj = workspaceId && projectId ? `/workspaces/${workspaceId}/projects/${projectId}` : "";
 
-  // Keyboard shortcut listener: Cmd+K or Ctrl+K
+  // Keyboard shortcut listener: Cmd+K or Ctrl+K & Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -55,6 +58,20 @@ export function CommandPalette() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      document.body.style.overflow = "";
+      setQuery("");
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   const items: CommandItem[] = [
@@ -172,31 +189,48 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-100">
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-4 pt-4 sm:pt-20 bg-background/80 backdrop-blur-md animate-in fade-in duration-150"
+      onClick={() => setOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command search palette"
+    >
+      {/* Dialog Container */}
       <div
-        className="w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col text-xs animate-in zoom-in-95 duration-150"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command search palette"
+        ref={dialogRef}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "w-full max-w-xl rounded-3xl border border-border/60 bg-popover text-popover-foreground shadow-2xl overflow-hidden flex flex-col text-xs animate-in zoom-in-95 duration-150 relative",
+          // Mobile responsive sizing: sit gracefully at top or slide nicely
+          "max-h-[85vh] sm:max-h-[70vh]"
+        )}
       >
-        {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card">
+        {/* Search Input Bar with Mobile-Friendly 'X' Close Button */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border/40 bg-card/60">
           <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <input
+            ref={inputRef}
             type="text"
-            autoFocus
-            placeholder="Search commands, navigate surfaces, or toggle settings... (ESC to close)"
+            placeholder="Search commands, navigate surfaces, or toggle settings..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded border border-border bg-secondary text-[10px] font-mono text-muted-foreground">
-            ESC
-          </kbd>
+
+          {/* Explicit, easy-to-tap close button */}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+            aria-label="Close command palette"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Results Stream */}
-        <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-1">
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
               No matching commands found.
@@ -213,24 +247,24 @@ export function CommandPalette() {
                     setOpen(false);
                     setQuery("");
                   }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-lg text-left text-xs text-foreground hover:bg-secondary/70 focus:bg-secondary/70 transition-colors group"
+                  className="w-full flex items-center justify-between p-3 sm:p-2.5 rounded-2xl text-left text-xs text-foreground hover:bg-muted/70 active:bg-muted focus:bg-muted transition-colors group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      <Icon className="h-3.5 w-3.5" />
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <div>
-                      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                    <div className="min-w-0 truncate">
+                      <div className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                         {item.title}
                       </div>
                       {item.subtitle && (
-                        <div className="text-[11px] text-muted-foreground">
+                        <div className="text-[11px] text-muted-foreground truncate">
                           {item.subtitle}
                         </div>
                       )}
                     </div>
                   </div>
-                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors opacity-0 group-hover:opacity-100" />
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 ml-2" />
                 </button>
               );
             })
@@ -238,12 +272,12 @@ export function CommandPalette() {
         </div>
 
         {/* Footer Hints */}
-        <div className="px-4 py-2 border-t border-border/60 bg-card/60 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-          <span>Weirwise Command Search</span>
+        <div className="px-4 py-2.5 border-t border-border/40 bg-card/40 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+          <span>Weirwise Quick Search</span>
           <div className="flex items-center gap-2">
-            <span>Press</span>
-            <kbd className="px-1 py-0.5 rounded border border-border bg-secondary text-[10px]">Ctrl+K</kbd>
-            <span>anywhere</span>
+            <span className="hidden sm:inline">ESC or tap backdrop to close</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded border border-border bg-muted text-[10px]">ESC</kbd>
+            <span className="sm:hidden">Tap X to close</span>
           </div>
         </div>
       </div>
