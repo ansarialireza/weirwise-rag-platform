@@ -70,8 +70,13 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
         db.add(user)
         await db.flush()
 
-        # Provision initial personal workspace for user
+        # Provision initial personal workspace & primary project for user
+        first_name = (user.full_name or "").strip().split()[0] if user.full_name else ""
+        if not first_name:
+            first_name = user.email.split("@")[0].capitalize()
+        ws_name = f"{first_name}'s Workspace"
         ws_slug = f"ws-{user.id.hex[:8]}"
+
         tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.name == "Free Trial"))
         default_tier = tier_res.scalar_one_or_none()
         if not default_tier:
@@ -79,7 +84,7 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
             default_tier = tier_res.scalars().first()
 
         workspace = Workspace(
-            name=f"{user.full_name}'s Workspace",
+            name=ws_name,
             slug=ws_slug,
             plan_tier=default_tier.name.lower().replace(" ", "_") if default_tier else "free",
             subscription_tier_id=default_tier.id if default_tier else None,
@@ -93,6 +98,17 @@ async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_
             role=WorkspaceRole.OWNER.value,
         )
         db.add(membership)
+
+        # Provision initial intuitive project for user
+        from backend.app.models.project import Project
+
+        initial_project = Project(
+            workspace_id=workspace.id,
+            name="Main Project",
+            slug=f"proj-{user.id.hex[:8]}",
+            description="Primary workspace project for knowledge bases and assistants.",
+        )
+        db.add(initial_project)
 
     # Invalidate any prior unused OTPs for this user
     await db.execute(

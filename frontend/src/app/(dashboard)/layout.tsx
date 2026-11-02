@@ -171,13 +171,19 @@ export default function DashboardLayout({
             </button>
           </div>
 
-          {/* Centered Workspace/Project Title */}
+          {/* Centered Context Title */}
           <div className="flex items-center justify-center min-w-0 px-2 text-center">
             <span
               className="text-xs font-semibold tracking-tight text-foreground truncate"
-              title={currentProject?.name || currentWorkspace?.name || "Weirwise"}
+              title={
+                workspaces.length > 1 && projects.length > 1
+                  ? `${currentWorkspace?.name || "Workspace"} / ${currentProject?.name || "Project"}`
+                  : currentProject?.name || currentWorkspace?.name || "Weirwise"
+              }
             >
-              {currentProject?.name || currentWorkspace?.name || "Weirwise"}
+              {workspaces.length > 1 && projects.length > 1
+                ? `${currentWorkspace?.name || "Workspace"} / ${currentProject?.name || "Project"}`
+                : currentProject?.name || currentWorkspace?.name || "Weirwise"}
             </span>
           </div>
 

@@ -15,8 +15,8 @@ export default function WorkspaceIndexPage() {
         if (projects.length > 0) {
           router.push(`/workspaces/${workspaceId}/projects/${projects[0].id}`);
         } else {
-          // Create default project if none exist
-          api.createProject(workspaceId, { name: "Default Project" }).then((newProj) => {
+          // Create initial primary project if none exist
+          api.createProject(workspaceId, { name: "Main Project" }).then((newProj) => {
             router.push(`/workspaces/${workspaceId}/projects/${newProj.id}`);
           });
         }

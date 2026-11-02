@@ -244,8 +244,8 @@ export function Sidebar({
 
       {/* Bottom User Profile Section with Integrated Workspace Switcher */}
       <div className="p-3 border-t border-border/40 shrink-0 relative" ref={userMenuRef}>
-        {/* Workspace Switcher Popover from User Profile */}
-        {userMenuOpen && (
+        {/* Workspace Switcher Popover from User Profile (Only shown if > 1 workspace exists) */}
+        {userMenuOpen && workspaces.length > 1 && (
           <div className="absolute bottom-full left-3 right-3 mb-2 z-50 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl p-2 space-y-2 animate-in fade-in-50 zoom-in-95">
             <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
               <span>Workspaces</span>
@@ -297,9 +297,16 @@ export function Sidebar({
         <div className="flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-2.5 overflow-hidden text-left p-1 rounded-xl hover:bg-muted/60 transition-colors flex-1 mr-1"
-            title="Switch Workspace / Profile"
+            onClick={() => {
+              if (workspaces.length > 1) {
+                setUserMenuOpen(!userMenuOpen);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2.5 overflow-hidden text-left p-1 rounded-xl transition-colors flex-1 mr-1",
+              workspaces.length > 1 ? "hover:bg-muted/60 cursor-pointer" : "cursor-default"
+            )}
+            title={workspaces.length > 1 ? "Switch Workspace" : "User Profile"}
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground shrink-0">
               {user?.full_name?.charAt(0) || "U"}
@@ -309,7 +316,9 @@ export function Sidebar({
                 <span className="text-xs font-semibold text-foreground truncate">
                   {user?.full_name || "User"}
                 </span>
-                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", userMenuOpen && "rotate-180")} />
+                {workspaces.length > 1 && (
+                  <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform shrink-0", userMenuOpen && "rotate-180")} />
+                )}
               </div>
               <span className="text-[11px] text-muted-foreground truncate">
                 {currentWorkspace?.name || user?.email || "Account"}
