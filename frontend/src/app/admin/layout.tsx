@@ -46,17 +46,22 @@ export default function AdminLayout({
 
   const navItems = [
     {
-      name: "Executive Overview",
+      name: "Command Center",
       href: "/admin",
       icon: Activity,
     },
     {
-      name: "AI Provider Vault & Routing",
+      name: "User Management",
+      href: "/admin/users",
+      icon: Users,
+    },
+    {
+      name: "System AI Providers",
       href: "/admin/providers",
       icon: Cpu,
     },
     {
-      name: "FinOps & Cost Intelligence",
+      name: "FinOps & Costs",
       href: "/admin/finops",
       icon: DollarSign,
     },

@@ -514,3 +514,163 @@ async def save_provider_tokens(
         db=db,
     )
     return {"status": "success", "tokens": results}
+
+
+# --- Super Admin Mission Control: Users, Stats & Global Activity Ledger ---
+
+
+class AdminUserItemResponse(BaseModel):
+    id: uuid.UUID
+    email: str
+    full_name: Optional[str] = None
+    is_active: bool
+    is_superuser: bool
+    is_verified: bool
+    workspaces_count: int
+    created_at: datetime
+
+
+class AdminActivityItemResponse(BaseModel):
+    id: uuid.UUID
+    actor_email: Optional[str] = None
+    action: str
+    description: str
+    resource_type: str
+    created_at: datetime
+
+
+@router.get("/stats")
+async def get_mission_control_stats(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Real mission-critical metrics for the Super Admin Command Center."""
+    from backend.app.models.assistant import Message
+
+    # 1. Total Active Users
+    active_users = (await db.execute(select(func.count(User.id)).where(User.is_active.is_(True)))).scalar() or 0
+    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
+
+    # 2. Total Documents Vectorized (Storage footprint)
+    total_docs = (await db.execute(select(func.count(Document.id)))).scalar() or 0
+    total_bytes = (await db.execute(select(func.sum(Document.file_size_bytes)))).scalar() or 0
+
+    # 3. Total API Tokens Burned
+    total_tokens = (await db.execute(select(func.sum(TokenCostLedger.total_tokens)))).scalar() or 0
+    total_ai_spend = float((await db.execute(select(func.sum(TokenCostLedger.cost_usd)))).scalar() or 0.0)
+
+    # 4. Total Queries Answered
+    total_queries = (await db.execute(select(func.count(Message.id)).where(Message.role == "assistant"))).scalar() or 0
+
+    return {
+        "active_users": active_users,
+        "total_users": total_users,
+        "total_documents_vectorized": total_docs,
+        "total_storage_bytes": total_bytes,
+        "total_tokens_burned": total_tokens,
+        "total_ai_spend_usd": total_ai_spend,
+        "total_queries_answered": total_queries,
+    }
+
+
+@router.get("/users", response_model=List[AdminUserItemResponse])
+async def list_admin_users(
+    limit: int = 100,
+    offset: int = 0,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Data-dense listing of platform users with membership counts and activity status."""
+    stmt = (
+        select(User, func.count(Membership.id).label("ws_count"))
+        .outerjoin(Membership, Membership.user_id == User.id)
+        .group_by(User.id)
+        .order_by(User.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    items = []
+    for user_obj, ws_count in rows:
+        items.append(
+            AdminUserItemResponse(
+                id=user_obj.id,
+                email=user_obj.email,
+                full_name=user_obj.full_name,
+                is_active=user_obj.is_active,
+                is_superuser=user_obj.is_superuser,
+                is_verified=user_obj.is_verified,
+                workspaces_count=ws_count or 0,
+                created_at=user_obj.created_at,
+            )
+        )
+    return items
+
+
+@router.patch("/users/{user_id}/status")
+async def toggle_user_status(
+    user_id: uuid.UUID,
+    payload: dict[str, bool],
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Suspend or activate a user account."""
+    is_active = payload.get("is_active", True)
+    user_res = await db.execute(select(User).where(User.id == user_id))
+    user_obj = user_res.scalar_one_or_none()
+    if not user_obj:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    user_obj.is_active = is_active
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="user.suspend" if not is_active else "user.activate",
+        target_entity="user",
+        target_id=str(user_obj.id),
+        details={"email": user_obj.email, "is_active": is_active},
+    )
+    db.add(audit)
+    await db.commit()
+    return {"status": "success", "user_id": str(user_obj.id), "is_active": is_active}
+
+
+@router.get("/activity", response_model=List[AdminActivityItemResponse])
+async def list_global_activity_ledger(
+    limit: int = 50,
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Global Activity Ledger displaying real-time system events."""
+    from backend.app.models.audit import AuditEvent
+
+    stmt = (
+        select(AuditEvent, User.email)
+        .outerjoin(User, User.id == AuditEvent.user_id)
+        .order_by(AuditEvent.created_at.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).all()
+
+    items = []
+    for event, user_email in rows:
+        action_name = event.action
+        desc = f"Action {action_name} executed on {event.resource_type}"
+        if event.details:
+            details_str = ", ".join([f"{k}: {v}" for k, v in event.details.items() if k != "password"])
+            if details_str:
+                desc = f"{action_name} ({details_str})"
+
+        items.append(
+            AdminActivityItemResponse(
+                id=event.id,
+                actor_email=user_email or "System / Anonymous",
+                action=event.action,
+                description=desc,
+                resource_type=event.resource_type,
+                created_at=event.created_at,
+            )
+        )
+    return items

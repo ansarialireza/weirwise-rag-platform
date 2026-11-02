@@ -307,6 +307,33 @@ class ApiClient {
     return this.request<any>("/admin/metrics");
   }
 
+  async getAdminStats(): Promise<{
+    active_users: number;
+    total_users: number;
+    total_documents_vectorized: number;
+    total_storage_bytes: number;
+    total_tokens_burned: number;
+    total_ai_spend_usd: number;
+    total_queries_answered: number;
+  }> {
+    return this.request<any>("/admin/stats");
+  }
+
+  async getAdminUsers(limit = 100, offset = 0): Promise<any[]> {
+    return this.request<any[]>(`/admin/users?limit=${limit}&offset=${offset}`);
+  }
+
+  async toggleAdminUserStatus(userId: string, isActive: boolean): Promise<any> {
+    return this.request<any>(`/admin/users/${userId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: isActive }),
+    });
+  }
+
+  async getAdminActivityLedger(limit = 50): Promise<any[]> {
+    return this.request<any[]>(`/admin/activity?limit=${limit}`);
+  }
+
   async getAdminProviders(): Promise<any[]> {
     return this.request<any[]>("/admin/providers");
   }
