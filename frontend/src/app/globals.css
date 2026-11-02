@@ -67,6 +67,25 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
   transition: background-color 0.2s ease, color 0.2s ease;
+
+  /* Native Mobile App Touch Constraints */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Allow text selection only for readable content, inputs, code, and chat bubbles */
+p,
+article,
+pre,
+code,
+input,
+textarea,
+[data-selectable="true"],
+.selectable-text {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Custom scrollbars matching active theme */

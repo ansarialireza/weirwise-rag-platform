@@ -125,7 +125,10 @@ export default function AdminLayout({
         </div>
 
         {/* Footer: Security context and admin user */}
-        <div className="p-3 border-t border-border space-y-2.5 bg-secondary/20">
+        <div
+          className="p-3 border-t border-border space-y-2.5 bg-secondary/20"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
               Theme Control

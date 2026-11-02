@@ -236,7 +236,11 @@ export function Sidebar({
       </nav>
 
       {/* Bottom User Profile Section with Integrated Workspace Switcher */}
-      <div className="p-3 border-t border-border/40 shrink-0 relative" ref={userMenuRef}>
+      <div
+        className="p-3 border-t border-border/40 shrink-0 relative"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        ref={userMenuRef}
+      >
         {/* Workspace Switcher Popover from User Profile (Only shown if > 1 workspace exists) */}
         {userMenuOpen && workspaces.length > 1 && (
           <div className="absolute bottom-full left-3 right-3 mb-2 z-50 rounded-2xl border border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl p-2 space-y-2 animate-in fade-in-50 zoom-in-95">
