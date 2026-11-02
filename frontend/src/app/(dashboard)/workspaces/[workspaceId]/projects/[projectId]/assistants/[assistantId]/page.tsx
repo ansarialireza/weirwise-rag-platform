@@ -287,7 +287,7 @@ export default function AssistantConfigurePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-2">
+            <div className={`space-y-2 ${engineMode === "search_only" ? "md:col-span-2" : ""}`}>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Assistant Name</label>
               <Input
                 type="text"
@@ -299,31 +299,35 @@ export default function AssistantConfigurePage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Routing Strategy</label>
-              <CustomSelect
-                value={model}
-                onChange={(val) => setModel(val)}
-                triggerClassName="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground shadow-xs"
-                options={[
-                  { value: "Auto", label: "Auto", description: "Balanced Speed & Reasoning" },
-                  { value: "Fast", label: "Fast", description: "Low Latency inference" },
-                  { value: "Deep Thinking", label: "Deep Thinking", description: "Complex Analysis and multi-step reasoning" },
-                ]}
-              />
-            </div>
+            {engineMode === "ai_answer" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Routing Strategy</label>
+                <CustomSelect
+                  value={model}
+                  onChange={(val) => setModel(val)}
+                  triggerClassName="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground shadow-xs"
+                  options={[
+                    { value: "Auto", label: "Auto", description: "Balanced Speed & Reasoning" },
+                    { value: "Fast", label: "Fast", description: "Low Latency inference" },
+                    { value: "Deep Thinking", label: "Deep Thinking", description: "Complex Analysis and multi-step reasoning" },
+                  ]}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="space-y-2 pt-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Instructions (Prompt)</label>
-            <textarea
-              rows={6}
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder="Specify the assistant's behavior, role boundaries, citation format, and response tone..."
-              className="w-full rounded-xl border border-border bg-input p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none shadow-xs font-sans leading-relaxed"
-            />
-          </div>
+          {engineMode === "ai_answer" && (
+            <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Instructions (Prompt)</label>
+              <textarea
+                rows={6}
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="Specify the assistant's behavior, role boundaries, citation format, and response tone..."
+                className="w-full rounded-xl border border-border bg-input p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none shadow-xs font-sans leading-relaxed"
+              />
+            </div>
+          )}
         </div>
 
         {/* Hyperparameter Thresholds */}
@@ -333,23 +337,25 @@ export default function AssistantConfigurePage() {
             Retrieval &amp; Inference Parameters
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-bold text-foreground">Temperature</span>
-                <span className="font-mono text-primary font-extrabold text-base">{temperature}</span>
+          <div className={`grid grid-cols-1 ${engineMode === "ai_answer" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6 transition-all duration-200`}>
+            {engineMode === "ai_answer" && (
+              <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-bold text-foreground">Temperature</span>
+                  <span className="font-mono text-primary font-extrabold text-base">{temperature}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                  className="w-full accent-primary cursor-pointer"
+                />
+                <p className="text-xs text-muted-foreground">Lower value produces deterministic facts.</p>
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="1.0"
-                step="0.05"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">Lower value produces deterministic facts.</p>
-            </div>
+            )}
 
             <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20">
               <div className="flex justify-between items-center text-sm">

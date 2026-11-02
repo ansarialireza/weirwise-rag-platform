@@ -388,41 +388,45 @@ export default function AssistantsListPage() {
                 </div>
 
                 {/* AI Routing Strategy (CustomSelect with Mobile Bottom Sheet) */}
-                <CustomSelect
-                  label="AI Routing Strategy"
-                  value={newModel}
-                  onChange={(val) => setNewModel(val)}
-                  triggerClassName="bg-muted/50 border-transparent focus:ring-2 focus:ring-primary/20"
-                  options={[
-                    {
-                      value: "Auto",
-                      label: "Auto Routing",
-                      description: "Balanced reasoning latency and citation precision",
-                    },
-                    {
-                      value: "Fast",
-                      label: "Fast Response",
-                      description: "Optimized for minimal response times and summary tasks",
-                    },
-                    {
-                      value: "Deep Thinking",
-                      label: "Deep Thinking",
-                      description: "High-reasoning multi-step analysis for complex docs",
-                    },
-                  ]}
-                />
+                {newEngineMode === "ai_answer" && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <CustomSelect
+                      label="AI Routing Strategy"
+                      value={newModel}
+                      onChange={(val) => setNewModel(val)}
+                      triggerClassName="bg-muted/50 border-transparent focus:ring-2 focus:ring-primary/20"
+                      options={[
+                        {
+                          value: "Auto",
+                          label: "Auto Routing",
+                          description: "Balanced reasoning latency and citation precision",
+                        },
+                        {
+                          value: "Fast",
+                          label: "Fast Response",
+                          description: "Optimized for minimal response times and summary tasks",
+                        },
+                        {
+                          value: "Deep Thinking",
+                          label: "Deep Thinking",
+                          description: "High-reasoning multi-step analysis for complex docs",
+                        },
+                      ]}
+                    />
 
-                {/* System Instructions (Textarea with comfortable height) */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">System Instructions</label>
-                  <textarea
-                    rows={4}
-                    placeholder="Describe role, tone, grounding rules, and response structure..."
-                    value={newInstructions}
-                    onChange={(e) => setNewInstructions(e.target.value)}
-                    className="w-full rounded-2xl bg-muted/50 border border-transparent p-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors leading-relaxed resize-none"
-                  />
-                </div>
+                    {/* System Instructions (Textarea with comfortable height) */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">System Instructions</label>
+                      <textarea
+                        rows={4}
+                        placeholder="Describe role, tone, grounding rules, and response structure..."
+                        value={newInstructions}
+                        onChange={(e) => setNewInstructions(e.target.value)}
+                        className="w-full rounded-2xl bg-muted/50 border border-transparent p-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors leading-relaxed resize-none"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Knowledge Sources Checklist */}
                 {sources.length > 0 && (
