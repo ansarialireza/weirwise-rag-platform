@@ -24,6 +24,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export default function SourcesKnowledgePage() {
@@ -36,6 +37,8 @@ export default function SourcesKnowledgePage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [docFilter, setDocFilter] = useState("");
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
+  const [docToDelete, setDocToDelete] = useState<{ id: string; filename: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,17 +166,20 @@ export default function SourcesKnowledgePage() {
     }
   };
 
-  const handleDeleteDocument = async (docId: string, filename: string) => {
-    if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
-    setDeletingDocId(docId);
+  const handleDeleteDocument = async () => {
+    if (!docToDelete) return;
+    setIsDeleting(true);
+    setDeletingDocId(docToDelete.id);
     try {
-      await api.deleteDocument(docId);
-      setDocuments(documents.filter((d) => d.id !== docId));
+      await api.deleteDocument(docToDelete.id);
+      setDocuments(documents.filter((d) => d.id !== docToDelete.id));
       await loadSources();
-      toast({ type: "success", message: `Deleted ${filename}` });
+      toast({ type: "success", message: `Deleted ${docToDelete.filename}` });
+      setDocToDelete(null);
     } catch (err: any) {
       toast({ type: "error", message: err.message || "Failed to delete document" });
     } finally {
+      setIsDeleting(false);
       setDeletingDocId(null);
     }
   };
@@ -452,7 +458,7 @@ export default function SourcesKnowledgePage() {
                               <button
                                 type="button"
                                 disabled={deletingDocId === doc.id}
-                                onClick={() => handleDeleteDocument(doc.id, doc.filename)}
+                                onClick={() => setDocToDelete({ id: doc.id, filename: doc.filename })}
                                 className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
                                 title="Delete document"
                                 aria-label="Delete document"
@@ -474,6 +480,29 @@ export default function SourcesKnowledgePage() {
           </div>
         </div>
       )}
+
+      {/* Delete Document Premium Alert Dialog */}
+      <AlertDialog
+        isOpen={Boolean(docToDelete)}
+        onClose={() => {
+          if (!isDeleting) setDocToDelete(null);
+        }}
+        onConfirm={handleDeleteDocument}
+        title="Delete Document"
+        description={
+          <>
+            Are you sure you want to permanently delete{" "}
+            <span className="font-semibold text-foreground font-mono">
+              {docToDelete?.filename}
+            </span>
+            ? This will remove the file and instantly wipe all associated vector embeddings from the database. This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        isLoading={isDeleting}
+        variant="destructive"
+      />
 
       {/* 
         Responsive Creation Component:
