@@ -86,7 +86,7 @@ export function CommandPalette() {
           {
             id: "nav-overview",
             title: "Go to Overview",
-            subtitle: "Project operational metrics & progression",
+            subtitle: "Operational metrics & progression",
             icon: LayoutDashboard,
             category: "Navigation" as const,
             onSelect: () => router.push(`${baseProj}/overview`),

@@ -156,7 +156,7 @@ export default function AssistantsListPage() {
             )}
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Build and configure specialized RAG assistants grounded in project knowledge.
+            Build and configure specialized RAG assistants grounded in your business knowledge.
           </p>
         </div>
 

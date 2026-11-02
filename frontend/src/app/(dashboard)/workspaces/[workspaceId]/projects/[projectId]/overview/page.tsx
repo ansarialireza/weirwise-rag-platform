@@ -63,7 +63,7 @@ export default function ProjectOverviewPage() {
       {/* Ruthlessly Clean Typographic Header - No duplicate action buttons */}
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-          {project?.name || "Overview"}
+          Overview
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground">
           Connect business documents, tune assistant personas, and verify answers with semantic citations.

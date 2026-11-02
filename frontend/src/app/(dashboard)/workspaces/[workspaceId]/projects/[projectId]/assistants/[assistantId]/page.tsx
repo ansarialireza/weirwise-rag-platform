@@ -400,7 +400,7 @@ export default function AssistantConfigurePage() {
 
           {sources.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              No sources in this project. Ingest files in the Knowledge tab first.
+              No sources connected yet. Ingest files in the Knowledge tab first.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
