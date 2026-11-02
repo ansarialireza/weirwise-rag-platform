@@ -166,10 +166,13 @@ export default function DedicatedPlaygroundPage() {
                   options={assistants.map((a) => ({
                     value: a.id,
                     label: a.name,
-                    description: a.model,
+                    description: `${a.engine_mode === "search_only" ? "Semantic Search" : "AI Answer"} • ${a.model}`,
                   }))}
                 />
               </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase hidden sm:inline">
+                {selectedAssistant?.engine_mode === "search_only" ? "Search Only" : "AI Answer"}
+              </span>
             </div>
           ) : (
             <span className="text-xs font-medium text-muted-foreground">Playground</span>
@@ -269,65 +272,125 @@ export default function DedicatedPlaygroundPage() {
               </div>
             ) : (
               /* Case 3: Message Flow */
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${
-                    msg.role === "user" ? "items-end" : "items-start"
-                  } space-y-2`}
-                >
-                  <div
-                    className={`max-w-2xl text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground font-medium rounded-3xl rounded-br-sm px-5 py-3 shadow-xs"
-                        : "bg-muted/40 text-foreground rounded-3xl rounded-bl-sm px-5 py-4"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+              messages.map((msg) => {
+                const isSearchOnly = selectedAssistant?.engine_mode === "search_only";
 
-                    {/* Citations Box (Minimalist cards) */}
-                    {msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-border/40 space-y-2.5">
-                        <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Grounded Evidence ({msg.sources.length})
-                        </span>
-                        <div className="space-y-2">
-                          {msg.sources.map((s, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-2xl bg-background/80 p-3 text-xs border border-border/30 text-muted-foreground"
-                            >
-                              <div className="flex justify-between items-center text-foreground font-medium mb-1">
-                                <span className="text-[11px]">Chunk #{s.rank || idx + 1}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[11px] font-mono text-primary font-semibold">
-                                    {(s.similarity_score * 100).toFixed(1)}% match
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopyEvidence(s.content, idx)}
-                                    className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                    title="Copy quote"
-                                  >
-                                    {copiedIndex === idx ? (
-                                      <Check className="h-3 w-3 text-primary" />
-                                    ) : (
-                                      <Copy className="h-3 w-3" />
-                                    )}
-                                  </button>
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${
+                      msg.role === "user" ? "items-end" : "items-start"
+                    } space-y-2`}
+                  >
+                    <div
+                      className={`max-w-2xl text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground font-medium rounded-3xl rounded-br-sm px-5 py-3 shadow-xs"
+                          : isSearchOnly
+                          ? "bg-card border border-border/40 text-foreground rounded-3xl rounded-bl-sm p-5 shadow-xs w-full"
+                          : "bg-muted/40 text-foreground rounded-3xl rounded-bl-sm px-5 py-4"
+                      }`}
+                    >
+                      {/* For Search Only mode, display prominent search summary header */}
+                      {msg.role === "assistant" && isSearchOnly ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between pb-2 border-b border-border/30">
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Vector Similarity Results
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              {msg.sources?.length || 0} Chunks Matched
+                            </span>
+                          </div>
+
+                          {msg.sources && msg.sources.length > 0 ? (
+                            <div className="space-y-3">
+                              {msg.sources.map((s, idx) => (
+                                <div
+                                  key={idx}
+                                  className="rounded-2xl bg-muted/30 p-3.5 text-xs border border-border/30 space-y-2"
+                                >
+                                  <div className="flex justify-between items-center text-foreground font-medium">
+                                    <span className="text-xs font-semibold">Passage #{s.rank || idx + 1}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-mono font-bold text-foreground">
+                                        {(s.similarity_score * 100).toFixed(1)}% match
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyEvidence(s.content, idx)}
+                                        className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                        title="Copy chunk text"
+                                      >
+                                        {copiedIndex === idx ? (
+                                          <Check className="h-3 w-3 text-foreground" />
+                                        ) : (
+                                          <Copy className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className="text-[12px] text-foreground leading-relaxed whitespace-pre-wrap">
+                                    {s.content}
+                                  </p>
                                 </div>
-                              </div>
-                              <p className="text-[12px] text-foreground/90 leading-relaxed italic line-clamp-3">
-                                &quot;{s.content}&quot;
-                              </p>
+                              ))}
                             </div>
-                          ))}
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No document chunks exceeded the cutoff threshold.</p>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        /* Standard AI Answer mode */
+                        <>
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+
+                          {/* Citations Box (Minimalist cards) */}
+                          {msg.sources && msg.sources.length > 0 && (
+                            <div className="mt-4 pt-3 border-t border-border/40 space-y-2.5">
+                              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Grounded Evidence ({msg.sources.length})
+                              </span>
+                              <div className="space-y-2">
+                                {msg.sources.map((s, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="rounded-2xl bg-background/80 p-3 text-xs border border-border/30 text-muted-foreground"
+                                  >
+                                    <div className="flex justify-between items-center text-foreground font-medium mb-1">
+                                      <span className="text-[11px]">Chunk #{s.rank || idx + 1}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[11px] font-mono text-primary font-semibold">
+                                          {(s.similarity_score * 100).toFixed(1)}% match
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCopyEvidence(s.content, idx)}
+                                          className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                          title="Copy quote"
+                                        >
+                                          {copiedIndex === idx ? (
+                                            <Check className="h-3 w-3 text-primary" />
+                                          ) : (
+                                            <Copy className="h-3 w-3" />
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <p className="text-[12px] text-foreground/90 leading-relaxed italic line-clamp-3">
+                                      &quot;{s.content}&quot;
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
 
             {/* Chatting Loading indicator */}

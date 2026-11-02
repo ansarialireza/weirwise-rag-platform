@@ -98,6 +98,7 @@ async def create_assistant(
         description=payload.description,
         system_instructions=payload.system_instructions,
         model=payload.model,
+        engine_mode=payload.engine_mode,
         temperature=payload.temperature,
         max_tokens=payload.max_tokens,
         score_threshold=payload.score_threshold,
@@ -640,6 +641,39 @@ async def studio_playground_chat(
     citations.sort(key=lambda x: x.similarity_score, reverse=True)
     citations = citations[: assistant.top_k]
 
+    # Handle Mode 1: Semantic Search (Retrieval Only - bypass LLM)
+    if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
+        search_summary = (
+            f"Semantic Search Mode: Retrieved {len(citations)} relevant document passages matching your query."
+            if citations
+            else "Semantic Search Mode: No matching document passages found above threshold."
+        )
+
+        assistant_msg = Message(
+            conversation_id=conv.id,
+            role="assistant",
+            content=search_summary,
+            citations=[c.model_dump(mode="json") for c in citations],
+            latency_ms=latency_ms,
+            is_grounded=bool(citations),
+        )
+        db.add(assistant_msg)
+        await db.commit()
+        await db.refresh(assistant_msg)
+
+        return ChatResponse(
+            message_id=assistant_msg.id,
+            conversation_id=conv.id,
+            role="assistant",
+            content=assistant_msg.content,
+            citations=citations,
+            latency_ms=latency_ms,
+            is_grounded=assistant_msg.is_grounded,
+            created_at=assistant_msg.created_at,
+        )
+
+    # Mode 2: AI Answer (RAG)
     if citations:
         context_block = "\n\n".join(retrieved_contexts[:2])
         assistant_reply = f"Based on verified knowledge in {linked_sources[0].name}:\n\n{context_block}"

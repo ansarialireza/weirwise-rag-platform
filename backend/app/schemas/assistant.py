@@ -19,6 +19,7 @@ class AssistantCreateRequest(BaseModel):
     description: str | None = None
     system_instructions: str | None = None
     model: str = Field("Auto", max_length=100)
+    engine_mode: str = Field("ai_answer", max_length=50)
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, ge=64, le=4096)
     score_threshold: float = Field(0.7, ge=0.0, le=1.0)
@@ -37,6 +38,7 @@ class AssistantUpdateRequest(BaseModel):
     description: str | None = None
     system_instructions: str | None = None
     model: str | None = Field(None, max_length=100)
+    engine_mode: str | None = Field(None, max_length=50)
     temperature: float | None = Field(None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(None, ge=64, le=4096)
     score_threshold: float | None = Field(None, ge=0.0, le=1.0)
@@ -58,6 +60,7 @@ class AssistantResponse(BaseModel):
     description: str | None
     system_instructions: str | None
     model: str
+    engine_mode: str = "ai_answer"
     temperature: float
     max_tokens: int
     score_threshold: float

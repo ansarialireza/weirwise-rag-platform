@@ -15,6 +15,8 @@ import {
   ExternalLink,
   ChevronRight,
   FolderOpen,
+  Trash2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +34,8 @@ export default function SourcesKnowledgePage() {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [docFilter, setDocFilter] = useState("");
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -156,6 +160,21 @@ export default function SourcesKnowledgePage() {
     } finally {
       setUploading(false);
       e.target.value = "";
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string, filename: string) => {
+    if (!confirm(`Are you sure you want to delete ${filename}?`)) return;
+    setDeletingDocId(docId);
+    try {
+      await api.deleteDocument(docId);
+      setDocuments(documents.filter((d) => d.id !== docId));
+      await loadSources();
+      toast({ type: "success", message: `Deleted ${filename}` });
+    } catch (err: any) {
+      toast({ type: "error", message: err.message || "Failed to delete document" });
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -367,11 +386,26 @@ export default function SourcesKnowledgePage() {
                   </div>
                 </div>
 
-                {/* Documents List */}
+                {/* Documents List & Mass Management */}
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs font-medium text-muted-foreground px-1">
-                    <span>Indexed Documents ({documents.length})</span>
-                    <span className="font-mono text-[11px]">PDF, TXT, MD</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium text-muted-foreground px-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-foreground font-semibold">Indexed Documents ({documents.length})</span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-muted">PDF, TXT, MD, CSV</span>
+                    </div>
+
+                    {documents.length > 5 && (
+                      <div className="relative w-full sm:w-56">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Filter documents..."
+                          value={docFilter}
+                          onChange={(e) => setDocFilter(e.target.value)}
+                          className="w-full h-8 pl-8 pr-3 text-xs rounded-xl bg-muted/40 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {documents.length === 0 ? (
@@ -388,33 +422,46 @@ export default function SourcesKnowledgePage() {
                     </div>
                   ) : (
                     <div className="divide-y divide-border/30 rounded-2xl bg-card overflow-hidden">
-                      {documents.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between p-3.5 sm:p-4 hover:bg-muted/30 transition-colors gap-3"
-                        >
-                          <div className="flex items-center gap-3 truncate">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-foreground shrink-0">
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="truncate">
-                              <div className="text-xs sm:text-sm font-semibold text-foreground truncate">
-                                {doc.filename}
+                      {documents
+                        .filter((d) => d.filename.toLowerCase().includes(docFilter.toLowerCase()))
+                        .map((doc) => (
+                          <div
+                            key={doc.id}
+                            className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-muted/30 transition-colors gap-3"
+                          >
+                            <div className="flex items-center gap-3 truncate min-w-0">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-foreground shrink-0">
+                                <FileText className="h-4 w-4" />
                               </div>
-                              <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                                {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
+                              <div className="truncate min-w-0">
+                                <div className="text-xs font-semibold text-foreground truncate">
+                                  {doc.filename}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                  {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500 font-mono">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              {formatStatus(doc.status)}
-                            </span>
+                            <div className="flex items-center gap-2.5 shrink-0">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500 font-mono">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                {formatStatus(doc.status)}
+                              </span>
+
+                              <button
+                                type="button"
+                                disabled={deletingDocId === doc.id}
+                                onClick={() => handleDeleteDocument(doc.id, doc.filename)}
+                                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                                title="Delete document"
+                                aria-label="Delete document"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   )}
                 </div>

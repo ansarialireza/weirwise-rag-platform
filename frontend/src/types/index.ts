@@ -76,6 +76,7 @@ export interface DocumentItem {
 }
 
 export type AssistantStatus = "draft" | "published" | "archived";
+export type EngineMode = "search_only" | "ai_answer";
 
 export interface Assistant {
   id: string;
@@ -85,6 +86,7 @@ export interface Assistant {
   description?: string;
   system_instructions?: string;
   model: string;
+  engine_mode?: EngineMode;
   temperature: number;
   max_tokens: number;
   score_threshold: number;

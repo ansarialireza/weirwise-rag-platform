@@ -357,3 +357,31 @@ async def list_source_documents(
     stmt = select(Document).where(Document.knowledge_source_id == source_id).order_by(Document.created_at.desc())
     res = await db.execute(stmt)
     return [DocumentResponse.model_validate(d) for d in res.scalars().all()]
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a document and trigger vector chunk purge."""
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    await db.delete(doc)
+    await db.commit()

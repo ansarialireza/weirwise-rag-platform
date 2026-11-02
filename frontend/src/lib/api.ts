@@ -212,6 +212,12 @@ class ApiClient {
     return this.request<DocumentItem[]>(`/sources/${sourceId}/documents`);
   }
 
+  async deleteDocument(documentId: string): Promise<void> {
+    return this.request<void>(`/documents/${documentId}`, {
+      method: "DELETE",
+    });
+  }
+
   async uploadDocuments(sourceId: string, files: File[]): Promise<{ uploaded_documents: DocumentItem[] }> {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));

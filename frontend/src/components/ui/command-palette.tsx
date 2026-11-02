@@ -117,18 +117,6 @@ export function CommandPalette() {
           },
         ]
       : []),
-    ...(workspaceId
-      ? [
-          {
-            id: "nav-settings",
-            title: "Go to Workspace Settings",
-            subtitle: "Usage, subscription, API keys, and members",
-            icon: Settings,
-            category: "Navigation" as const,
-            onSelect: () => router.push(`/workspaces/${workspaceId}/settings`),
-          },
-        ]
-      : []),
     // Actions
     ...(baseProj
       ? [

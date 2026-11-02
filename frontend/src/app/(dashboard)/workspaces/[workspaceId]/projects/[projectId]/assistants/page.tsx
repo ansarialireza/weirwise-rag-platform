@@ -35,6 +35,7 @@ export default function AssistantsListPage() {
   // Modal / Drawer State
   const [showCreate, setShowCreate] = useState(false);
   const [newAssistantName, setNewAssistantName] = useState("");
+  const [newEngineMode, setNewEngineMode] = useState<"search_only" | "ai_answer">("ai_answer");
   const [newInstructions, setNewInstructions] = useState("");
   const [newModel, setNewModel] = useState("Auto");
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
@@ -89,6 +90,7 @@ export default function AssistantsListPage() {
         name: newAssistantName.trim(),
         system_instructions: newInstructions.trim() || "You are an intelligent business assistant.",
         model: newModel,
+        engine_mode: newEngineMode,
         temperature: 0.2,
         top_k: 4,
         score_threshold: 0.7,
@@ -238,10 +240,15 @@ export default function AssistantsListPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-primary">
                     <Bot className="h-5 w-5" />
                   </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {a.status}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-foreground uppercase">
+                      {a.engine_mode === "search_only" ? "Search" : "AI"}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {a.status}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -337,6 +344,37 @@ export default function AssistantsListPage() {
             <form onSubmit={handleCreateAssistant} className="flex flex-col flex-1 overflow-hidden">
               <div className="p-6 space-y-4 overflow-y-auto flex-1">
                 {/* Assistant Name */}
+                {/* Engine Mode Toggle */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Engine Mode</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewEngineMode("search_only")}
+                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                        newEngineMode === "search_only"
+                          ? "border-foreground bg-card text-foreground font-semibold"
+                          : "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                      }`}
+                    >
+                      <div>Semantic Search</div>
+                      <div className="text-[10px] text-muted-foreground font-normal">Vector retrieval only</div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewEngineMode("ai_answer")}
+                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                        newEngineMode === "ai_answer"
+                          ? "border-foreground bg-card text-foreground font-semibold"
+                          : "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                      }`}
+                    >
+                      <div>AI Answer</div>
+                      <div className="text-[10px] text-muted-foreground font-normal">RAG synthesized</div>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">Assistant Name</label>
                   <input

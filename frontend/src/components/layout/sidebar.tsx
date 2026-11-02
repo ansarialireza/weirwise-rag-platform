@@ -99,13 +99,6 @@ export function Sidebar({
       active: pathname.includes("/playground"),
       disabled: !baseProjUrl,
     },
-    {
-      label: "Settings",
-      href: baseWsUrl ? `${baseWsUrl}/settings` : "#",
-      icon: Settings,
-      active: pathname.includes("/settings"),
-      disabled: !baseWsUrl,
-    },
   ];
 
   return (
@@ -275,20 +268,6 @@ export function Sidebar({
                   {ws.id === wsId && <Check className="h-3.5 w-3.5 shrink-0 ml-1.5" />}
                 </Link>
               ))}
-            </div>
-
-            <div className="pt-2 border-t border-border/40">
-              <Link
-                href={baseWsUrl ? `${baseWsUrl}/settings` : "#"}
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  onItemClick?.();
-                }}
-                className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Settings className="h-3.5 w-3.5" />
-                <span>Workspace Settings</span>
-              </Link>
             </div>
           </div>
         )}

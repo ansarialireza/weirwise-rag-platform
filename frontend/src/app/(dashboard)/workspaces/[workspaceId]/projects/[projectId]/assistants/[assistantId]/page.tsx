@@ -39,6 +39,7 @@ export default function AssistantConfigurePage() {
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [model, setModel] = useState("Auto");
+  const [engineMode, setEngineMode] = useState<"search_only" | "ai_answer">("ai_answer");
   const [temperature, setTemperature] = useState(0.2);
   const [scoreThreshold, setScoreThreshold] = useState(0.7);
   const [topK, setTopK] = useState(4);
@@ -63,6 +64,7 @@ export default function AssistantConfigurePage() {
           setName(a.name);
           setInstructions(a.system_instructions || "");
           setModel(a.model);
+          setEngineMode((a.engine_mode as "search_only" | "ai_answer") || "ai_answer");
           setTemperature(a.temperature);
           setScoreThreshold(a.score_threshold);
           setTopK(a.top_k || 4);
@@ -90,6 +92,7 @@ export default function AssistantConfigurePage() {
         name: name.trim(),
         system_instructions: instructions.trim(),
         model,
+        engine_mode: engineMode,
         temperature,
         score_threshold: scoreThreshold,
         top_k: topK,
@@ -232,6 +235,56 @@ export default function AssistantConfigurePage() {
             <Bot className="h-5 w-5 text-primary" />
             General Identity &amp; Role
           </h2>
+
+          {/* Engine Mode Primary Selector */}
+          <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/40">
+            <div className="space-y-0.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-foreground">Engine Mode</label>
+              <p className="text-xs text-muted-foreground">Select how queries to this assistant are executed</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setEngineMode("search_only")}
+                className={`p-3.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                  engineMode === "search_only"
+                    ? "border-foreground bg-card text-foreground shadow-xs"
+                    : "border-border/40 bg-card/40 text-muted-foreground hover:bg-card/70"
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">Semantic Search</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground">Retrieval Only</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Bypasses LLM generation. Directly retrieves and ranks raw matched document chunks based on vector similarity.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEngineMode("ai_answer")}
+                className={`p-3.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                  engineMode === "ai_answer"
+                    ? "border-foreground bg-card text-foreground shadow-xs"
+                    : "border-border/40 bg-card/40 text-muted-foreground hover:bg-card/70"
+                }`}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground">AI Answer</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground">RAG Synthesized</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Retrieves relevant chunks and passes them to the LLM to generate conversational, cited answers.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
