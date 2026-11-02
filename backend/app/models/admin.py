@@ -90,6 +90,7 @@ class ProviderCredential(Base):
     secret_hash = Column(String(64), nullable=False, index=True)  # SHA-256 hash for deduplication/verification
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     health_status = Column(String(50), default=CredentialHealthStatus.HEALTHY.value, nullable=False, index=True)
+    remaining_balance = Column(String(100), nullable=True)  # e.g., "4.5M tokens left"
     priority = Column(Integer, default=1, nullable=False)  # Higher is higher priority
     routing_weight = Column(Integer, default=10, nullable=False)
     models_allowed = Column(CompatibleJSON, default=list, nullable=False)  # If empty, all provider models allowed

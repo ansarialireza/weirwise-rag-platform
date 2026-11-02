@@ -101,6 +101,7 @@ class CredentialResponse(BaseModel):
     key_prefix: str  # Masked secret, never plaintext
     is_active: bool
     health_status: str
+    remaining_balance: Optional[str] = None
     priority: int
     routing_weight: int
     models_allowed: list[str]

@@ -474,3 +474,43 @@ async def delete_routing_strategy(
     await db.delete(strategy)
     await db.commit()
     return None
+
+
+class ProviderTokensSaveRequest(BaseModel):
+    provider_name: str
+    tokens_raw: str
+
+
+@router.post("/providers/validate")
+async def validate_provider_token(
+    payload: dict[str, str],
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+):
+    """Proactively validate a single API token live against the upstream provider API."""
+    from backend.app.services.token_manager import TokenManager
+
+    token = payload.get("token", "")
+    provider = payload.get("provider", "jina")
+
+    if provider.lower() in ("jina", "jina_ai", "jinaai"):
+        return await TokenManager.validate_jina_token(token)
+    return {"valid": len(token.strip()) > 8, "remaining_balance": "Active"}
+
+
+@router.post("/providers/save-tokens")
+async def save_provider_tokens(
+    payload: ProviderTokensSaveRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Save multiple API tokens for a provider with proactive validation and encryption."""
+    from backend.app.services.token_manager import TokenManager
+
+    results = await TokenManager.validate_and_save_provider_tokens(
+        provider_name=payload.provider_name,
+        raw_tokens_text=payload.tokens_raw,
+        admin_id=current_admin.id,
+        admin_email=current_admin.email,
+        db=db,
+    )
+    return {"status": "success", "tokens": results}

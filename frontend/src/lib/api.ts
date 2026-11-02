@@ -328,6 +328,20 @@ class ApiClient {
     return this.request<any[]>(`/admin/providers/${providerId}/credentials`);
   }
 
+  async validateProviderToken(token: string, provider: string): Promise<any> {
+    return this.request<any>("/admin/providers/validate", {
+      method: "POST",
+      body: JSON.stringify({ token, provider }),
+    });
+  }
+
+  async saveProviderTokens(provider_name: string, tokens_raw: string): Promise<any> {
+    return this.request<any>("/admin/providers/save-tokens", {
+      method: "POST",
+      body: JSON.stringify({ provider_name, tokens_raw }),
+    });
+  }
+
   async createAdminCredential(
     providerId: string,
     data: {

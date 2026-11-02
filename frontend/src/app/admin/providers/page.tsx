@@ -11,258 +11,281 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  RotateCw,
+  XCircle,
+  RefreshCw,
   Sliders,
   DollarSign,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 
+interface ProviderConfig {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  placeholder: string;
+}
+
+const PROVIDERS: ProviderConfig[] = [
+  {
+    id: "jina",
+    name: "jina",
+    displayName: "Jina AI (Embeddings)",
+    description: "Powers 1536-dimensional dense vector embeddings for RAG document chunking & search.",
+    placeholder: "jina_xxxxxx...\njina_yyyyyy... (Paste multiple keys, one per line)",
+  },
+  {
+    id: "openai",
+    name: "openai",
+    displayName: "OpenAI / LLM Provider",
+    description: "Powers generative answering, reasoning synthesis, and assistant chat turns.",
+    placeholder: "sk-proj-xxxxxx...\nsk-proj-yyyyyy... (One per line)",
+  },
+  {
+    id: "deepgram",
+    name: "deepgram",
+    displayName: "Deepgram (Audio & Speech)",
+    description: "Powers voice-to-text transcription and audio document indexing.",
+    placeholder: "deepgram_token_1\ndeepgram_token_2",
+  },
+];
+
 export default function AdminProvidersPage() {
-  const [providers, setProviders] = useState<any[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("jina");
+  const [tokensRaw, setTokensRaw] = useState<Record<string, string>>({
+    jina: "",
+    openai: "",
+    deepgram: "",
+  });
   const [credentials, setCredentials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addingCred, setAddingCred] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-
-  // New Credential Form
-  const [newLabel, setNewLabel] = useState("");
-  const [newSecret, setNewSecret] = useState("");
-  const [newPriority, setNewPriority] = useState(1);
-  const [newBudget, setNewBudget] = useState(1000);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const pList = await api.getAdminProviders();
-      setProviders(pList);
-      if (pList.length > 0) {
-        const active = selectedProvider || pList[0];
-        setSelectedProvider(active);
-        const cList = await api.getAdminCredentials(active.id);
+      const current = pList.find((p: any) => p.provider_name.toLowerCase().includes(activeTab));
+      if (current) {
+        const cList = await api.getAdminCredentials(current.id);
         setCredentials(cList);
+      } else {
+        setCredentials([]);
       }
     } catch (err: any) {
-      toast({ message: err.message || "Failed to load providers.", type: "error" });
+      toast({ message: err.message || "Failed to load provider credentials.", type: "error" });
     } finally {
       setLoading(false);
     }
-  }, [selectedProvider, toast]);
+  }, [activeTab, toast]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const handleSelectProvider = async (p: any) => {
-    setSelectedProvider(p);
-    try {
-      const cList = await api.getAdminCredentials(p.id);
-      setCredentials(cList);
-    } catch (err: any) {
-      toast({ message: err.message || "Failed to load credentials.", type: "error" });
-    }
-  };
-
-  const handleAddCredential = async (e: React.FormEvent) => {
+  const handleSaveTokens = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProvider || !newSecret.trim()) return;
+    const raw = tokensRaw[activeTab];
+    if (!raw.trim()) {
+      toast({ message: "Please paste at least one API token.", type: "error" });
+      return;
+    }
 
+    setSaving(true);
     try {
-      await api.createAdminCredential(selectedProvider.id, {
-        label: newLabel,
-        secret: newSecret,
-        priority: Number(newPriority),
-        monthly_budget_usd: Number(newBudget),
+      const res = await api.saveProviderTokens(activeTab, raw);
+      toast({
+        message: `Validated & saved ${res.tokens?.length || 0} tokens for ${activeTab.toUpperCase()}.`,
+        type: "success",
       });
-      toast({ message: `Credential "${newLabel}" encrypted and added to pool.`, type: "success" });
-      setNewLabel("");
-      setNewSecret("");
-      setAddingCred(false);
-      const cList = await api.getAdminCredentials(selectedProvider.id);
-      setCredentials(cList);
+      setTokensRaw((prev) => ({ ...prev, [activeTab]: "" }));
+      await loadData();
     } catch (err: any) {
-      toast({ message: err.message || "Failed to register credential.", type: "error" });
+      toast({ message: err.message || "Failed to validate and save tokens.", type: "error" });
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDeleteCredential = async (id: string, label: string) => {
+  const handleDelete = async (id: string, label: string) => {
     if (!confirm(`Purge credential "${label}" from vault?`)) return;
     try {
       await api.deleteAdminCredential(id);
-      toast({ message: "Credential purged from vault.", type: "info" });
+      toast({ message: "Token purged from vault.", type: "info" });
       setCredentials(credentials.filter((c) => c.id !== id));
     } catch (err: any) {
-      toast({ message: err.message || "Failed to delete credential.", type: "error" });
+      toast({ message: err.message || "Failed to delete token.", type: "error" });
     }
   };
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            AI Provider Vault &amp; Routing Engine
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Zero-plaintext encrypted credential pool, automated failover, rate-limit cooldown, and budget orchestration.
-          </p>
-        </div>
+  const activeProvider = PROVIDERS.find((p) => p.id === activeTab) || PROVIDERS[0];
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setAddingCred(!addingCred)}
-            disabled={!selectedProvider}
-          >
-            <Plus className="h-4 w-4" /> Add Credential to Pool
-          </Button>
-        </div>
+  return (
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in">
+      {/* Header */}
+      <div className="space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          System AI Providers &amp; Token Failover
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Configure API keys with proactive live validation, remaining balance extraction, and automatic rate-limit failover.
+        </p>
       </div>
 
-      {/* Provider Selector Tabs */}
-      <div className="flex gap-2 border-b border-border pb-2 overflow-x-auto">
-        {providers.map((p) => (
+      {/* Provider Tabs */}
+      <div className="flex gap-2 border-b border-border/40 pb-2 overflow-x-auto">
+        {PROVIDERS.map((p) => (
           <button
             key={p.id}
             type="button"
-            onClick={() => handleSelectProvider(p)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              selectedProvider?.id === p.id
-                ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground"
+            onClick={() => setActiveTab(p.id)}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeTab === p.id
+                ? "bg-foreground text-background shadow-xs"
+                : "bg-muted/30 text-muted-foreground hover:text-foreground"
             }`}
           >
-            {p.display_name}
+            {p.displayName}
           </button>
         ))}
       </div>
 
-      {/* Add Credential Modal / Form Drawer */}
-      {addingCred && (
-        <div className="p-6 rounded-xl border border-primary/30 bg-card shadow-sm space-y-4 animate-in slide-in-from-top-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-              <Shield className="h-4 w-4" /> New Encrypted Secret Key
-            </h3>
-            <span className="text-[11px] text-muted-foreground">
-              Encrypted at rest with AES-CBC &amp; HMAC-SHA256
-            </span>
+      {/* Main Configuration Card: Simple Textarea input with live validation */}
+      <div className="rounded-3xl bg-muted/20 p-6 sm:p-8 space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-base font-bold text-foreground">{activeProvider.displayName} Token Pool</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">{activeProvider.description}</p>
+        </div>
+
+        <form onSubmit={handleSaveTokens} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>Add / Replace Tokens (Multi-line or comma-separated)</span>
+              <span className="text-[11px] text-muted-foreground font-normal">
+                Encrypted at rest with AES-CBC &bull; Automated failover priority
+              </span>
+            </label>
+            <textarea
+              rows={4}
+              value={tokensRaw[activeTab]}
+              onChange={(e) => setTokensRaw({ ...tokensRaw, [activeTab]: e.target.value })}
+              placeholder={activeProvider.placeholder}
+              className="w-full rounded-2xl bg-card border border-border/40 p-4 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 leading-relaxed resize-none shadow-xs"
+            />
           </div>
 
-          <form onSubmit={handleAddCredential} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input
-              label="Key Label"
-              placeholder="e.g. Cluster Primary 1"
-              required
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-            />
-            <Input
-              label="API Secret Key"
-              type="password"
-              placeholder="sk-proj-..."
-              required
-              value={newSecret}
-              onChange={(e) => setNewSecret(e.target.value)}
-            />
-            <Input
-              label="Priority Weight"
-              type="number"
-              min={1}
-              max={100}
-              required
-              value={newPriority}
-              onChange={(e) => setNewPriority(Number(e.target.value))}
-            />
-            <Input
-              label="Monthly Budget ($ USD)"
-              type="number"
-              min={10}
-              required
-              value={newBudget}
-              onChange={(e) => setNewBudget(Number(e.target.value))}
-            />
-            <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2 pt-2">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setAddingCred(false)}>
-                Cancel
-              </Button>
-              <Button variant="primary" size="sm" type="submit">
-                Encrypt &amp; Register Credential
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] text-muted-foreground">
+              Tokens are proactively pinged live before saving.
+            </span>
+            <button
+              type="submit"
+              disabled={saving || !tokensRaw[activeTab]?.trim()}
+              className="inline-flex items-center justify-center rounded-xl h-9 px-5 text-xs font-semibold gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Validating...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" /> Save &amp; Validate Tokens
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
 
-      {/* Credential Vault Pool Table */}
-      <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Key className="h-4 w-4 text-primary" /> Active Pool Credentials ({credentials.length})
+      {/* Active Pool Visual Health Indicators */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Configured Pool Credentials ({credentials.length})
           </h3>
-          <span className="text-[10px] font-mono text-muted-foreground uppercase">Masked Vault View</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadData}
+            isLoading={loading}
+            className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Refresh Status
+          </Button>
         </div>
 
         {credentials.length === 0 ? (
-          <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
-            <Shield className="h-6 w-6 text-muted-foreground/50 mx-auto" />
-            <p>No credentials configured in this provider pool yet.</p>
+          <div className="rounded-3xl bg-muted/10 p-8 text-center text-xs text-muted-foreground space-y-1">
+            <Key className="h-6 w-6 text-muted-foreground/40 mx-auto" />
+            <p className="font-medium text-foreground">No active tokens in this pool</p>
+            <p>Paste one or more API tokens above to initialize automatic failover.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border text-muted-foreground font-mono text-[10px] uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">Label</th>
-                  <th className="py-2.5 px-3">Masked Prefix</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Priority</th>
-                  <th className="py-2.5 px-3">Monthly Spend / Budget</th>
-                  <th className="py-2.5 px-3">Requests Served</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {credentials.map((c) => (
-                  <tr key={c.id} className="hover:bg-secondary/20 transition-colors">
-                    <td className="py-3 px-3 font-semibold text-foreground">{c.label}</td>
-                    <td className="py-3 px-3 font-mono text-[11px] text-muted-foreground">{c.key_prefix}</td>
-                    <td className="py-3 px-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${
-                          c.health_status === "healthy"
-                            ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                            : c.health_status === "rate_limited"
-                            ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                            : "bg-red-500/10 text-red-500 border border-red-500/20"
-                        }`}
-                      >
-                        {c.health_status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-mono">{c.priority}</td>
-                    <td className="py-3 px-3 font-mono">
-                      ${c.current_month_spend_usd.toFixed(2)} / ${c.monthly_budget_usd.toFixed(2)}
-                    </td>
-                    <td className="py-3 px-3 font-mono">{c.total_requests_served.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCredential(c.id, c.label)}
-                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="Delete Credential"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="divide-y divide-border/30 rounded-2xl bg-card overflow-hidden shadow-xs">
+            {credentials.map((c, idx) => {
+              const isHealthy = c.is_active && c.health_status === "healthy";
+              return (
+                <div
+                  key={c.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-muted/20 transition-colors gap-3"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    {/* Visual Health Indicator: Solid Green (🟢) or Red (🔴) */}
+                    <div
+                      className={`h-3 w-3 rounded-full shrink-0 ${
+                        isHealthy ? "bg-emerald-500 shadow-sm shadow-emerald-500/50" : "bg-rose-500 shadow-sm shadow-rose-500/50"
+                      }`}
+                      title={isHealthy ? "Token Healthy & Verified" : "Token Inactive / Failed"}
+                    />
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">
+                          {c.label || `Token #${idx + 1}`}
+                        </span>
+                        <span className="font-mono text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                          {c.key_prefix}
+                        </span>
+                      </div>
+
+                      {/* Explicitly Retrieved Balance & Operational Details */}
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
+                        <span className="font-mono">
+                          Priority #{c.priority || idx + 1}
+                        </span>
+                        <span>&bull;</span>
+                        <span className={isHealthy ? "text-emerald-500 font-semibold font-mono" : "text-rose-500 font-semibold"}>
+                          {c.remaining_balance || (isHealthy ? "Status: Active" : "Status: Exhausted / Invalid")}
+                        </span>
+                        {c.last_error_reason && (
+                          <span className="text-rose-500 font-mono text-[10px]">
+                            ({c.last_error_reason})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/20">
+                    <span className="text-[11px] font-mono text-muted-foreground">
+                      {c.total_requests_served || 0} reqs served
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(c.id, c.label || c.key_prefix)}
+                      className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                      title="Delete Token"
+                      aria-label="Delete Token"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
