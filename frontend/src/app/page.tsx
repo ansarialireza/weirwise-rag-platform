@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Weirwise — Autonomous AI Assistant Studio for Business",
+  title: "Weirwise",
   description:
     "Build, test, and publish autonomous AI assistants grounded in your company knowledge. Zero hallucinations, verified inline citations, and effortless web embedding.",
   alternates: {

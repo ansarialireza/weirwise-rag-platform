@@ -11,7 +11,7 @@ const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "Weirwise — Autonomous AI Assistant Studio for Business",
+    default: "Weirwise",
     template: "%s | Weirwise",
   },
   description:
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: baseUrl,
     siteName: "Weirwise",
-    title: "Weirwise — Autonomous AI Assistant Studio for Business",
+    title: "Weirwise",
     description:
       "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
     images: [
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Weirwise — Autonomous AI Assistant Studio for Business",
+    title: "Weirwise",
     description:
       "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
     images: ["/weirwise-horizontal.svg"],

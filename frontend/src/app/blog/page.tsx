@@ -6,11 +6,11 @@ import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { Calendar, Clock, ArrowRight, BookOpen, Tag } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Blog & Engineering Insights",
+  title: "Blog",
   description:
     "Architectural deep dives, best practices for RAG assistants, and product updates from the Weirwise engineering team.",
   openGraph: {
-    title: "Blog & Engineering Insights | Weirwise",
+    title: "Blog",
     description:
       "Architectural deep dives, best practices for RAG assistants, and product updates from the Weirwise engineering team.",
   },
