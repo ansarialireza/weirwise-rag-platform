@@ -125,6 +125,8 @@ fi
 
 # 7. Build Docker Images
 echo "[Step 2/6] Building Docker container images..."
+echo "Pruning dangling docker images to prevent disk space exhaustion..."
+docker image prune -f || true
 docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" build
 
 # 8. Start Database, Redis, and Core-DB
