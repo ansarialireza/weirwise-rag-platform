@@ -38,7 +38,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
+    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
       <CardHeader className="pb-3 border-b border-zinc-800/80">
         <CardTitle className="text-xl font-semibold tracking-tight text-white">
           Create Account

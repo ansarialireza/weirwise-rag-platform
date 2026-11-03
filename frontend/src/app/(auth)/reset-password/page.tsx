@@ -61,14 +61,11 @@ function ResetPasswordForm() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
-      <CardHeader className="space-y-1 pb-3 border-b border-zinc-800/80">
+    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
+      <CardHeader className="pb-3 border-b border-zinc-800/80">
         <CardTitle className="text-xl font-semibold tracking-tight text-white">
-          Choose new password
+          Reset password
         </CardTitle>
-        <CardDescription className="text-xs text-zinc-400">
-          Enter the verification code and set your new password.
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4 pt-5">

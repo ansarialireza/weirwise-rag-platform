@@ -67,14 +67,11 @@ function VerifyEmailForm() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
-      <CardHeader className="space-y-1 pb-3 border-b border-zinc-800/80">
+    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
+      <CardHeader className="pb-3 border-b border-zinc-800/80">
         <CardTitle className="text-xl font-semibold tracking-tight text-white">
           Verify Email
         </CardTitle>
-        <CardDescription className="text-xs text-zinc-400">
-          Enter the 6-digit code sent to your email address.
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4 pt-5">

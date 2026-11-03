@@ -34,14 +34,11 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
-      <CardHeader className="space-y-1 pb-3 border-b border-zinc-800/80">
+    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
+      <CardHeader className="pb-3 border-b border-zinc-800/80">
         <CardTitle className="text-xl font-semibold tracking-tight text-white">
           Reset password
         </CardTitle>
-        <CardDescription className="text-xs text-zinc-400">
-          Enter your email to receive recovery instructions.
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4 pt-5">
@@ -87,7 +84,7 @@ export default function ForgotPasswordPage() {
             {loading ? (
               <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse mr-2" aria-hidden="true" />
             ) : null}
-            Send Reset Code
+            Send Code
           </button>
         </form>
       </CardContent>
