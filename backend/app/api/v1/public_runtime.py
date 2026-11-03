@@ -17,7 +17,7 @@ from backend.app.models.assistant import (
     Message,
     UnansweredQuery,
 )
-from backend.app.models.project import Document, KnowledgeSource
+from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     AnswerFeedbackRequest,
     AnswerFeedbackResponse,
@@ -143,11 +143,15 @@ async def public_chat(
     assistant, deployment = resolved
     start_time = time.perf_counter()
 
+    # Get Workspace ID
+    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
+    ws_id = (await db.execute(p_stmt)).scalar_one()
+
     # Enforce Usage Quota & Metering
     await metering_service.check_and_increment_chat_turn(
         db=db,
-        workspace_id=assistant.user_id,
-        user_id=assistant.user_id,
+        workspace_id=ws_id,
+        project_id=assistant.project_id,
         assistant_id=assistant.id,
     )
 
@@ -249,7 +253,7 @@ async def public_chat(
         # Webhook dispatch: question.unanswered
         await webhook_dispatcher.dispatch_event(
             db=db,
-            workspace_id=assistant.user_id,
+            workspace_id=ws_id,
             event_type="question.unanswered",
             payload_data={"query": payload.message, "assistant_id": str(assistant.id)},
         )
@@ -353,11 +357,13 @@ async def request_human_handoff(
 
     # Dispatch handoff webhook
     a_stmt = select(Assistant).where(Assistant.id == conv.assistant_id)
-    asst = (await db.execute(a_stmt)).scalar_one()
+    assistant = (await db.execute(a_stmt)).scalar_one()
+    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
+    ws_id = (await db.execute(p_stmt)).scalar_one()
 
     await webhook_dispatcher.dispatch_event(
         db=db,
-        workspace_id=asst.user_id,
+        workspace_id=ws_id,
         event_type="handoff.requested",
         payload_data={
             "conversation_id": str(conv.id),

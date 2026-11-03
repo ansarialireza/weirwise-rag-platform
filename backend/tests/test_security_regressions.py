@@ -80,9 +80,9 @@ def test_widget_origin_restriction():
     ws_id = ws_res.json()["id"]
 
     p_res = client.post(f"/api/v1/workspaces/{ws_id}/projects", headers=headers, json={"name": "Widget Project"})
-    p_res.json()["id"]
+    p_id = p_res.json()["id"]
 
-    a_res = client.post("/api/v1/assistants", headers=headers, json={"name": "Widget Assistant"})
+    a_res = client.post(f"/api/v1/projects/{p_id}/assistants", headers=headers, json={"name": "Widget Assistant"})
     a_id = a_res.json()["id"]
 
     # 2. Create Deployment with strict origin whitelist
@@ -118,14 +118,14 @@ def test_cross_tenant_resource_isolation_two_users():
     proj_a = client.post(f"/api/v1/workspaces/{ws_id_a}/projects", headers=headers_a, json={"name": "Project A"}).json()
     proj_id_a = proj_a["id"]
     asst_resp = client.post(
-        "/api/v1/assistants",
+        f"/api/v1/projects/{proj_id_a}/assistants",
         headers=headers_a,
         json={"name": "Assistant A"},
     )
     asst_a = asst_resp.json()
     asst_id_a = asst_a["id"]
     src_a = client.post(
-        "/api/v1/sources",
+        f"/api/v1/projects/{proj_id_a}/sources",
         headers=headers_a,
         json={"name": "Source A", "source_type": "file_upload"},
     ).json()

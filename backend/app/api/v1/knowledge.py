@@ -5,11 +5,12 @@ import uuid
 
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
-from backend.app.models.auth import User
+from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
     KnowledgeSourceType,
+    Project,
     SourceProcessingStatus,
 )
 from backend.app.schemas.knowledge import (
@@ -20,6 +21,8 @@ from backend.app.schemas.knowledge import (
 )
 from backend.app.services.scraper import crawler_engine, is_ssrf_safe_url
 from backend.app.services.storage import storage_service
+from backend.app.services.subscription import subscription_service
+from backend.app.services.webhooks import webhook_dispatcher
 from backend.app.tasks.ingestion import process_document_ingestion
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
@@ -52,145 +55,220 @@ class IngestDiscoveredPagesRequest(BaseModel):
     selected_pages: list[DiscoveredPageItem]
 
 
-@router.post("/crawler/discover", response_model=CrawlDiscoveryResponse)
+async def verify_project_membership(
+    project_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+    min_roles: list[WorkspaceRole] = [WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+) -> Project:
+    stmt = (
+        select(Project, Membership.role)
+        .join(Membership, Membership.workspace_id == Project.workspace_id)
+        .where(Project.id == project_id, Membership.user_id == user_id)
+    )
+    res = await db.execute(stmt)
+    record = res.first()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found or access denied.")
+    proj, role_str = record
+    if WorkspaceRole(role_str) not in min_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient workspace permissions for this project.",
+        )
+    return proj
+
+
+# --- Sitemap & Web Crawler Discovery Endpoints ---
+
+
+@router.post("/projects/{project_id}/crawler/discover", response_model=CrawlDiscoveryResponse)
 async def discover_website_pages(
+    project_id: uuid.UUID,
     payload: CrawlDiscoveryRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> CrawlDiscoveryResponse:
-    """Discover crawlable HTML pages and sitemaps from target URL."""
+    """Discover website pages via sitemaps and safe crawling before ingestion."""
+    await verify_project_membership(project_id, current_user.id, db)
+
     if not is_ssrf_safe_url(payload.url):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Forbidden URL target. Localhost and private cloud IP addresses are blocked.",
+            detail="The target URL is invalid, unsafe, or resolves to a private network address.",
         )
 
-    discovered = await crawler_engine.discover_sitemap_and_links(payload.url, max_pages=payload.max_pages)
+    crawl_result = await crawler_engine.crawl_site(payload.url, limit=payload.max_pages)
+
+    pages = [DiscoveredPageItem(url=p.url, title=p.title, word_count=p.word_count) for p in crawl_result.pages]
 
     return CrawlDiscoveryResponse(
-        root_url=payload.url,
-        total_discovered=len(discovered["pages"]),
-        sitemaps_found=discovered["sitemaps"],
-        pages=[
-            DiscoveredPageItem(
-                url=p["url"],
-                title=p["title"],
-                word_count=p["word_count"],
-            )
-            for p in discovered["pages"]
-        ],
+        root_url=crawl_result.root_url,
+        total_discovered=len(pages),
+        sitemaps_found=crawl_result.sitemaps_found,
+        pages=pages,
     )
 
 
 @router.post(
-    "/crawler/ingest",
+    "/projects/{project_id}/crawler/ingest",
     response_model=KnowledgeSourceResponse,
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_201_CREATED,
 )
-async def ingest_crawled_pages(
+async def ingest_selected_pages(
+    project_id: uuid.UUID,
     payload: IngestDiscoveredPagesRequest,
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeSourceResponse:
-    """Ingest selected discovered web pages into a KnowledgeSource."""
+    """Automatically ingest selected website pages into a dedicated KnowledgeSource."""
+    project = await verify_project_membership(project_id, current_user.id, db)
+
     source = KnowledgeSource(
-        user_id=current_user.id,
+        project_id=project_id,
         name=payload.source_name,
         source_type=KnowledgeSourceType.WEBSITE_CRAWL.value,
-        status=SourceProcessingStatus.PROCESSING.value,
+        settings={"pages_count": len(payload.selected_pages)},
     )
     db.add(source)
     await db.flush()
 
-    upload_dir = os.path.join("/tmp", "weirwise_crawls", str(source.id))
-    os.makedirs(upload_dir, exist_ok=True)
-
-    for p in payload.selected_pages:
-        html_clean = await crawler_engine.fetch_page_content(p.url)
-        if not html_clean:
+    # Re-crawl or fetch selected page content safely and store as synthetic markdown documents
+    for page in payload.selected_pages:
+        if not is_ssrf_safe_url(page.url):
             continue
 
-        filename = f"{uuid.uuid4().hex[:8]}_{p.title[:30].strip().replace(' ', '_')}.txt"
-        file_path = os.path.join(upload_dir, filename)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f"Source URL: {p.url}\nTitle: {p.title}\n\n{html_clean}")
+        # Single page safe fetch
+        from backend.app.services.scraper import fetch_webpage_content
 
-        file_size = os.path.getsize(file_path)
+        try:
+            content = await fetch_webpage_content(page.url)
+        except Exception:
+            continue
+
+        filename = f"{uuid.uuid4().hex[:8]}_{page.title[:30].replace(' ', '_')}.md"
+        storage_path = os.path.join(storage_service.base_dir, filename)
+        with open(storage_path, "w", encoding="utf-8") as f:
+            f.write(f"# {page.title}\nSource: {page.url}\n\n{content}")
 
         doc = Document(
             knowledge_source_id=source.id,
             filename=filename,
-            mime_type="text/plain",
-            file_size_bytes=file_size,
+            mime_type="text/markdown",
+            file_size_bytes=len(content.encode("utf-8")),
             content_hash=uuid.uuid4().hex,
-            storage_path=file_path,
+            storage_path=storage_path,
             status=SourceProcessingStatus.PENDING.value,
-            doc_metadata={"source_url": p.url, "title": p.title},
+            doc_metadata={"source_url": page.url, "title": page.title},
         )
         db.add(doc)
         await db.flush()
+        background_tasks.add_task(process_document_ingestion, doc.id)
 
-        background_tasks.add_task(process_document_ingestion, str(doc.id))
+    # Webhook dispatch: knowledge.sync.completed
+    await webhook_dispatcher.dispatch_event(
+        db=db,
+        workspace_id=project.workspace_id,
+        event_type="knowledge.sync.completed",
+        payload_data={"source_id": str(source.id), "name": source.name, "pages_synced": len(payload.selected_pages)},
+    )
 
     await db.commit()
     await db.refresh(source)
     return KnowledgeSourceResponse.model_validate(source)
 
 
+# --- Standard Knowledge Source Management ---
+
+
 @router.post(
-    "/sources",
+    "/projects/{project_id}/sources",
     response_model=KnowledgeSourceResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_knowledge_source(
+    project_id: uuid.UUID,
     payload: KnowledgeSourceCreateRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeSourceResponse:
-    """Create a new Knowledge Base Source."""
+    """Create a new KnowledgeSource (File Collection or Website Crawl)."""
+    await verify_project_membership(project_id, current_user.id, db)
+
     source = KnowledgeSource(
-        user_id=current_user.id,
+        project_id=project_id,
         name=payload.name,
         source_type=payload.source_type.value,
         target_url=payload.target_url,
-        settings=payload.settings,
-        status=SourceProcessingStatus.READY.value,
+        settings=payload.settings or {},
     )
     db.add(source)
+    await db.flush()
+
+    # If single Website Crawl target_url provided
+    if payload.source_type == KnowledgeSourceType.WEBSITE_CRAWL and payload.target_url:
+        from backend.app.services.scraper import fetch_webpage_content
+
+        page_text = await fetch_webpage_content(payload.target_url)
+        filename = f"crawl_{uuid.uuid4().hex[:8]}.md"
+        storage_path = os.path.join(storage_service.base_dir, filename)
+        with open(storage_path, "w", encoding="utf-8") as f:
+            f.write(page_text)
+
+        doc = Document(
+            knowledge_source_id=source.id,
+            filename=filename,
+            mime_type="text/markdown",
+            file_size_bytes=len(page_text.encode("utf-8")),
+            content_hash=uuid.uuid4().hex,
+            storage_path=storage_path,
+            status=SourceProcessingStatus.PENDING.value,
+            doc_metadata={"source_url": payload.target_url},
+        )
+        db.add(doc)
+        await db.commit()
+        await db.refresh(doc)
+        background_tasks.add_task(process_document_ingestion, doc.id)
+
     await db.commit()
     await db.refresh(source)
-
     return KnowledgeSourceResponse.model_validate(source)
 
 
-@router.get("/sources", response_model=list[KnowledgeSourceResponse])
+@router.get("/projects/{project_id}/sources", response_model=list[KnowledgeSourceResponse])
 async def list_knowledge_sources(
+    project_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[KnowledgeSourceResponse]:
-    """List all Knowledge Sources for the authenticated user."""
+    """List all knowledge sources in a project."""
+    await verify_project_membership(
+        project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
+
     stmt = (
-        select(KnowledgeSource)
-        .where(KnowledgeSource.user_id == current_user.id)
+        select(KnowledgeSource, func.count(Document.id).label("doc_count"))
+        .outerjoin(Document, Document.knowledge_source_id == KnowledgeSource.id)
+        .where(KnowledgeSource.project_id == project_id)
+        .group_by(KnowledgeSource.id)
         .order_by(KnowledgeSource.created_at.desc())
     )
     res = await db.execute(stmt)
-    sources = res.scalars().all()
-
-    responses = []
-    for s in sources:
-        doc_count_res = await db.execute(select(func.count(Document.id)).where(Document.knowledge_source_id == s.id))
-        doc_count = doc_count_res.scalar() or 0
-        resp_item = KnowledgeSourceResponse.model_validate(s)
-        resp_item.document_count = doc_count
-        responses.append(resp_item)
-
-    return responses
+    results = []
+    for ks, count in res.all():
+        resp = KnowledgeSourceResponse.model_validate(ks)
+        resp.document_count = count
+        results.append(resp)
+    return results
 
 
 @router.post(
-    "/sources/{source_id}/documents",
+    "/sources/{source_id}/documents/upload",
     response_model=DocumentUploadBatchResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
@@ -201,24 +279,41 @@ async def upload_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> DocumentUploadBatchResponse:
-    """Upload documents into a Knowledge Source for asynchronous chunking and vector embedding."""
-    s_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
-    source = s_res.scalar_one_or_none()
+    """Upload documents to a KnowledgeSource and schedule asynchronous Core vector indexing."""
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
 
-    if not source or source.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Knowledge Source not found or access denied.",
+    project = await verify_project_membership(source.project_id, current_user.id, db)
+
+    # Entitlement check
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        doc_count_stmt = (
+            select(func.count(Document.id))
+            .join(KnowledgeSource, KnowledgeSource.id == Document.knowledge_source_id)
+            .join(Project, Project.id == KnowledgeSource.project_id)
+            .where(Project.workspace_id == workspace.id)
+        )
+        current_docs = (await db.execute(doc_count_stmt)).scalar() or 0
+        await subscription_service.check_document_upload_entitlement(
+            workspace, current_docs, additional_docs=len(files), db=db
         )
 
-    uploaded_docs: list[DocumentResponse] = []
+    uploaded_records: list[Document] = []
 
     for file in files:
         safe_name, path, size, chash = await storage_service.save_upload(file)
 
+        if workspace:
+            subscription_service.check_file_size_entitlement(workspace, size)
+            await subscription_service.check_storage_entitlement(workspace, size, db)
+
         doc = Document(
             knowledge_source_id=source.id,
-            filename=file.filename or safe_name,
+            filename=safe_name,
             mime_type=file.content_type or "application/octet-stream",
             file_size_bytes=size,
             content_hash=chash,
@@ -226,18 +321,17 @@ async def upload_documents(
             status=SourceProcessingStatus.PENDING.value,
         )
         db.add(doc)
-        await db.flush()
+        uploaded_records.append(doc)
 
-        background_tasks.add_task(process_document_ingestion, str(doc.id))
-        uploaded_docs.append(DocumentResponse.model_validate(doc))
-
-    source.status = SourceProcessingStatus.READY.value
     await db.commit()
+
+    for doc in uploaded_records:
+        await db.refresh(doc)
+        background_tasks.add_task(process_document_ingestion, doc.id)
 
     return DocumentUploadBatchResponse(
         source_id=source.id,
-        uploaded_count=len(uploaded_docs),
-        documents=uploaded_docs,
+        uploaded_documents=[DocumentResponse.model_validate(d) for d in uploaded_records],
     )
 
 
@@ -247,20 +341,22 @@ async def list_source_documents(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[DocumentResponse]:
-    """List all documents within a knowledge source."""
-    s_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
-    source = s_res.scalar_one_or_none()
+    """List documents and processing states under a KnowledgeSource."""
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
 
-    if not source or source.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Knowledge Source not found or access denied.",
-        )
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
 
     stmt = select(Document).where(Document.knowledge_source_id == source_id).order_by(Document.created_at.desc())
     res = await db.execute(stmt)
-    docs = res.scalars().all()
-    return [DocumentResponse.model_validate(d) for d in docs]
+    return [DocumentResponse.model_validate(d) for d in res.scalars().all()]
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -269,18 +365,23 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
-    """Delete a document and trigger cascade removal from vector stores."""
-    d_res = await db.execute(select(Document).where(Document.id == document_id))
-    doc = d_res.scalar_one_or_none()
-
+    """Delete a document and trigger vector chunk purge."""
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
-    s_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
-    source = s_res.scalar_one()
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
 
-    if source.user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
 
     await db.delete(doc)
     await db.commit()

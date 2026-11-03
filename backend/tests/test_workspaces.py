@@ -1,4 +1,4 @@
-"""Test user level isolation and core flat entity access."""
+"""Integration tests for Workspaces, RBAC, Multi-tenancy, and Owner protection."""
 
 import uuid
 
@@ -8,51 +8,104 @@ from fastapi.testclient import TestClient
 client = TestClient(app)
 
 
-def test_user_direct_entities_flow():
+def test_workspace_and_rbac_flow():
+    # 1. Register Owner
     uid = uuid.uuid4().hex[:8]
-    user_email = f"flat_user_{uid}@example.com"
+    owner_email = f"workspace_owner_{uid}@example.com"
     reg_resp = client.post(
         "/api/v1/auth/register",
-        json={"email": user_email, "password": "Password123!", "full_name": "Flat User"},
+        json={"email": owner_email, "password": "Password123!", "full_name": "Org Owner"},
     )
     assert reg_resp.status_code == 201
 
     login_resp = client.post(
         "/api/v1/auth/login",
-        json={"email": user_email, "password": "Password123!"},
+        json={"email": owner_email, "password": "Password123!"},
     )
     assert login_resp.status_code == 200, login_resp.text
-    token = login_resp.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    owner_token = login_resp.json()["access_token"]
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
 
-    # Create knowledge source
-    src_resp = client.post(
-        "/api/v1/sources",
-        headers=headers,
-        json={"name": "User Direct KB", "source_type": "file_upload"},
+    # 2. Register Member User
+    member_email = f"team_member_{uid}@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": member_email, "password": "Password123!", "full_name": "Team Member"},
     )
-    assert src_resp.status_code == 201, src_resp.text
-    source_id = src_resp.json()["id"]
-
-    # List knowledge sources
-    list_src = client.get("/api/v1/sources", headers=headers)
-    assert list_src.status_code == 200
-    assert any(s["id"] == source_id for s in list_src.json())
-
-    # Create assistant directly
-    asst_resp = client.post(
-        "/api/v1/assistants",
-        headers=headers,
-        json={
-            "name": "Direct Assistant",
-            "system_instructions": "Direct user assistant instructions with enough chars.",
-            "knowledge_source_ids": [source_id],
-        },
+    m_login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": member_email, "password": "Password123!"},
     )
-    assert asst_resp.status_code == 201, asst_resp.text
-    assistant_id = asst_resp.json()["id"]
+    assert m_login_resp.status_code == 200, m_login_resp.text
+    member_token = m_login_resp.json()["access_token"]
+    member_headers = {"Authorization": f"Bearer {member_token}"}
 
-    # Get assistant
-    get_asst = client.get(f"/api/v1/assistants/{assistant_id}", headers=headers)
-    assert get_asst.status_code == 200
-    assert get_asst.json()["name"] == "Direct Assistant"
+    # 3. Create Custom Workspace
+    ws_resp = client.post(
+        "/api/v1/workspaces",
+        headers=owner_headers,
+        json={"name": "Acme Enterprise"},
+    )
+    assert ws_resp.status_code == 201
+    workspace = ws_resp.json()
+    ws_id = workspace["id"]
+
+    # 4. Invite Member to Workspace
+    invite_resp = client.post(
+        f"/api/v1/workspaces/{ws_id}/members",
+        headers=owner_headers,
+        json={"email": member_email, "role": "member"},
+    )
+    assert invite_resp.status_code == 201
+    member_id = invite_resp.json()["id"]
+
+    # 5. Verify Member can view projects
+    proj_resp = client.post(
+        f"/api/v1/workspaces/{ws_id}/projects",
+        headers=member_headers,
+        json={"name": "Member Project", "description": "Created by member"},
+    )
+    assert proj_resp.status_code == 201
+    project_id = proj_resp.json()["id"]
+
+    # 6. Unauthorized Member cannot change roles or update workspace
+    bad_role_change = client.patch(
+        f"/api/v1/workspaces/{ws_id}/members/{member_id}",
+        headers=member_headers,
+        json={"role": "admin"},
+    )
+    assert bad_role_change.status_code == 403, bad_role_change.text
+
+    # 7. Owner cannot demote themselves if they are the last Owner
+    owner_members_resp = client.get(f"/api/v1/workspaces/{ws_id}/members", headers=owner_headers)
+    members_list = owner_members_resp.json()
+    owner_membership = next(m for m in members_list if m["role"] == "owner")
+
+    demote_fail = client.patch(
+        f"/api/v1/workspaces/{ws_id}/members/{owner_membership['id']}",
+        headers=owner_headers,
+        json={"role": "member"},
+    )
+    assert demote_fail.status_code == 400
+    assert "last remaining Owner" in demote_fail.text
+
+    # 8. Cross-Workspace Isolation Test
+    # Register an outsider user
+    outsider_email = "outsider@example.com"
+    client.post(
+        "/api/v1/auth/register",
+        json={"email": outsider_email, "password": "Password123!", "full_name": "Outsider"},
+    )
+    out_login_resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": outsider_email, "password": "Password123!"},
+    )
+    outsider_headers = {"Authorization": f"Bearer {out_login_resp.json()['access_token']}"}
+
+    # Outsider cannot read or access Acme Enterprise
+    cross_ws_get = client.get(f"/api/v1/workspaces/{ws_id}", headers=outsider_headers)
+    assert cross_ws_get.status_code == 404
+
+    # Outsider cannot read or mutate project
+    cross_proj_get = client.get(f"/api/v1/projects/{project_id}", headers=outsider_headers)
+    assert cross_proj_get.status_code == 404

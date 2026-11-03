@@ -40,7 +40,7 @@ class KnowledgeSourceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    user_id: uuid.UUID
+    project_id: uuid.UUID
     core_kb_id: uuid.UUID | None
     name: str
     source_type: KnowledgeSourceType
