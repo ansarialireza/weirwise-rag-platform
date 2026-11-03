@@ -38,7 +38,8 @@ async def ingest_behavioral_batch(
     """Asynchronous batch ingestion endpoint:
     - Enforces ownership: User ID derived strictly from authenticated session token, never client-assigned.
     - Resolves geographic context (country/timezone) without storing raw client IP.
-    - Emits batch envelope to Redis Stream 'wbi:events:incoming' with backpressure protection.
+    - Verifies Cloudflare headers against trusted proxy topology.
+    - Emits batch envelope to Redis Stream 'wbi:events:incoming' via persistent connection pool.
     - Responds immediately with HTTP 202 Accepted.
     """
     # 1. Enforce verified ownership
@@ -47,18 +48,15 @@ async def ingest_behavioral_batch(
     # 2. Extract and resolve privacy-preserving geographic context
     client_ip = request.client.host if request.client else None
     cf_country = request.headers.get("CF-IPCountry")
+    cf_ray = request.headers.get("CF-RAY")
     client_tz = payload.geographic_context.timezone if payload.geographic_context else None
 
     geo_context = geoip_service.resolve_geo_context(
         client_ip=client_ip,
         cf_country=cf_country,
+        cf_ray=cf_ray,
         client_tz=client_tz,
     )
-    # Merge client hints if country was validated in schema
-    if payload.geographic_context and payload.geographic_context.country_code:
-        if not geo_context.get("country_code"):
-            geo_context["country_code"] = payload.geographic_context.country_code
-            geo_context["country_name"] = payload.geographic_context.country_name
 
     # 3. Normalize device context
     device_context = payload.device_context.model_dump() if payload.device_context else {}
@@ -66,9 +64,9 @@ async def ingest_behavioral_batch(
     # 4. Serialize event items for stream payload
     event_dicts = [ev.model_dump(mode="json") for ev in payload.events]
 
-    # 5. Push to Redis Stream
+    # 5. Push to Redis Stream using pooled connection
     try:
-        redis_client = await behavioral_stream_producer.get_redis_client()
+        redis_client = behavioral_stream_producer.get_redis_client()
         queued_count = await behavioral_stream_producer.enqueue_batch(
             redis_client=redis_client,
             session_id=payload.session_id,
@@ -78,7 +76,6 @@ async def ingest_behavioral_batch(
             geo_context=geo_context,
             events=event_dicts,
         )
-        await redis_client.aclose()
     except IngestionBackpressureException as e:
         logger.warning(f"Backpressure error on ingestion: {e!s}")
         raise HTTPException(

@@ -94,11 +94,13 @@ class BehavioralEventItem(BaseModel):
         if len(v) > 50:
             raise ValueError("properties dictionary cannot exceed 50 keys")
         
-        # Guard against sensitive attributes
-        banned_keys = {"password", "secret", "token", "auth", "credit_card", "ssn", "cvv", "key"}
+        # Guard against sensitive attributes (substring check)
+        banned_patterns = ["password", "secret", "token", "auth", "credit_card", "ssn", "cvv", "api_key", "private_key"]
         for k in v.keys():
-            if k.lower() in banned_keys:
-                raise ValueError(f"Property key '{k}' contains prohibited sensitive data keyword")
+            k_lower = k.lower()
+            for pattern in banned_patterns:
+                if pattern in k_lower:
+                    raise ValueError(f"Property key '{k}' contains prohibited sensitive data keyword ('{pattern}')")
         return v
 
 

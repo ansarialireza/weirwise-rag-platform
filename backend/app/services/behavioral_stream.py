@@ -1,4 +1,4 @@
-"""Redis Streams producer and buffer manager for Behavioral Intelligence."""
+"""Redis Streams producer and buffer manager for Behavioral Intelligence with persistent connection pooling."""
 
 import json
 import logging
@@ -26,18 +26,41 @@ class IngestionBackpressureException(Exception):
 
 
 class BehavioralStreamProducer:
-    """Manages high-throughput ingestion of telemetry batches into Redis Streams."""
+    """Manages high-throughput ingestion of telemetry batches into Redis Streams using a shared pool."""
 
-    @staticmethod
-    async def get_redis_client():
-        """Factory for async Redis connection."""
+    _pool = None
+    _redis = None
+
+    @classmethod
+    def get_redis_client(cls):
+        """Returns a shared, pooled async Redis client."""
         if not settings.REDIS_URL:
             raise RedisUnavailableException("REDIS_URL is not configured.")
-        try:
-            from redis.asyncio import from_url
-            return from_url(settings.REDIS_URL, decode_responses=True, socket_timeout=3.0)
-        except Exception as e:
-            raise RedisUnavailableException(f"Failed to connect to Redis: {e!s}")
+        
+        if cls._redis is None:
+            try:
+                from redis.asyncio import ConnectionPool, Redis
+                cls._pool = ConnectionPool.from_url(
+                    settings.REDIS_URL,
+                    decode_responses=True,
+                    max_connections=50,
+                    socket_timeout=3.0,
+                    socket_connect_timeout=3.0,
+                )
+                cls._redis = Redis(connection_pool=cls._pool)
+            except Exception as e:
+                raise RedisUnavailableException(f"Failed to initialize Redis pool: {e!s}")
+        return cls._redis
+
+    @classmethod
+    async def close(cls):
+        """Gracefully closes Redis connection pool."""
+        if cls._redis is not None:
+            await cls._redis.aclose()
+            cls._redis = None
+        if cls._pool is not None:
+            await cls._pool.disconnect()
+            cls._pool = None
 
     @classmethod
     async def ensure_consumer_group(cls, redis_client) -> None:
@@ -67,7 +90,7 @@ class BehavioralStreamProducer:
         geo_context: Dict[str, Any],
         events: list[Dict[str, Any]],
     ) -> int:
-        """Appends events to Redis Stream with backpressure and length bounds."""
+        """Appends events to Redis Stream with backpressure protection."""
         # Check stream backlog for backpressure control
         try:
             stream_len = await redis_client.xlen(STREAM_KEY)
@@ -92,15 +115,10 @@ class BehavioralStreamProducer:
             }
             payload_records.append(json.dumps(envelope))
 
-        # Pipeline push to Redis Stream with approximate trimming (MAXLEN ~ 100k)
+        # Pipeline push to Redis Stream without destructive trimming
         async with redis_client.pipeline(transaction=True) as pipe:
             for rec in payload_records:
-                pipe.xadd(
-                    STREAM_KEY,
-                    {"data": rec},
-                    maxlen=MAX_STREAM_LENGTH,
-                    approximate=True,
-                )
+                pipe.xadd(STREAM_KEY, {"data": rec})
             await pipe.execute()
 
         return len(payload_records)
