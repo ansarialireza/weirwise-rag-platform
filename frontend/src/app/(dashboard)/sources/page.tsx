@@ -252,20 +252,15 @@ export default function SourcesKnowledgePage() {
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-150">
       {/* Top Header: Clean, Typographic, Precision-Engineered Brutalist-Tech */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
-              Knowledge Base
-            </h1>
-            {hasSources && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/50 text-zinc-400">
-                {sources.length} {sources.length === 1 ? "source" : "sources"}
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-            Manage reference documents, chunks, and data sources for grounded semantic retrieval.
-          </p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
+            Knowledge Base
+          </h1>
+          {hasSources && (
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/50 text-zinc-400">
+              {sources.length} {sources.length === 1 ? "source" : "sources"}
+            </span>
+          )}
         </div>
 
         {hasSources && (
@@ -275,7 +270,7 @@ export default function SourcesKnowledgePage() {
             size="sm"
             className="gap-2 shrink-0 self-start sm:self-center"
           >
-            <Plus className="h-4 w-4" /> Add Knowledge Source
+            <Plus className="h-4 w-4" /> Add Source
           </Button>
         )}
       </div>
@@ -290,18 +285,15 @@ export default function SourcesKnowledgePage() {
 
       {!hasSources ? (
         /* Minimalist Zero-State: Transparent/subtle fill with ultra-thin delicate border */
-        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 py-20 px-8 text-center flex flex-col items-center justify-center space-y-5 animate-in fade-in duration-150">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400">
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 py-20 px-8 text-center flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-150">
+          <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
             <Database className="h-5 w-5 stroke-[1.5]" />
           </div>
 
-          <div className="max-w-md space-y-1.5">
+          <div>
             <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
-              No knowledge sources yet
+              No knowledge sources
             </h2>
-            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              Upload enterprise documents (PDF, TXT, Markdown, CSV) or crawl web domains to generate high-dimensional vector embeddings.
-            </p>
           </div>
 
           <Button
@@ -310,7 +302,7 @@ export default function SourcesKnowledgePage() {
             size="sm"
             className="gap-2 mt-2"
           >
-            <Plus className="h-4 w-4" /> Add Knowledge Source
+            <Plus className="h-4 w-4" /> Add Source
           </Button>
         </div>
       ) : (
@@ -376,7 +368,7 @@ export default function SourcesKnowledgePage() {
           {/* Right Column: Seamless Integrated Document View */}
           <div className="lg:col-span-8 space-y-6">
             {selectedSource ? (
-              <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-6 sm:p-7 space-y-6">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 sm:p-7 space-y-6">
                 {/* Clean Top Action Bar for Selected Dataset */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/60">
                   <div className="min-w-0 space-y-1.5">
@@ -520,7 +512,7 @@ export default function SourcesKnowledgePage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 py-16 text-center text-xs text-zinc-400">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/20 py-16 text-center text-xs text-zinc-400">
                 Select a dataset from the left column to view its documents and indexed vectors.
               </div>
             )}
@@ -576,60 +568,58 @@ export default function SourcesKnowledgePage() {
             className={cn(
               "w-full bg-[#0c0d10] text-foreground border-zinc-800 shadow-2xl flex flex-col relative",
               // Mobile (< md): Slides up from bottom as Drawer
-              "mt-auto md:mt-0 rounded-t-xl md:rounded-xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
+              "mt-auto md:mt-0 rounded-t-md md:rounded-md border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
             )}
           >
             {/* Mobile Swipe-Down Handle */}
             <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
-              <div className="h-1.5 w-12 rounded-full bg-zinc-700" />
+              <div className="h-1 w-12 rounded-sm bg-zinc-700" />
             </div>
 
-            {/* Header with Title and 'X' Button - Spacious breathing room */}
+            {/* Header with Title and 'X' Button */}
             <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-800/80 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/60 text-zinc-300 shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900/60 text-[#46C7D6] shrink-0">
                   <Database className="h-4 w-4 stroke-[1.5]" />
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Add Knowledge Source</h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Configure documents or website URLs for indexing</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-sm border border-transparent hover:border-zinc-800 text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Form Body - Increased padding and gap between form groups */}
+            {/* Form Body */}
             <form onSubmit={handleCreateSource} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-300">
+              <div className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-medium text-zinc-300">
                     Source Name
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Employee Handbook, Technical Specs"
+                    placeholder="e.g. Employee Handbook"
                     value={sourceName}
                     onChange={(e) => setSourceName(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
+                    className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                   />
-                  <p className="text-[11px] text-zinc-500">A human-readable label to identify this dataset in your project.</p>
                 </div>
 
-                {/* Custom Select with Bottom-Sheet behavior on mobile */}
-                <div className="space-y-2">
+                {/* Custom Select */}
+                <div className="space-y-1.5">
                   <CustomSelect
                     label="Source Type"
                     value={sourceType}
                     onChange={(val) => setSourceType(val as any)}
-                    triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500"
+                    triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500 rounded-md"
                     options={[
                       {
                         value: "file_upload",
@@ -648,23 +638,22 @@ export default function SourcesKnowledgePage() {
                 </div>
 
                 {sourceType === "website_crawl" && (
-                  <div className="space-y-2 animate-in fade-in duration-150">
-                    <label className="text-xs font-medium text-zinc-300">Target URL</label>
+                  <div className="space-y-1.5 animate-in fade-in duration-150">
+                    <label className="text-xs font-mono font-medium text-zinc-300">Target URL</label>
                     <input
                       type="url"
                       required
                       placeholder="https://docs.example.com"
                       value={targetUrl}
                       onChange={(e) => setTargetUrl(e.target.value)}
-                      className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
+                      className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                     />
-                    <p className="text-[11px] text-zinc-500">Provide the canonical root URL for recursive web scraping.</p>
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons Footer - Proper padding, distinct Ghost cancel and solid primary */}
-              <div className="px-6 sm:px-8 py-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
+              {/* Action Buttons Footer */}
+              <div className="px-6 sm:px-8 py-4 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"

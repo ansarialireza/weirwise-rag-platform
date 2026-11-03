@@ -41,13 +41,10 @@ export default function OverviewPage() {
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-150">
       {/* Ruthlessly Clean Typographic Header */}
-      <div className="space-y-1">
+      <div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
           Overview
         </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Connect company documents, configure AI assistants, and verify answers with deterministic citations.
-        </p>
       </div>
 
       {/* Direct Entry Points to Knowledge Base and Assistants */}
@@ -55,7 +52,7 @@ export default function OverviewPage() {
         {/* Card 1: Knowledge Base */}
         <Link
           href="/sources"
-          className="group rounded-md border border-zinc-800 bg-zinc-950/40 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/60 transition-all shadow-xs"
+          className="group rounded-md border border-zinc-800 bg-zinc-950/20 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/40 transition-all shadow-xs"
         >
           <div className="space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6] transition-transform">
@@ -68,13 +65,10 @@ export default function OverviewPage() {
                   {sources.length} sources
                 </span>
               </h2>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Upload and manage documents, view chunking status, and inspect mass text ingestion.
-              </p>
             </div>
           </div>
           <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:text-[#46C7D6] transition-colors">
-            <span>Open Knowledge Base</span>
+            <span>Knowledge Base</span>
             <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
@@ -82,7 +76,7 @@ export default function OverviewPage() {
         {/* Card 2: Assistants & Search */}
         <Link
           href="/assistants"
-          className="group rounded-md border border-zinc-800 bg-zinc-950/40 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/60 transition-all shadow-xs"
+          className="group rounded-md border border-zinc-800 bg-zinc-950/20 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/40 transition-all shadow-xs"
         >
           <div className="space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6] transition-transform">
@@ -90,18 +84,15 @@ export default function OverviewPage() {
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground flex items-center justify-between">
-                <span>Assistants &amp; Search</span>
+                <span>Assistants</span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/60 text-zinc-400">
                   {assistants.length} configured
                 </span>
               </h2>
-              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Configure Semantic Search or AI Answer RAG engines and test in Playground.
-              </p>
             </div>
           </div>
           <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:text-[#46C7D6] transition-colors">
-            <span>Manage Assistants</span>
+            <span>Assistants</span>
             <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>

@@ -195,7 +195,7 @@ export default function AssistantsListPage() {
             onClick={openCreateModal}
             variant="primary"
             size="sm"
-            className="rounded-2xl h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
+            className="rounded-md h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
           >
             <Plus className="h-4 w-4" /> New Assistant
           </Button>
@@ -212,7 +212,7 @@ export default function AssistantsListPage() {
               placeholder="Search assistants..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl bg-muted/40 hover:bg-muted/60 pl-10 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors"
+              className="w-full rounded-md border border-zinc-800 bg-zinc-950/40 pl-10 pr-4 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-zinc-500 transition-colors"
             />
           </div>
         </div>
@@ -220,33 +220,30 @@ export default function AssistantsListPage() {
 
       {/* Main Content Area */}
       {!hasAssistants ? (
-        /* Ruthlessly Clean Zero-State: Beautiful centered hero with soft bg-muted/30, no dotted borders, clean solid CTA */
-        <div className="rounded-3xl bg-muted/30 p-8 sm:p-14 text-center flex flex-col items-center justify-center space-y-5 animate-in fade-in duration-150">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-primary">
-            <Bot className="h-7 w-7" />
+        /* Ruthlessly Clean Zero-State */
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-8 sm:p-14 text-center flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-150">
+          <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
+            <Bot className="h-5 w-5" />
           </div>
 
-          <div className="max-w-md space-y-1.5">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-foreground">
               No assistants configured yet
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Create an assistant to define custom system instructions, response strictness, and connect your knowledge datasets.
-            </p>
           </div>
 
           <Button
             onClick={openCreateModal}
             variant="primary"
-            size="lg"
-            className="rounded-2xl px-6 font-semibold gap-2 shadow-xs text-xs sm:text-sm h-10"
+            size="md"
+            className="rounded-md px-5 font-bold gap-2 shadow-xs text-xs sm:text-sm h-9"
           >
             <Plus className="h-4 w-4" /> Create Assistant
           </Button>
         </div>
       ) : filteredAssistants.length === 0 ? (
         /* Filter Zero-State */
-        <div className="rounded-2xl bg-muted/20 p-8 text-center text-xs text-muted-foreground space-y-2">
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-8 text-center text-xs text-muted-foreground space-y-2">
           <p>No assistants match &quot;{searchQuery}&quot;</p>
           <button
             onClick={() => setSearchQuery("")}
@@ -261,19 +258,19 @@ export default function AssistantsListPage() {
           {filteredAssistants.map((a) => (
             <div
               key={a.id}
-              className="group flex flex-col justify-between rounded-2xl bg-muted/30 hover:bg-muted/50 p-5 transition-all duration-150"
+              className="group flex flex-col justify-between rounded-md border border-zinc-800 bg-zinc-950/20 hover:border-zinc-700 hover:bg-zinc-900/40 p-5 transition-all duration-150"
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted text-primary">
-                    <Bot className="h-5 w-5" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
+                    <Bot className="h-4 w-4" />
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-foreground uppercase">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/60 text-zinc-300 uppercase">
                       {a.engine_mode === "search_only" ? "Search" : "AI"}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-mono text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-none bg-emerald-400" />
                       {a.status}
                     </span>
                   </div>
@@ -294,20 +291,20 @@ export default function AssistantsListPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-border/30 flex items-center gap-2">
+              <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center gap-2">
                 <Link
-                  href={`/dashboard/assistants/${a.id}`}
+                  href={`/assistants/${a.id}`}
                   className="flex-1"
                 >
-                  <Button variant="ghost" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+                  <Button variant="ghost" size="sm" className="w-full rounded-md border border-transparent hover:border-zinc-800 h-8 px-2.5 text-xs font-medium text-zinc-400 hover:text-white">
                     Configure
                   </Button>
                 </Link>
                 <Link
-                  href={`/dashboard/playground?assistantId=${a.id}`}
+                  href={`/playground?assistantId=${a.id}`}
                   className="flex-1"
                 >
-                  <Button variant="primary" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-semibold gap-1.5 shadow-xs">
+                  <Button variant="primary" size="sm" className="w-full rounded-md h-8 px-2.5 text-xs font-semibold gap-1.5 shadow-xs">
                     <Sliders className="h-3.5 w-3.5" /> Test
                   </Button>
                 </Link>
@@ -317,11 +314,7 @@ export default function AssistantsListPage() {
         </div>
       )}
 
-      {/* 
-        Responsive Creation Component:
-        - Mobile (< md): Native Bottom Drawer with swipe-down dismissal and safe spacing for virtual keyboards
-        - Desktop (>= md): Floating Dialog Modal centered on screen
-      */}
+      {/* Responsive Creation Component */}
       {showCreate && (
         <div
           className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-6"
@@ -341,47 +334,46 @@ export default function AssistantsListPage() {
             }}
             className={cn(
               "w-full bg-[#0c0d10] text-foreground border-zinc-800 shadow-2xl flex flex-col relative",
-              // Mobile (< md): Slides up from bottom as Drawer
-              "mt-auto md:mt-0 rounded-t-xl md:rounded-xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
+              "mt-auto md:mt-0 rounded-t-md md:rounded-md border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
             )}
           >
             {/* Mobile Swipe-Down Handle */}
             <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
-              <div className="h-1.5 w-12 rounded-full bg-zinc-700" />
+              <div className="h-1 w-12 rounded-sm bg-zinc-700" />
             </div>
 
             {/* Header with Title and 'X' Button */}
             <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-800/80 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/60 text-zinc-300 shrink-0">
+                <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900/60 text-[#46C7D6] shrink-0">
                   <Bot className="h-4 w-4 stroke-[1.5]" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Create New Assistant</h3>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Create Assistant</h3>
                   <p className="text-[11px] text-zinc-400 mt-0.5">Configure retrieval parameters and behavioral intelligence</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={closeCreateModal}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-sm border border-transparent hover:border-zinc-800 text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Form Body - Scrollable on mobile so virtual keyboard doesn't occlude fields */}
+            {/* Form Body */}
             <form onSubmit={handleCreateAssistant} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+              <div className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1">
                 {/* Engine Mode Toggle */}
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-300">Engine Mode</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-medium text-zinc-300">Engine Mode</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setNewEngineMode("search_only")}
-                      className={`p-3 rounded-lg text-left border text-xs transition-all ${
+                      className={`p-3 rounded-md text-left border text-xs transition-all ${
                         newEngineMode === "search_only"
                           ? "border-zinc-500 bg-zinc-900/60 text-foreground font-medium"
                           : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:text-foreground"
@@ -393,7 +385,7 @@ export default function AssistantsListPage() {
                     <button
                       type="button"
                       onClick={() => setNewEngineMode("ai_answer")}
-                      className={`p-3 rounded-lg text-left border text-xs transition-all ${
+                      className={`p-3 rounded-md text-left border text-xs transition-all ${
                         newEngineMode === "ai_answer"
                           ? "border-zinc-500 bg-zinc-900/60 text-foreground font-medium"
                           : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:text-foreground"
@@ -405,28 +397,27 @@ export default function AssistantsListPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-zinc-300">Assistant Name</label>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-medium text-zinc-300">Assistant Name</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Compliance Analyst, Legal Advisor"
+                    placeholder="e.g. Compliance Analyst"
                     value={newAssistantName}
                     onChange={(e) => setNewAssistantName(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
+                    className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                   />
-                  <p className="text-[11px] text-zinc-500">A clear, descriptive name for your autonomous or retrieval assistant.</p>
                 </div>
 
-                {/* AI Routing Strategy (CustomSelect with Mobile Bottom Sheet) */}
+                {/* AI Routing Strategy */}
                 {newEngineMode === "ai_answer" && (
-                  <div className="space-y-6 animate-in fade-in duration-150">
-                    <div className="space-y-2">
+                  <div className="space-y-5 animate-in fade-in duration-150">
+                    <div className="space-y-1.5">
                       <CustomSelect
                         label="AI Routing Strategy"
                         value={newModel}
                         onChange={(val) => setNewModel(val)}
-                        triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500"
+                        triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500 rounded-md"
                         options={[
                           {
                             value: "Auto",
@@ -447,26 +438,25 @@ export default function AssistantsListPage() {
                       />
                     </div>
 
-                    {/* System Instructions (Textarea with comfortable height) */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-zinc-300">System Instructions</label>
+                    {/* System Instructions */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-mono font-medium text-zinc-300">System Instructions</label>
                       <textarea
                         rows={4}
                         placeholder="Describe role, tone, grounding rules, and response structure..."
                         value={newInstructions}
                         onChange={(e) => setNewInstructions(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all leading-relaxed resize-none"
+                        className="w-full rounded-md border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all leading-relaxed resize-none font-mono"
                       />
-                      <p className="text-[11px] text-zinc-500">Provide boundary guidelines and strict enterprise constraints.</p>
                     </div>
                   </div>
                 )}
 
                 {/* Knowledge Sources Checklist */}
                 {sources.length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-zinc-300">Attach Knowledge Sources</label>
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-zinc-800/80 p-2 bg-zinc-950/30">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-mono font-medium text-zinc-300">Attach Knowledge Sources</label>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-md border border-zinc-800/80 p-2 bg-zinc-950/30">
                       {sources.map((s) => {
                         const isSelected = selectedSourceIds.includes(s.id);
                         return (
@@ -499,7 +489,7 @@ export default function AssistantsListPage() {
               </div>
 
               {/* Action Buttons Footer */}
-              <div className="px-6 sm:px-8 py-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
+              <div className="px-6 sm:px-8 py-4 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
@@ -516,7 +506,7 @@ export default function AssistantsListPage() {
                   disabled={!newAssistantName.trim()}
                   className="px-5"
                 >
-                  Create &amp; Configure
+                  Create Assistant
                 </Button>
               </div>
             </form>

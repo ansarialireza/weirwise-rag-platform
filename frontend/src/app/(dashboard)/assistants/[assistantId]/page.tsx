@@ -152,10 +152,10 @@ export default function AssistantConfigurePage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border pb-6">
         <div className="flex items-center gap-3.5 min-w-0">
           <Link
-            href={`/dashboard/assistants`}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors shadow-xs shrink-0"
+            href={`/assistants`}
+            className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:text-white transition-colors shrink-0"
           >
-            <ArrowLeft className="h-4.5 w-4.5" />
+            <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
@@ -174,11 +174,11 @@ export default function AssistantConfigurePage() {
 
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Link
-            href={`/dashboard/playground?assistantId=${assistantId}`}
+            href={`/playground?assistantId=${assistantId}`}
             className="flex-1 sm:flex-initial"
           >
-            <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 px-3 text-xs font-semibold gap-1.5">
-              <Sliders className="h-4 w-4" /> Open Playground
+            <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 px-3 text-xs font-semibold gap-1.5 rounded-md border-zinc-800 hover:border-zinc-700">
+              <Sliders className="h-4 w-4" /> Playground
             </Button>
           </Link>
 
@@ -187,7 +187,7 @@ export default function AssistantConfigurePage() {
             size="sm"
             onClick={handlePublish}
             isLoading={publishing}
-            className="flex-1 sm:flex-initial h-9 px-3 text-xs font-semibold gap-1.5"
+            className="flex-1 sm:flex-initial h-9 px-3 text-xs font-semibold gap-1.5 rounded-md"
           >
             <ArrowUpRight className="h-4 w-4" /> Publish Snapshot
           </Button>
@@ -197,9 +197,9 @@ export default function AssistantConfigurePage() {
             size="sm"
             onClick={handleSave}
             isLoading={saving}
-            className="flex-1 sm:flex-initial h-9 px-3.5 text-xs font-bold gap-1.5"
+            className="flex-1 sm:flex-initial h-9 px-3.5 text-xs font-bold gap-1.5 rounded-md"
           >
-            <Save className="h-4 w-4" /> Save Changes
+            <Save className="h-4 w-4" /> Save
           </Button>
         </div>
       </div>
@@ -231,33 +231,32 @@ export default function AssistantConfigurePage() {
       {/* Main Form */}
       <form onSubmit={handleSave} className="space-y-6">
         {/* Core Identity Section */}
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
-          <h2 className="text-base font-bold text-foreground flex items-center gap-2.5">
-            <Bot className="h-5 w-5 text-primary" />
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 space-y-5">
+          <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2.5">
+            <Bot className="h-4 w-4 text-[#46C7D6]" />
             General Identity &amp; Role
           </h2>
 
           {/* Engine Mode Primary Selector */}
-          <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/40">
+          <div className="space-y-3 p-4 rounded-md bg-zinc-900/40 border border-zinc-800">
             <div className="space-y-0.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-foreground">Engine Mode</label>
-              <p className="text-xs text-muted-foreground">Select how queries to this assistant are executed</p>
+              <label className="text-xs font-mono font-bold uppercase tracking-wider text-foreground">Engine Mode</label>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setEngineMode("search_only")}
-                className={`p-3.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                className={`p-3.5 rounded-md text-left border transition-all flex flex-col justify-between ${
                   engineMode === "search_only"
-                    ? "border-foreground bg-card text-foreground shadow-xs"
-                    : "border-border/40 bg-card/40 text-muted-foreground hover:bg-card/70"
+                    ? "border-zinc-600 bg-zinc-900 text-foreground shadow-xs"
+                    : "border-zinc-800 bg-zinc-950/40 text-muted-foreground hover:bg-zinc-900/40"
                 }`}
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">Semantic Search</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground">Retrieval Only</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-zinc-400">Retrieval Only</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
                     Bypasses LLM generation. Directly retrieves and ranks raw matched document chunks based on vector similarity.
@@ -268,16 +267,16 @@ export default function AssistantConfigurePage() {
               <button
                 type="button"
                 onClick={() => setEngineMode("ai_answer")}
-                className={`p-3.5 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                className={`p-3.5 rounded-md text-left border transition-all flex flex-col justify-between ${
                   engineMode === "ai_answer"
-                    ? "border-foreground bg-card text-foreground shadow-xs"
-                    : "border-border/40 bg-card/40 text-muted-foreground hover:bg-card/70"
+                    ? "border-zinc-600 bg-zinc-900 text-foreground shadow-xs"
+                    : "border-zinc-800 bg-zinc-950/40 text-muted-foreground hover:bg-zinc-900/40"
                 }`}
               >
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">AI Answer</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-muted text-muted-foreground">RAG Synthesized</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">RAG Synthesized</span>
                   </div>
                   <p className="text-[11px] leading-relaxed">
                     Retrieves relevant chunks and passes them to the LLM to generate conversational, cited answers.
@@ -301,12 +300,12 @@ export default function AssistantConfigurePage() {
             </div>
 
             {engineMode === "ai_answer" && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Routing Strategy</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-medium text-muted-foreground">AI Routing Strategy</label>
                 <CustomSelect
                   value={model}
                   onChange={(val) => setModel(val)}
-                  triggerClassName="w-full h-10 rounded-xl border border-border bg-input px-3.5 text-sm font-medium text-foreground shadow-xs"
+                  triggerClassName="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 text-xs font-medium text-foreground"
                   options={[
                     { value: "Auto", label: "Auto", description: "Balanced Speed & Reasoning" },
                     { value: "Fast", label: "Fast", description: "Low Latency inference" },
@@ -318,32 +317,32 @@ export default function AssistantConfigurePage() {
           </div>
 
           {engineMode === "ai_answer" && (
-            <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Instructions (Prompt)</label>
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-mono font-medium text-muted-foreground">System Instructions (Prompt)</label>
               <textarea
-                rows={6}
+                rows={5}
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="Specify the assistant's behavior, role boundaries, citation format, and response tone..."
-                className="w-full rounded-xl border border-border bg-input p-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none shadow-xs font-sans leading-relaxed"
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-zinc-600 focus:outline-none font-mono leading-relaxed"
               />
             </div>
           )}
         </div>
 
         {/* Hyperparameter Thresholds */}
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-6 shadow-sm">
-          <h2 className="text-base font-bold text-foreground flex items-center gap-2.5">
-            <Sliders className="h-5 w-5 text-primary" />
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 space-y-6">
+          <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2.5">
+            <Sliders className="h-4 w-4 text-[#46C7D6]" />
             Retrieval &amp; Inference Parameters
           </h2>
 
           <div className={`grid grid-cols-1 ${engineMode === "ai_answer" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6 transition-all duration-200`}>
             {engineMode === "ai_answer" && (
-              <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-bold text-foreground">Temperature</span>
-                  <span className="font-mono text-primary font-extrabold text-base">{temperature}</span>
+              <div className="space-y-2 p-4 rounded-md border border-zinc-800 bg-zinc-900/40">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-foreground">Temperature</span>
+                  <span className="font-mono text-[#46C7D6] font-bold">{temperature}</span>
                 </div>
                 <input
                   type="range"
@@ -352,16 +351,15 @@ export default function AssistantConfigurePage() {
                   step="0.05"
                   value={temperature}
                   onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                  className="w-full accent-primary cursor-pointer"
+                  className="w-full accent-white cursor-pointer"
                 />
-                <p className="text-xs text-muted-foreground">Lower value produces deterministic facts.</p>
               </div>
             )}
 
-            <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-bold text-foreground">Similarity Cutoff</span>
-                <span className="font-mono text-primary font-extrabold text-base">{scoreThreshold}</span>
+            <div className="space-y-2 p-4 rounded-md border border-zinc-800 bg-zinc-900/40">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-foreground">Similarity Cutoff</span>
+                <span className="font-mono text-[#46C7D6] font-bold">{scoreThreshold}</span>
               </div>
               <input
                 type="range"
@@ -370,15 +368,14 @@ export default function AssistantConfigurePage() {
                 step="0.05"
                 value={scoreThreshold}
                 onChange={(e) => setScoreThreshold(parseFloat(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
-              <p className="text-xs text-muted-foreground">Minimum score for chunk vector relevance.</p>
             </div>
 
-            <div className="space-y-2.5 p-4 rounded-xl border border-border/80 bg-secondary/20">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-bold text-foreground">Top K Chunks</span>
-                <span className="font-mono text-primary font-extrabold text-base">{topK}</span>
+            <div className="space-y-2 p-4 rounded-md border border-zinc-800 bg-zinc-900/40">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-semibold text-foreground">Top K Chunks</span>
+                <span className="font-mono text-[#46C7D6] font-bold">{topK}</span>
               </div>
               <input
                 type="range"
@@ -387,42 +384,35 @@ export default function AssistantConfigurePage() {
                 step="1"
                 value={topK}
                 onChange={(e) => setTopK(parseInt(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
+                className="w-full accent-white cursor-pointer"
               />
-              <p className="text-xs text-muted-foreground">Maximum retrieved document passages.</p>
             </div>
           </div>
         </div>
 
-
         {/* Web Widget Embed & Integration Snippet (Available for Published Snapshots) */}
         {assistant?.status === "published" && (
-          <div className="rounded-2xl border border-border bg-card p-6 space-y-4 shadow-sm animate-in fade-in duration-200">
+          <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <ArrowUpRight className="h-4.5 w-4.5 text-primary" />
-                  Website Embed &amp; Public Integration
-                </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Paste this responsive iframe code directly into your web application or documentation.
-                </p>
-              </div>
-              <Badge variant="success" className="text-xs shrink-0">Live Snapshot v{assistant.version}</Badge>
+              <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                <ArrowUpRight className="h-4 w-4 text-[#46C7D6]" />
+                Website Embed Snippet
+              </h2>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-emerald-400">Live Snapshot v{assistant.version}</span>
             </div>
 
-            <div className="relative rounded-xl border border-border/80 bg-secondary/30 p-3 sm:p-4">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/60 text-xs font-mono text-muted-foreground">
+            <div className="relative rounded-md border border-zinc-800 bg-zinc-900/40 p-3 sm:p-4">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800 text-xs font-mono text-muted-foreground">
                 <span>HTML Responsive Snippet</span>
                 <button
                   type="button"
-                  onClick={() => handleCopyEmbed(`<iframe\n  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius: 12px; border: 1px solid #2E3444;"\n  title="${name || "Weirwise AI Assistant"}"\n></iframe>`)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-card hover:bg-secondary text-foreground text-xs font-medium transition-colors"
+                  onClick={() => handleCopyEmbed(`<iframe\n  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius: 6px; border: 1px solid #27272a;"\n  title="${name || "Weirwise AI Assistant"}"\n></iframe>`)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-foreground text-xs font-medium transition-colors"
                 >
                   {copiedEmbed ? (
                     <>
-                      <Check className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-primary font-bold">Copied!</span>
+                      <Check className="h-3.5 w-3.5 text-white" />
+                      <span className="text-white font-bold">Copied!</span>
                     </>
                   ) : (
                     <>
@@ -432,13 +422,13 @@ export default function AssistantConfigurePage() {
                   )}
                 </button>
               </div>
-              <pre className="text-xs font-mono text-foreground/90 overflow-x-auto whitespace-pre p-1">
+              <pre className="text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre p-1">
 {`<iframe
   src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"
   width="100%"
   height="600"
   frameborder="0"
-  style="border-radius: 12px; border: 1px solid #2E3444;"
+  style="border-radius: 6px; border: 1px solid #27272a;"
   title="${name || "Weirwise AI Assistant"}"
 ></iframe>`}
               </pre>
@@ -447,47 +437,42 @@ export default function AssistantConfigurePage() {
         )}
 
         {/* Attached Knowledge Sources */}
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-5 shadow-sm">
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 space-y-5">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-foreground">Attached Knowledge Sources</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Select which ingested datasets this assistant retrieves citations from
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs">{selectedSourceIds.length} Attached</Badge>
+            <h2 className="text-sm font-mono font-bold uppercase tracking-wider text-zinc-300">Attached Knowledge Sources</h2>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-zinc-400">{selectedSourceIds.length} Attached</span>
           </div>
 
           {sources.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              No sources connected yet. Ingest files in the Knowledge tab first.
+            <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-8 text-center text-xs text-zinc-400">
+              No sources connected yet. Ingest files in Knowledge Base first.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {sources.map((s) => {
                 const isAttached = selectedSourceIds.includes(s.id);
                 return (
                   <div
                     key={s.id}
                     onClick={() => toggleSource(s.id)}
-                    className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                    className={`flex items-center justify-between p-3.5 rounded-md border cursor-pointer transition-all ${
                       isAttached
-                        ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
-                        : "border-border bg-card hover:bg-secondary/40 text-muted-foreground"
+                        ? "border-zinc-600 bg-zinc-900 text-foreground"
+                        : "border-zinc-800 bg-zinc-950/40 text-muted-foreground hover:bg-zinc-900/40"
                     }`}
                   >
-                    <div className="flex items-center gap-3.5 truncate">
-                      <div className={`p-2 rounded-lg ${isAttached ? "bg-primary text-black" : "bg-secondary text-muted-foreground"}`}>
-                        <FileText className="h-4.5 w-4.5 flex-shrink-0" />
+                    <div className="flex items-center gap-3 truncate">
+                      <div className={`p-2 rounded-sm ${isAttached ? "bg-white text-black" : "bg-zinc-900 text-zinc-400 border border-zinc-800"}`}>
+                        <FileText className="h-4 w-4" />
                       </div>
                       <div className="truncate">
-                        <div className="text-sm font-bold text-foreground truncate">{s.name}</div>
-                        <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                        <div className="text-xs font-semibold text-foreground truncate">{s.name}</div>
+                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
                           {s.document_count || 0} docs • {s.source_type}
                         </div>
                       </div>
                     </div>
-                    {isAttached && <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />}
+                    {isAttached && <CheckCircle2 className="h-4 w-4 text-[#46C7D6] shrink-0" />}
                   </div>
                 );
               })}
