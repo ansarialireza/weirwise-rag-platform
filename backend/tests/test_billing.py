@@ -92,11 +92,11 @@ def test_assistant_creation_entitlement_enforcement():
         headers=headers,
         json={"name": "Main Project"},
     )
-    proj_id = proj_res.json()["id"]
+    proj_res.json()["id"]
 
     # 1st Assistant
     a1 = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={"name": "Assistant One"},
     )
@@ -104,7 +104,7 @@ def test_assistant_creation_entitlement_enforcement():
 
     # 2nd Assistant
     a2 = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={"name": "Assistant Two"},
     )
@@ -112,7 +112,7 @@ def test_assistant_creation_entitlement_enforcement():
 
     # 3rd Assistant should exceed Free Tier quota
     a3 = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={"name": "Assistant Three"},
     )
@@ -159,7 +159,7 @@ def test_quota_graceful_blocking_chat_and_storage():
     proj_id = proj_res.json()["id"]
 
     asst_res = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={"name": "Quota Assistant", "model": "Fast"},
     )
@@ -195,7 +195,7 @@ def test_quota_graceful_blocking_chat_and_storage():
 
     # Test storage quota check
     source_res = client.post(
-        f"/api/v1/sources",
+        "/api/v1/sources",
         headers=headers,
         json={"name": "File Store", "source_type": "file_upload"},
     )

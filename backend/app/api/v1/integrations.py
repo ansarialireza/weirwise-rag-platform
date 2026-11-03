@@ -1,7 +1,6 @@
 """Business Integration & Webhook dispatch endpoints directly for User."""
 
 import secrets
-import uuid
 
 from backend.app.api.dependencies import get_current_user
 from backend.app.core.security import encrypt_token
@@ -14,7 +13,7 @@ from backend.app.schemas.assistant import (
     WebhookSubscriptionCreateRequest,
     WebhookSubscriptionResponse,
 )
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -31,7 +31,6 @@ from backend.app.schemas.assistant import (
     ChatResponse,
     CitationItem,
     ConversationResponse,
-    DeploymentCreateRequest,
     DeploymentResponse,
     EvaluationCaseCreateRequest,
     EvaluationCaseResponse,
@@ -270,9 +269,7 @@ async def list_assistant_conversations(
     await verify_assistant_ownership(assistant_id, current_user.id, db)
 
     stmt = (
-        select(Conversation)
-        .where(Conversation.assistant_id == assistant_id)
-        .order_by(Conversation.created_at.desc())
+        select(Conversation).where(Conversation.assistant_id == assistant_id).order_by(Conversation.created_at.desc())
     )
     res = await db.execute(stmt)
     convs = res.scalars().all()

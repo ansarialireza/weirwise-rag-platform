@@ -1,7 +1,5 @@
 """User Enterprise BYOK API endpoints."""
 
-import uuid
-
 from backend.app.api.dependencies import get_current_user
 from backend.app.core.security import encrypt_token
 from backend.app.db.session import get_db_session

@@ -6,9 +6,9 @@ from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
 from backend.app.models.auth import SubscriptionTier, User
 from backend.app.services.subscription import PLAN_DEFINITIONS
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Billing & Plans"])

@@ -143,14 +143,10 @@ async def public_chat(
     assistant, deployment = resolved
     start_time = time.perf_counter()
 
-    # Get Workspace ID
-    # workspace resolved
-    ws_id = (await db.execute(p_stmt)).scalar_one()
-
     # Enforce Usage Quota & Metering
     await metering_service.check_and_increment_chat_turn(
         db=db,
-        workspace_id=ws_id,
+        workspace_id=assistant.user_id,
         user_id=assistant.user_id,
         assistant_id=assistant.id,
     )
@@ -253,7 +249,7 @@ async def public_chat(
         # Webhook dispatch: question.unanswered
         await webhook_dispatcher.dispatch_event(
             db=db,
-            workspace_id=ws_id,
+            workspace_id=assistant.user_id,
             event_type="question.unanswered",
             payload_data={"query": payload.message, "assistant_id": str(assistant.id)},
         )
@@ -357,13 +353,11 @@ async def request_human_handoff(
 
     # Dispatch handoff webhook
     a_stmt = select(Assistant).where(Assistant.id == conv.assistant_id)
-    assistant = (await db.execute(a_stmt)).scalar_one()
-    # workspace resolved
-    ws_id = (await db.execute(p_stmt)).scalar_one()
+    asst = (await db.execute(a_stmt)).scalar_one()
 
     await webhook_dispatcher.dispatch_event(
         db=db,
-        workspace_id=ws_id,
+        workspace_id=asst.user_id,
         event_type="handoff.requested",
         payload_data={
             "conversation_id": str(conv.id),

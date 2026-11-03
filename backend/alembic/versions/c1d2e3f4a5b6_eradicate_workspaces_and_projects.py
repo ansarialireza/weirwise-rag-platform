@@ -8,9 +8,6 @@ Create Date: 2026-11-03 17:48:00.000000
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
-from backend.app.db.base import GUID
-
 from alembic import op
 
 revision: str = "c1d2e3f4a5b6"
@@ -25,7 +22,7 @@ def upgrade() -> None:
         DO $$
         BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'assistants' AND column_name = 'user_id'
             ) THEN
                 ALTER TABLE assistants ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
@@ -33,7 +30,7 @@ def upgrade() -> None:
             END IF;
 
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'knowledge_sources' AND column_name = 'user_id'
             ) THEN
                 ALTER TABLE knowledge_sources ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
@@ -41,7 +38,7 @@ def upgrade() -> None:
             END IF;
 
             IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'api_credentials' AND column_name = 'user_id'
             ) THEN
                 ALTER TABLE api_credentials ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
@@ -50,21 +47,21 @@ def upgrade() -> None:
 
             -- Drop old foreign key constraints and columns if present
             IF EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'assistants' AND column_name = 'project_id'
             ) THEN
                 ALTER TABLE assistants DROP COLUMN project_id CASCADE;
             END IF;
 
             IF EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'knowledge_sources' AND column_name = 'project_id'
             ) THEN
                 ALTER TABLE knowledge_sources DROP COLUMN project_id CASCADE;
             END IF;
 
             IF EXISTS (
-                SELECT 1 FROM information_schema.columns 
+                SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'api_credentials' AND column_name = 'workspace_id'
             ) THEN
                 ALTER TABLE api_credentials DROP COLUMN workspace_id CASCADE;

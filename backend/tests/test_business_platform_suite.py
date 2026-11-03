@@ -79,11 +79,11 @@ def test_url_normalization():
 def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     """Verify complete lifecycle: Draft -> Publish Readiness Check -> Publish -> Public Runtime Chat."""
     headers = auth_context["headers"]
-    proj_id = auth_context["project_id"]
+    auth_context["project_id"]
 
     # 1. Create Assistant
     ast_resp = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={
             "name": "E-Commerce Support Bot",
@@ -105,7 +105,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
 
     # 3. Create KnowledgeSource & attach to assistant
     ks_resp = client.post(
-        f"/api/v1/sources",
+        "/api/v1/sources",
         headers=headers,
         json={"name": "Store Policies", "source_type": "file_upload"},
     )
@@ -184,11 +184,11 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
 def test_feedback_unanswered_and_evaluations(auth_context):
     """Verify feedback capture, knowledge gap analytics, and golden evaluation scoring."""
     headers = auth_context["headers"]
-    proj_id = auth_context["project_id"]
+    auth_context["project_id"]
 
     # Create & publish assistant
     ast = client.post(
-        f"/api/v1/assistants",
+        "/api/v1/assistants",
         headers=headers,
         json={"name": "Analytics Bot"},
     ).json()

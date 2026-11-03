@@ -180,9 +180,7 @@ async def list_knowledge_sources(
 
     responses = []
     for s in sources:
-        doc_count_res = await db.execute(
-            select(func.count(Document.id)).where(Document.knowledge_source_id == s.id)
-        )
+        doc_count_res = await db.execute(select(func.count(Document.id)).where(Document.knowledge_source_id == s.id))
         doc_count = doc_count_res.scalar() or 0
         resp_item = KnowledgeSourceResponse.model_validate(s)
         resp_item.document_count = doc_count

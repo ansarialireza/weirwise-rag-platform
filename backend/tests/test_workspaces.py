@@ -1,6 +1,7 @@
 """Test user level isolation and core flat entity access."""
 
 import uuid
+
 from backend.app.main import app
 from fastapi.testclient import TestClient
 
