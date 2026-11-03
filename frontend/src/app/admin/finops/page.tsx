@@ -11,6 +11,8 @@ import {
   Download,
   AlertTriangle,
   RefreshCw,
+  Wallet,
+  Coins,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -56,114 +58,157 @@ export default function AdminFinOpsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
+    <div className="space-y-6">
+      {/* GitHub-style Header */}
+      <div className="flex flex-col gap-3 pb-5 border-b border-border/70 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            FinOps &amp; Revenue Intelligence
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              FinOps & Token Economics
+            </h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-medium">
+              Live Billing
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Persisted invoice revenue, AI compute expenditure, gross margin analysis, and provider unit economics.
+            Real-time tracking of platform subscription revenue, underlying AI model inference costs, and profit margins.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!finops}>
-            <Download className="h-3.5 w-3.5" /> Export Financial CSV
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            disabled={loading}
+            className="h-8 text-xs font-medium border-border/80 hover:bg-accent"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
           </Button>
-          <Button variant="outline" size="sm" onClick={loadData} isLoading={loading}>
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={!finops || loading}
+            className="h-8 text-xs font-medium border-border/80 hover:bg-accent"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Export CSV
           </Button>
         </div>
       </div>
 
       {error && (
-        <div role="alert" className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Financial Top KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Total Billed Revenue</span>
-          <div className="text-2xl font-bold font-mono text-foreground">
-            {finops ? `$${finops.total_revenue_usd.toFixed(2)}` : loading ? "Loading..." : "Unavailable"}
+      {/* GitHub-style Financial Overview Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+            <span>Total Revenue</span>
+            <DollarSign className="h-4 w-4" />
           </div>
-          <span className="text-[11px] text-muted-foreground">Invoiced customer subscriptions</span>
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono">
+            ${finops ? finops.total_revenue_usd.toFixed(2) : "0.00"}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Billed customer subscriptions
+          </p>
         </div>
 
-        <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Total AI Compute Spend</span>
-          <div className="text-2xl font-bold font-mono text-primary">
-            {finops ? `$${finops.total_cost_usd.toFixed(4)}` : loading ? "Loading..." : "Unavailable"}
+        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+            <span>Inference Costs</span>
+            <Cpu className="h-4 w-4" />
           </div>
-          <span className="text-[11px] text-muted-foreground">Provider micro-billing ledger</span>
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-rose-500">
+            ${finops ? finops.total_cost_usd.toFixed(4) : "0.0000"}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Provider token expenditure
+          </p>
         </div>
 
-        <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Gross Operating Profit</span>
-          <div className="text-2xl font-bold font-mono text-emerald-500">
-            {finops ? `$${finops.gross_profit_usd.toFixed(2)}` : loading ? "Loading..." : "Unavailable"}
+        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+            <span>Net Margin</span>
+            <TrendingUp className="h-4 w-4" />
           </div>
-          <span className="text-[11px] text-muted-foreground">Revenue minus AI compute cost</span>
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-emerald-500">
+            {finops ? `${finops.gross_margin_pct}%` : "0.0%"}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Platform gross margin
+          </p>
         </div>
 
-        <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
-          <span className="text-xs text-muted-foreground font-medium">Gross Margin</span>
-          <div className="text-2xl font-bold font-mono text-emerald-500">
-            {finops ? `${finops.gross_margin_pct}%` : loading ? "Loading..." : "Unavailable"}
+        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+            <span>Net Profit</span>
+            <Wallet className="h-4 w-4" />
           </div>
-          <span className="text-[11px] text-muted-foreground">Unit economics efficiency</span>
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono">
+            ${finops ? finops.gross_profit_usd.toFixed(2) : "0.00"}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Revenue minus AI costs
+          </p>
         </div>
       </div>
 
-      {/* Cost Breakdowns by Provider & Model */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <PieChart className="h-4 w-4 text-primary" /> Cost by Provider
-          </h3>
-          {loading ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">Loading provider cost data...</p>
-          ) : error ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">Provider cost data is unavailable.</p>
-          ) : finops && Object.keys(finops.cost_by_provider).length > 0 ? (
-            <div className="space-y-2">
-              {Object.entries(finops.cost_by_provider).map(([provider, cost]) => (
-                <div key={provider} className="flex justify-between p-2.5 rounded-lg border border-border bg-secondary/20 text-xs font-mono">
-                  <span className="capitalize text-foreground font-semibold">{provider}</span>
-                  <span className="text-primary font-bold">${Number(cost).toFixed(4)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground p-4 text-center">No provider cost entries logged yet.</p>
-          )}
+      {/* Breakdown Tables in GitHub Box Style */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Cost by Provider */}
+        <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+          <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-foreground">
+              Cost Breakdown by AI Provider
+            </h3>
+            <span className="text-[10px] font-mono text-muted-foreground uppercase">USD</span>
+          </div>
+          <div className="p-4">
+            {finops && Object.keys(finops.cost_by_provider || {}).length > 0 ? (
+              <div className="space-y-3">
+                {Object.entries(finops.cost_by_provider).map(([provider, cost]: [string, any]) => (
+                  <div key={provider} className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground capitalize font-mono">{provider}</span>
+                    <span className="font-mono text-muted-foreground">${Number(cost).toFixed(4)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">No provider costs logged yet.</p>
+            )}
+          </div>
         </div>
 
-        <div className="p-6 rounded-xl border border-border bg-card space-y-4">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary" /> Tokens by Provider
-          </h3>
-          {loading ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">Loading provider token data...</p>
-          ) : error ? (
-            <p className="p-4 text-center text-xs text-muted-foreground">Provider token data is unavailable.</p>
-          ) : finops && Object.keys(finops.tokens_by_provider).length > 0 ? (
-            <div className="space-y-2">
-              {Object.entries(finops.tokens_by_provider).map(([provider, tokens]) => (
-                <div key={provider} className="flex justify-between p-2.5 rounded-lg border border-border bg-secondary/20 text-xs font-mono">
-                  <span className="capitalize text-foreground font-semibold">{provider}</span>
-                  <span className="text-foreground font-bold">{Number(tokens).toLocaleString()} tokens</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground p-4 text-center">No token consumption logged yet.</p>
-          )}
+        {/* Cost by Model */}
+        <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+          <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-foreground">
+              Cost Breakdown by LLM Model
+            </h3>
+            <span className="text-[10px] font-mono text-muted-foreground uppercase">USD</span>
+          </div>
+          <div className="p-4">
+            {finops && Object.keys(finops.cost_by_model || {}).length > 0 ? (
+              <div className="space-y-3">
+                {Object.entries(finops.cost_by_model).map(([model, cost]: [string, any]) => (
+                  <div key={model} className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground font-mono">{model}</span>
+                    <span className="font-mono text-muted-foreground">${Number(cost).toFixed(4)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">No model expenditure logged yet.</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

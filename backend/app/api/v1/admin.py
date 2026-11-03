@@ -498,12 +498,28 @@ async def get_finops_summary(
 
 @router.get("/audit-logs", response_model=List[AdminAuditLogResponse])
 async def list_audit_logs(
-    limit: int = Query(50, le=100),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    q: str | None = Query(None, max_length=255),
     current_admin: User = Depends(require_admin_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Retrieves immutable admin operational audit trails."""
-    stmt = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc()).limit(limit)
+    """Retrieves immutable admin operational audit trails with pagination and filtering."""
+    conditions = []
+    if q and q.strip():
+        term = f"%{q.strip()}%"
+        conditions.append(
+            AdminAuditLog.action.ilike(term)
+            | AdminAuditLog.actor_email.ilike(term)
+            | AdminAuditLog.target_entity.ilike(term)
+        )
+    stmt = (
+        select(AdminAuditLog)
+        .where(*conditions)
+        .order_by(AdminAuditLog.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     res = await db.execute(stmt)
     return res.scalars().all()
 

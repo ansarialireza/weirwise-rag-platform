@@ -441,8 +441,10 @@ class ApiClient {
     return this.request<any>("/admin/finops/summary");
   }
 
-  async getAdminAuditLogs(limit: number = 50): Promise<any[]> {
-    return this.request<any[]>(`/admin/audit-logs?limit=${limit}`);
+  async getAdminAuditLogs(limit: number = 50, offset: number = 0, query: string = ""): Promise<any[]> {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (query.trim()) params.set("q", query.trim());
+    return this.request<any[]>(`/admin/audit-logs?${params.toString()}`);
   }
 }
 
