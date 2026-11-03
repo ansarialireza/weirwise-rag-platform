@@ -18,12 +18,28 @@ import {
   ShieldCheck,
   Server,
   Layers,
+  Zap,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+interface AdminStats {
+  active_users?: number;
+  total_users?: number;
+  users_count?: number;
+  total_documents_vectorized?: number;
+  documents_count?: number;
+  total_storage_bytes?: number;
+  storage_used_bytes?: number;
+  workspaces_count?: number;
+  total_tokens_burned?: number;
+  total_ai_spend_usd?: number;
+  total_queries_answered?: number;
+}
+
 export default function AdminOverviewPage() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,22 +65,29 @@ export default function AdminOverviewPage() {
     loadData();
   }, [loadData]);
 
+  const totalUsers = stats?.total_users ?? stats?.users_count ?? 0;
+  const activeUsers = stats?.active_users ?? totalUsers;
+  const totalDocs = stats?.total_documents_vectorized ?? stats?.documents_count ?? 0;
+  const storageBytes = stats?.total_storage_bytes ?? stats?.storage_used_bytes ?? 0;
+  const totalTokens = stats?.total_tokens_burned ?? 0;
+  const totalQueries = stats?.total_queries_answered ?? 0;
+
   return (
     <div className="space-y-6">
-      {/* GitHub-style Page Heading */}
+      {/* Header Bar */}
       <div className="flex flex-col gap-3 pb-5 border-b border-border/70 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               Overview
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Operational
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Global telemetry, resource distribution, and system activity logs.
+            Global platform telemetry, storage consumption, inference throughput, and audit streams.
           </p>
         </div>
 
@@ -83,7 +106,7 @@ export default function AdminOverviewPage() {
             href="/admin/operations"
             className="inline-flex items-center justify-center h-8 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
           >
-            System Settings
+            Operations Policy
           </Link>
         </div>
       </div>
@@ -95,62 +118,66 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
-      {/* GitHub Metric Cards Grid */}
+      {/* Metric Cards Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+        {/* Total Accounts */}
+        <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Total Accounts</span>
-            <Users className="h-4 w-4" />
+            <span>Platform Users</span>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight">
-            {loading ? "..." : (stats?.users_count ?? 0).toLocaleString()}
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
+            {loading ? "..." : totalUsers.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Registered active users
+            {loading ? "Loading..." : `${activeUsers.toLocaleString()} active accounts`}
           </p>
         </div>
 
-        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
-          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Workspaces</span>
-            <Layers className="h-4 w-4" />
-          </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight">
-            {loading ? "..." : (stats?.workspaces_count ?? 0).toLocaleString()}
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Multi-tenant environments
-          </p>
-        </div>
-
-        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+        {/* Vectorized Documents */}
+        <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
             <span>Indexed Documents</span>
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight">
-            {loading ? "..." : (stats?.documents_count ?? 0).toLocaleString()}
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
+            {loading ? "..." : totalDocs.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Stored in vector indexes
+            Vector knowledge embeddings
           </p>
         </div>
 
-        <div className="rounded-md border border-border/70 bg-card p-3.5 shadow-xs">
+        {/* Storage Used */}
+        <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
             <span>Storage Used</span>
-            <HardDrive className="h-4 w-4" />
+            <HardDrive className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight">
-            {loading ? "..." : formatBytes(stats?.storage_used_bytes ?? 0)}
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
+            {loading ? "..." : formatBytes(storageBytes)}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Object & persistent volumes
+            Document chunks & binaries
+          </p>
+        </div>
+
+        {/* Inference Queries Served */}
+        <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+            <span>Queries Answered</span>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
+            {loading ? "..." : totalQueries.toLocaleString()}
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground font-mono">
+            {totalTokens.toLocaleString()} tokens burned
           </p>
         </div>
       </div>
 
-      {/* GitHub-style Box Container with Tabbed/Header section */}
+      {/* Activity Feed Container */}
       <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
         <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -204,9 +231,9 @@ export default function AdminOverviewPage() {
                         </span>
                       )}
                     </div>
-                    {item.details && (
+                    {item.description && (
                       <p className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-xl font-mono">
-                        {typeof item.details === "object" ? JSON.stringify(item.details) : item.details}
+                        {item.description}
                       </p>
                     )}
                   </div>

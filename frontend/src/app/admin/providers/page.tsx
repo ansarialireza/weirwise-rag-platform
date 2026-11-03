@@ -8,9 +8,16 @@ import {
   RefreshCw,
   Save,
   Power,
+  Cpu,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 
 interface ProviderConfig {
   id: string;
@@ -25,7 +32,7 @@ const PROVIDERS: ProviderConfig[] = [
     id: "jina",
     name: "jina",
     displayName: "Jina AI (Embeddings)",
-    description: "Securely store and live-validate Jina API credentials. Validation sends one short test embedding and may incur provider usage charges.",
+    description: "Securely store and live-validate Jina API credentials. Validation sends one short test embedding.",
     placeholder: "jina_xxxxxx...\njina_yyyyyy... (Paste multiple keys, one per line)",
   },
   {
@@ -96,6 +103,11 @@ export default function AdminProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
+  
+  // Custom Alert dialog state for destructive token purge
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const loadRequestId = useRef(0);
   const { toast } = useToast();
 
@@ -148,7 +160,7 @@ export default function AdminProvidersPage() {
       const rejectedCount = res.tokens.length - verifiedCount;
       toast({
         message: rejectedCount
-          ? `Verified ${verifiedCount} token(s); ${rejectedCount} invalid token(s) were stored inactive.`
+          ? `Verified ${verifiedCount} token(s); ${rejectedCount} invalid token(s) stored inactive.`
           : `Verified and saved ${verifiedCount} token(s) for ${activeTab.toUpperCase()}.`,
         type: rejectedCount ? "info" : "success",
       });
@@ -206,187 +218,251 @@ export default function AdminProvidersPage() {
     }
   };
 
-  const handleDelete = async (id: string, label: string) => {
-    if (!confirm(`Purge credential "${label}" from vault?`)) return;
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await api.deleteAdminCredential(id);
+      await api.deleteAdminCredential(deleteTarget.id);
       toast({ message: "Token purged from vault.", type: "info" });
-      setCredentials(credentials.filter((c) => c.id !== id));
+      setCredentials((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err: any) {
       toast({ message: err.message || "Failed to delete token.", type: "error" });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   const activeProvider = PROVIDERS.find((p) => p.id === activeTab) || PROVIDERS[0];
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-          Provider credential management
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground">
-          Validate and manage encrypted provider API credentials. Assistant chat does not currently send requests to this credential pool.
-        </p>
-      </div>
-
-      {/* Provider Tabs */}
-      <div className="flex gap-2 border-b border-border/40 pb-2 overflow-x-auto">
-        {PROVIDERS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => {
-              loadRequestId.current += 1;
-              setActiveTab(p.id);
-              setValidationResults([]);
-            }}
-            aria-pressed={activeTab === p.id}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === p.id
-                ? "bg-foreground text-background shadow-xs"
-                : "bg-muted/30 text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {p.displayName}
-          </button>
-        ))}
-      </div>
-
-      <section aria-labelledby="provider-settings-title" className="rounded-3xl bg-muted/20 p-6 sm:p-8 space-y-5">
-        <div className="space-y-1">
-          <h2 id="provider-settings-title" className="text-base font-bold text-foreground">
-            {providerAccount ? "Provider settings" : "Create provider account"}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Persist routing, availability, model, and budget settings for {activeProvider.displayName}.
+    <div className="space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col gap-3 pb-5 border-b border-border/70 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              AI Providers & Vault Credentials
+            </h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted border border-border/70 text-muted-foreground uppercase font-semibold">
+              Encrypted Vault
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Store, validate, and manage encrypted provider API keys with automated health checking and failover priority.
           </p>
         </div>
-        <form onSubmit={handleSaveProvider} className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <label htmlFor="provider-display-name" className="text-xs font-semibold text-foreground">Display name</label>
-            <input
-              id="provider-display-name"
-              required
-              minLength={2}
-              maxLength={100}
-              value={providerForm.displayName}
-              onChange={(event) => setProviderForm((current) => ({ ...current, displayName: event.target.value }))}
-              className="h-10 w-full rounded-xl border border-border/50 bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label htmlFor="provider-routing-strategy" className="text-xs font-semibold text-foreground">Routing strategy</label>
-            <select
-              id="provider-routing-strategy"
-              value={providerForm.routingStrategy}
-              onChange={(event) => setProviderForm((current) => ({ ...current, routingStrategy: event.target.value }))}
-              className="h-10 w-full rounded-xl border border-border/50 bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            disabled={loading}
+            className="h-8 text-xs font-medium border-border/80 hover:bg-accent self-start sm:self-auto"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Provider Selector Tabs */}
+      <div className="flex gap-1.5 border-b border-border/70 pb-2 overflow-x-auto">
+        {PROVIDERS.map((p) => {
+          const isSelected = activeTab === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => {
+                loadRequestId.current += 1;
+                setActiveTab(p.id);
+                setValidationResults([]);
+              }}
+              aria-pressed={isSelected}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                isSelected
+                  ? "bg-accent text-accent-foreground font-semibold shadow-xs border border-border/80"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground border border-transparent"
+              }`}
             >
-              <option value="priority">Priority</option>
-              <option value="round_robin">Least recently used</option>
-              <option value="weighted">Weighted</option>
-              <option value="lowest_cost">Lowest cost</option>
-            </select>
+              {p.displayName}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Provider Settings Card */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-foreground">
+              {providerAccount ? "Provider Routing Settings" : "Initialize Provider Account"}
+            </h2>
+            <p className="text-[11px] text-muted-foreground">
+              Configure failover strategy and budget allocation for {activeProvider.displayName}.
+            </p>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="provider-monthly-budget" className="text-xs font-semibold text-foreground">Monthly budget (USD)</label>
-            <input
-              id="provider-monthly-budget"
-              required
-              type="number"
-              min="0"
-              step="0.01"
-              value={providerForm.monthlyBudget}
-              onChange={(event) => setProviderForm((current) => ({ ...current, monthlyBudget: event.target.value }))}
-              className="h-10 w-full rounded-xl border border-border/50 bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            />
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-muted border border-border/60 text-muted-foreground uppercase">
+            {activeTab}
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveProvider} className="p-4 space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor="provider-display-name" className="text-xs font-medium text-foreground">
+                Display Name
+              </label>
+              <input
+                id="provider-display-name"
+                required
+                minLength={2}
+                maxLength={100}
+                value={providerForm.displayName}
+                onChange={(event) => setProviderForm((current) => ({ ...current, displayName: event.target.value }))}
+                className="w-full rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="provider-routing-strategy" className="text-xs font-medium text-foreground">
+                Routing Strategy
+              </label>
+              <select
+                id="provider-routing-strategy"
+                value={providerForm.routingStrategy}
+                onChange={(event) => setProviderForm((current) => ({ ...current, routingStrategy: event.target.value }))}
+                className="w-full rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              >
+                <option value="priority">Priority (Highest order first)</option>
+                <option value="round_robin">Least Recently Used (Round-robin)</option>
+                <option value="weighted">Weighted Distribution</option>
+                <option value="lowest_cost">Lowest Cost Optimization</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="provider-monthly-budget" className="text-xs font-medium text-foreground">
+                Monthly Budget (USD)
+              </label>
+              <input
+                id="provider-monthly-budget"
+                required
+                type="number"
+                min="0"
+                step="0.01"
+                value={providerForm.monthlyBudget}
+                onChange={(event) => setProviderForm((current) => ({ ...current, monthlyBudget: event.target.value }))}
+                className="w-full rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="provider-supported-models" className="text-xs font-medium text-foreground">
+                Supported Models (Comma-separated)
+              </label>
+              <input
+                id="provider-supported-models"
+                value={providerForm.supportedModels}
+                onChange={(event) => setProviderForm((current) => ({ ...current, supportedModels: event.target.value }))}
+                placeholder="gpt-4o, gpt-4o-mini"
+                className="w-full rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label htmlFor="provider-supported-models" className="text-xs font-semibold text-foreground">Supported models (comma-separated, optional)</label>
-            <input
-              id="provider-supported-models"
-              value={providerForm.supportedModels}
-              onChange={(event) => setProviderForm((current) => ({ ...current, supportedModels: event.target.value }))}
-              placeholder="model-a, model-b"
-              className="h-10 w-full rounded-xl border border-border/50 bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-xs font-medium text-foreground sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={providerForm.enabled}
-              onChange={(event) => setProviderForm((current) => ({ ...current, enabled: event.target.checked }))}
-              className="h-4 w-4 rounded border-border accent-cyan-600"
-            />
-            Provider available for routing
-          </label>
-          <div className="sm:col-span-2">
-            <Button type="submit" isLoading={savingProvider}>
-              <Save className="h-4 w-4" />
-              {providerAccount ? "Save provider settings" : "Create provider"}
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
+            <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={providerForm.enabled}
+                onChange={(event) => setProviderForm((current) => ({ ...current, enabled: event.target.checked }))}
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
+              />
+              <span className="font-medium">Provider active for routing requests</span>
+            </label>
+
+            <Button type="submit" size="sm" disabled={savingProvider} className="h-8 text-xs font-medium">
+              {savingProvider ? (
+                <>
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-1.5 h-3.5 w-3.5" /> {providerAccount ? "Save Settings" : "Create Account"}
+                </>
+              )}
             </Button>
           </div>
         </form>
-      </section>
+      </div>
 
-      {/* Main Configuration Card: Simple Textarea input with live validation */}
-      <div className="rounded-3xl bg-muted/20 p-6 sm:p-8 space-y-6">
-        <div className="space-y-1">
-          <h2 className="text-base font-bold text-foreground">{activeProvider.displayName} Token Pool</h2>
-          <p className="text-xs text-muted-foreground leading-relaxed">{activeProvider.description}</p>
+      {/* Add / Validate Tokens Input Section */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold text-foreground">{activeProvider.displayName} Vault Ingestion</h2>
+            <p className="text-[11px] text-muted-foreground">{activeProvider.description}</p>
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground">AES-256</span>
         </div>
 
-        <form onSubmit={handleSaveTokens} className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="provider-tokens-raw" className="text-xs font-semibold text-foreground flex items-center justify-between">
+        <form onSubmit={handleSaveTokens} className="p-4 space-y-3">
+          <div className="space-y-1">
+            <label htmlFor="provider-tokens-raw" className="text-xs font-medium text-foreground flex items-center justify-between">
               <span>Add / Replace Tokens (Multi-line or comma-separated)</span>
-              <span className="text-[11px] text-muted-foreground font-normal">
-                Encrypted at rest &bull; Live provider validation
+              <span className="text-[11px] text-muted-foreground font-mono font-normal">
+                Live provider endpoint probe
               </span>
             </label>
             <textarea
               id="provider-tokens-raw"
-              rows={4}
+              rows={3}
               value={tokensRaw[activeTab]}
               onChange={(e) => setTokensRaw({ ...tokensRaw, [activeTab]: e.target.value })}
               placeholder={activeProvider.placeholder}
-              className="w-full rounded-2xl bg-card border border-border/40 p-4 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/20 leading-relaxed resize-none shadow-xs"
+              className="w-full rounded-md bg-background border border-border/70 p-2.5 text-xs font-mono text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary resize-none shadow-xs"
             />
           </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             <span className="text-[11px] text-muted-foreground">
-              Tokens are validated live before saving. Invalid tokens remain inactive.
+              Tokens are probed and validated live before activation.
             </span>
-            <button
+            <Button
               type="submit"
+              size="sm"
               disabled={saving || !tokensRaw[activeTab]?.trim()}
-              className="inline-flex items-center justify-center rounded-xl h-9 px-5 text-xs font-semibold gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+              className="h-8 text-xs font-medium"
             >
               {saving ? (
                 <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Validating...
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Probing & Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-3.5 w-3.5" /> Save &amp; Validate Tokens
+                  <Key className="mr-1.5 h-3.5 w-3.5" /> Validate & Save Tokens
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
 
+      {/* Validation status feedback */}
       {validationResults.length > 0 && (
-        <div role="status" className="rounded-xl border border-border bg-card p-4 text-xs">
-          <p className="font-semibold">
-            Validation: {validationResults.filter((item) => item.status === "active").length} valid,{" "}
-            {validationResults.filter((item) => item.status === "error").length} inactive
-          </p>
+        <div role="status" className="rounded-md border border-border/70 bg-card p-3 text-xs">
+          <div className="font-semibold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span>
+              Validation Result: {validationResults.filter((item) => item.status === "active").length} valid,{" "}
+              {validationResults.filter((item) => item.status === "error").length} inactive
+            </span>
+          </div>
           {validationResults.some((item) => item.error) && (
-            <ul className="mt-2 space-y-1 text-muted-foreground">
+            <ul className="mt-2 space-y-1 text-muted-foreground pl-6 list-disc font-mono text-[11px]">
               {validationResults.filter((item) => item.error).map((item) => (
                 <li key={item.id}>{item.error}</li>
               ))}
@@ -395,101 +471,110 @@ export default function AdminProvidersPage() {
         </div>
       )}
 
-      {/* Active Pool Visual Health Indicators */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Configured Pool Credentials ({credentials.length})
-          </h3>
+      {/* Configured Pool Credentials Table */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-xs font-semibold text-foreground">
+              Configured Pool Credentials
+            </h3>
+            <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-muted border border-border/60 text-muted-foreground">
+              {credentials.length}
+            </span>
+          </div>
+
           <Button
             variant="ghost"
             size="sm"
             onClick={loadData}
-            isLoading={loading}
-            className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
+            disabled={loading}
+            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
           >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh Status
+            <RefreshCw className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`} />
+            Refresh
           </Button>
         </div>
 
         {credentials.length === 0 ? (
-          <div className="rounded-3xl bg-muted/10 p-8 text-center text-xs text-muted-foreground space-y-1">
-            <Key className="h-6 w-6 text-muted-foreground/40 mx-auto" />
+          <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
+            <Key className="h-5 w-5 text-muted-foreground/40 mx-auto" />
             <p className="font-medium text-foreground">No active tokens in this pool</p>
-            <p>Paste one or more API tokens above to initialize automatic failover.</p>
+            <p>Paste one or more API tokens above to configure credentials for {activeProvider.displayName}.</p>
           </div>
         ) : (
-          <div className="divide-y divide-border/30 rounded-2xl bg-card overflow-hidden shadow-xs">
+          <div className="divide-y divide-border/60">
             {credentials.map((c, idx) => {
               const isHealthy = c.is_active && c.health_status === "healthy";
               return (
                 <div
                   key={c.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-muted/20 transition-colors gap-3"
+                  className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    {/* Visual Health Indicator: Solid Green (🟢) or Red (🔴) */}
-                    <div
-                      className={`h-3 w-3 rounded-full shrink-0 ${
-                        isHealthy ? "bg-emerald-500 shadow-sm shadow-emerald-500/50" : "bg-rose-500 shadow-sm shadow-rose-500/50"
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                        isHealthy ? "bg-emerald-500" : "bg-rose-500"
                       }`}
-                      title={isHealthy ? "Token Healthy & Verified" : "Token Inactive / Failed"}
+                      title={isHealthy ? "Token Healthy" : "Token Inactive or Exhausted"}
                     />
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-foreground">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground">
                           {c.label || `Token #${idx + 1}`}
                         </span>
-                        <span className="font-mono text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                        <span className="font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border/60">
                           {c.key_prefix}
+                        </span>
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          Priority #{c.priority || idx + 1}
                         </span>
                       </div>
 
-                      {/* Explicitly Retrieved Balance & Operational Details */}
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
-                        <span className="font-mono">
-                          Priority #{c.priority || idx + 1}
+                        <span className={isHealthy ? "text-emerald-400 font-mono font-medium" : "text-rose-400 font-mono font-medium"}>
+                          {c.remaining_balance || (isHealthy ? "Active & Ready" : "Inactive / Exhausted")}
                         </span>
-                        <span>&bull;</span>
-                        <span className={isHealthy ? "text-emerald-500 font-semibold font-mono" : "text-rose-500 font-semibold"}>
-                          {c.remaining_balance || (isHealthy ? "Status: Active" : "Status: Exhausted / Invalid")}
-                        </span>
+                        <span>•</span>
+                        <span className="font-mono">{c.total_requests_served || 0} reqs served</span>
                         {c.last_error_reason && (
-                          <span className="text-rose-500 font-mono text-[10px]">
-                            ({c.last_error_reason})
-                          </span>
+                          <>
+                            <span>•</span>
+                            <span className="text-rose-400 font-mono text-[10px]">
+                              {c.last_error_reason}
+                            </span>
+                          </>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/20">
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {c.total_requests_served || 0} reqs served
-                    </span>
-                    <button
-                    type="button"
-                    onClick={() => handleToggleCredential(c.id, c.is_active)}
-                    className={`h-8 w-8 rounded-xl flex items-center justify-center transition-colors ${
-                      c.is_active
-                        ? "text-emerald-500 hover:bg-amber-500/10 hover:text-amber-600"
-                        : "text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600"
-                    }`}
-                    title={c.is_active ? "Disable credential" : "Revalidate and enable credential"}
-                    aria-label={c.is_active ? "Disable credential" : "Revalidate and enable credential"}
+                  {/* Actions */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleToggleCredential(c.id, c.is_active)}
+                      className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
+                        c.is_active
+                          ? "hover:bg-amber-500/10 hover:text-amber-400"
+                          : "hover:bg-emerald-500/10 hover:text-emerald-400"
+                      }`}
                     >
-                    <Power className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(c.id, c.label || c.key_prefix)}
-                      className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                      title="Delete Token"
-                      aria-label="Delete Token"
+                      <Power className="h-3 w-3 mr-1" />
+                      {c.is_active ? "Disable" : "Enable"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteTarget({ id: c.id, label: c.label || c.key_prefix })}
+                      className="h-7 px-2.5 text-xs font-medium border-border/80 hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Delete
+                    </Button>
                   </div>
                 </div>
               );
@@ -497,6 +582,24 @@ export default function AdminProvidersPage() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog for Deleting Token */}
+      <AlertDialog
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!deleteLoading) setDeleteTarget(null);
+        }}
+        onConfirm={executeDelete}
+        isLoading={deleteLoading}
+        title="Purge Credential from Vault?"
+        description={
+          <p>
+            Are you sure you want to permanently delete credential <strong className="text-foreground">{deleteTarget?.label}</strong>? This cannot be undone.
+          </p>
+        }
+        confirmText="Purge Credential"
+        variant="destructive"
+      />
     </div>
   );
 }
