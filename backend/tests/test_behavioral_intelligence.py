@@ -284,6 +284,12 @@ async def test_dead_letter_queue_routing():
     r = from_url(settings.REDIS_URL, decode_responses=True)
     consumer = BehavioralStreamConsumer(consumer_name="dlq_test_worker")
 
+    # Ensure stream and consumer group exist
+    try:
+        await r.xgroup_create(STREAM_KEY, CONSUMER_GROUP, id="0", mkstream=True)
+    except Exception:
+        pass
+
     # Inject a poisoned message (unparseable payload)
     msg_id = await r.xadd(STREAM_KEY, {"data": "MALFORMED_NON_JSON_CORRUPTION_@@#$%"})
 
