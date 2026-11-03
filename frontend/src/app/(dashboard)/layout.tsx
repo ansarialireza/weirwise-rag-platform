@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useTelemetry } from "@/lib/telemetry";
 import { Workspace, Project } from "@/types";
 import { Menu, Sliders } from "lucide-react";
 import Link from "next/link";
@@ -30,6 +31,13 @@ export default function DashboardLayout({
 
   const workspaceId = params.workspaceId as string | undefined;
   const projectId = params.projectId as string | undefined;
+  const { client: telemetryClient } = useTelemetry();
+
+  useEffect(() => {
+    if (workspaceId) {
+      telemetryClient.setWorkspaceId(workspaceId);
+    }
+  }, [workspaceId, telemetryClient]);
 
   useEffect(() => {
     if (!authLoading && !user) {

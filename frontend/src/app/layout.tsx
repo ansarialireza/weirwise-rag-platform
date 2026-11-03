@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/lib/theme-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ServiceWorkerRegister } from "@/components/pwa-register";
+import { TelemetryProvider } from "@/lib/telemetry";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
@@ -88,11 +89,13 @@ export default function RootLayout({
       <body className="font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground">
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>
-              {children}
-              <CommandPalette />
-              <ServiceWorkerRegister />
-            </ToastProvider>
+            <TelemetryProvider>
+              <ToastProvider>
+                {children}
+                <CommandPalette />
+                <ServiceWorkerRegister />
+              </ToastProvider>
+            </TelemetryProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

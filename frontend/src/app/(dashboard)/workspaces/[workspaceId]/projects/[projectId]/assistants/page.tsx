@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
+import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 
 export default function AssistantsListPage() {
   const params = useParams();
@@ -25,6 +26,8 @@ export default function AssistantsListPage() {
   const workspaceId = params.workspaceId as string;
   const projectId = params.projectId as string;
   const { toast } = useToast();
+  const createAssistantWf = useWorkflow("wf_create_assistant");
+  const { trackAction, trackFriction } = useTelemetry();
 
   const [project, setProject] = useState<Project | null>(null);
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -82,7 +85,13 @@ export default function AssistantsListPage() {
 
   const handleCreateAssistant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAssistantName.trim()) return;
+    if (!newAssistantName.trim()) {
+      trackFriction("form.validation_failed", "input_assistant_name", {
+        field: "name",
+        reason: "EMPTY_REQUIRED",
+      });
+      return;
+    }
     setCreating(true);
 
     try {
@@ -96,12 +105,38 @@ export default function AssistantsListPage() {
         score_threshold: 0.7,
         knowledge_source_ids: selectedSourceIds.length > 0 ? selectedSourceIds : undefined,
       });
+
+      // Workflow completed successfully
+      createAssistantWf.complete({
+        engine_mode: newEngineMode,
+        model: newModel,
+        sources_count: selectedSourceIds.length,
+      });
+
       setShowCreate(false);
       router.push(`/workspaces/${workspaceId}/projects/${projectId}/assistants/${created.id}`);
     } catch (err: any) {
+      createAssistantWf.stepFailed("API_ERROR", {
+        status: err.status,
+      });
       toast({ type: "error", message: err.message || "Failed to create assistant" });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    trackAction("button.clicked", "btn_new_assistant");
+    createAssistantWf.start("modal_open", {
+      sources_available: sources.length,
+    });
+    setShowCreate(true);
+  };
+
+  const closeCreateModal = () => {
+    if (showCreate) {
+      createAssistantWf.abandon("modal_dismissed");
+      setShowCreate(false);
     }
   };
 
@@ -164,7 +199,7 @@ export default function AssistantsListPage() {
 
         {hasAssistants && (
           <Button
-            onClick={() => setShowCreate(true)}
+            onClick={openCreateModal}
             variant="primary"
             size="sm"
             className="rounded-2xl h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
@@ -208,7 +243,7 @@ export default function AssistantsListPage() {
           </div>
 
           <Button
-            onClick={() => setShowCreate(true)}
+            onClick={openCreateModal}
             variant="primary"
             size="lg"
             className="rounded-2xl px-6 font-semibold gap-2 shadow-xs text-xs sm:text-sm h-10"
@@ -297,7 +332,7 @@ export default function AssistantsListPage() {
       {showCreate && (
         <div
           className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-6"
-          onClick={() => setShowCreate(false)}
+          onClick={closeCreateModal}
           role="dialog"
           aria-modal="true"
           aria-label="Create New Assistant"
@@ -335,7 +370,7 @@ export default function AssistantsListPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreate(false)}
+                onClick={closeCreateModal}
                 className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
                 aria-label="Close dialog"
               >
@@ -476,7 +511,7 @@ export default function AssistantsListPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowCreate(false)}
+                  onClick={closeCreateModal}
                 >
                   Cancel
                 </Button>

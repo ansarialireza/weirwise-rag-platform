@@ -26,11 +26,15 @@ import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const { toast } = useToast();
+  const uploadWorkflow = useWorkflow("wf_upload_documents");
+  const createSourceWorkflow = useWorkflow("wf_create_source");
+  const { trackAction, trackFriction } = useTelemetry();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
@@ -151,14 +155,32 @@ export default function SourcesKnowledgePage() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
+    const fileCount = files.length;
+    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+    const extensions = Array.from(new Set(files.map((f) => f.name.split(".").pop()?.toLowerCase() || "unknown")));
+
+    uploadWorkflow.start("files_selected", {
+      file_count: fileCount,
+      total_bytes: totalBytes,
+      extensions,
+      source_id: selectedSource.id,
+    });
+
     setUploading(true);
     setUploadError(null);
 
     try {
       await api.uploadDocuments(selectedSource.id, files);
+      uploadWorkflow.complete({
+        file_count: fileCount,
+        total_bytes: totalBytes,
+      });
       await loadDocuments();
       await loadSources();
     } catch (err: any) {
+      uploadWorkflow.stepFailed("UPLOAD_ERROR", {
+        status: err.status,
+      });
       setUploadError(err.message || "Upload processing failed");
     } finally {
       setUploading(false);
