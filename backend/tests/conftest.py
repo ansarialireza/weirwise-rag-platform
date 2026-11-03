@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
@@ -22,6 +23,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.close()
     except Exception:
         pass
+
 
 # On Windows, asyncpg requires WindowsSelectorEventLoopPolicy to avoid proactor teardown race conditions
 if sys.platform == "win32":

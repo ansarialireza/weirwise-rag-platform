@@ -514,11 +514,7 @@ async def list_audit_logs(
             | AdminAuditLog.target_entity.ilike(term)
         )
     stmt = (
-        select(AdminAuditLog)
-        .where(*conditions)
-        .order_by(AdminAuditLog.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+        select(AdminAuditLog).where(*conditions).order_by(AdminAuditLog.created_at.desc()).limit(limit).offset(offset)
     )
     res = await db.execute(stmt)
     return res.scalars().all()

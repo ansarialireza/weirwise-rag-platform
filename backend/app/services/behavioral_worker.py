@@ -18,7 +18,6 @@ from backend.app.services.behavioral_stream import (
     DLQ_STREAM_KEY,
     STREAM_KEY,
 )
-from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
@@ -83,9 +82,11 @@ class BehavioralStreamConsumer:
                     continue
 
                 if entries:
-                    for stream_name, messages in entries:
-                        if messages:
-                            await self._process_messages(redis, messages)
+                    for item in entries:
+                        if isinstance(item, (list, tuple)) and len(item) == 2:
+                            _, messages = item
+                            if messages:
+                                await self._process_messages(redis, messages)
 
                 # 3. Periodic safe stream trimming
                 if iterations % TRIM_INTERVAL_ITERATIONS == 0:
@@ -107,13 +108,14 @@ class BehavioralStreamConsumer:
     @staticmethod
     async def calculate_safe_trim_boundary(redis, stream_key: str = STREAM_KEY) -> Optional[str]:
         """Calculates the safe trimming boundary across all consumer groups.
-        
+
         To guarantee zero event loss:
         - Inspects every consumer group registered on the stream.
         - For each group:
-          - If the group has pending entries (PEL > 0), the safe boundary is bounded by the oldest pending message (min).
+          - If the group has pending entries (PEL > 0), boundary is bounded by oldest pending message (min).
           - If the group has no pending entries (PEL == 0), the safe boundary is the group's last-delivered-id.
-          - If any group has never delivered any messages (last-delivered-id is '0-0' or None), trimming cannot proceed (returns None).
+          - If any group has never delivered any messages (last-delivered-id is '0-0' or None),
+            trimming cannot proceed (returns None).
         - Returns the minimum boundary across all consumer groups, or None if trimming is unsafe.
         """
         try:

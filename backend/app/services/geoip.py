@@ -2,7 +2,7 @@
 
 import ipaddress
 import logging
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def is_private_or_reserved_ip(ip_str: str) -> bool:
 
 class GeoIPService:
     """Privacy-preserving geolocation service with trusted proxy validation.
-    
+
     1. Validates whether requests carrying CF-IPCountry originate from an authentic Cloudflare proxy.
     2. Directly rejects/discards forged CF-IPCountry headers from untrusted external IPs.
     3. Never stores, logs, or emits raw IP addresses into behavioral tables.

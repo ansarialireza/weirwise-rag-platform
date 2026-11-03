@@ -17,11 +17,13 @@ BACKPRESSURE_THRESHOLD = 80_000
 
 class RedisUnavailableException(Exception):
     """Raised when Redis is unreachable or degraded."""
+
     pass
 
 
 class IngestionBackpressureException(Exception):
     """Raised when stream backlog exceeds safety limits."""
+
     pass
 
 
@@ -36,10 +38,11 @@ class BehavioralStreamProducer:
         """Returns a shared, pooled async Redis client."""
         if not settings.REDIS_URL:
             raise RedisUnavailableException("REDIS_URL is not configured.")
-        
+
         if cls._redis is None:
             try:
                 from redis.asyncio import ConnectionPool, Redis
+
                 cls._pool = ConnectionPool.from_url(
                     settings.REDIS_URL,
                     decode_responses=True,
@@ -95,7 +98,9 @@ class BehavioralStreamProducer:
         try:
             stream_len = await redis_client.xlen(STREAM_KEY)
             if stream_len > BACKPRESSURE_THRESHOLD:
-                logger.warning(f"Backpressure activated: stream length {stream_len} exceeds threshold {BACKPRESSURE_THRESHOLD}.")
+                logger.warning(
+                    f"Backpressure activated: stream length {stream_len} exceeds threshold {BACKPRESSURE_THRESHOLD}."
+                )
                 raise IngestionBackpressureException("Ingestion backlog high; please retry shortly.")
         except IngestionBackpressureException:
             raise

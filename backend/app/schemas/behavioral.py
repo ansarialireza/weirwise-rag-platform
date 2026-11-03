@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
 # Common Regex Patterns
 COUNTRY_CODE_REGEX = re.compile(r"^[A-Z]{2}$")
 EVENT_NAME_REGEX = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$")  # e.g. "workflow.funnel.started"
@@ -15,6 +14,7 @@ EVENT_NAME_REGEX = re.compile(r"^[a-z0-9_]+(\.[a-z0-9_]+)+$")  # e.g. "workflow.
 
 class DeviceContextSchema(BaseModel):
     """Device, browser, operating system, and screen geometry metadata."""
+
     model_config = ConfigDict(extra="ignore")
 
     device_category: Literal["desktop", "laptop", "tablet", "mobile", "unknown"] = Field(
@@ -39,6 +39,7 @@ class DeviceContextSchema(BaseModel):
 
 class GeographicContextSchema(BaseModel):
     """Privacy-preserving client/server geographic context without raw IP persistence."""
+
     model_config = ConfigDict(extra="ignore")
 
     country_code: Optional[str] = Field(None, min_length=2, max_length=2)
@@ -60,6 +61,7 @@ class GeographicContextSchema(BaseModel):
 
 class BehavioralEventItem(BaseModel):
     """Normalized atomic interaction event."""
+
     model_config = ConfigDict(extra="forbid")
 
     event_id: uuid.UUID = Field(..., description="Unique client-generated event UUID (idempotency key)")
@@ -93,7 +95,7 @@ class BehavioralEventItem(BaseModel):
         # Enforce property count limit
         if len(v) > 50:
             raise ValueError("properties dictionary cannot exceed 50 keys")
-        
+
         # Guard against sensitive attributes (substring check)
         banned_patterns = ["password", "secret", "token", "auth", "credit_card", "ssn", "cvv", "api_key", "private_key"]
         for k in v.keys():
@@ -106,6 +108,7 @@ class BehavioralEventItem(BaseModel):
 
 class BehavioralBatchIngestionRequest(BaseModel):
     """Batch ingestion request payload containing up to 100 events for a single session."""
+
     model_config = ConfigDict(extra="ignore")
 
     session_id: str = Field(..., min_length=8, max_length=128, description="Unique session token or UUID")
@@ -128,6 +131,7 @@ class BehavioralBatchIngestionRequest(BaseModel):
 
 class IngestionResponse(BaseModel):
     """Immediate acknowledgement returned to client."""
+
     status: str = "accepted"
     session_id: str
     events_queued: int

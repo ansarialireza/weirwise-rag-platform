@@ -6,11 +6,9 @@ Verifies:
 - Critical Verification C: Trusted Proxy and Cloudflare Header Security
 """
 
-import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -21,20 +19,13 @@ from backend.app.models.behavioral import (
     BehavioralEvent,
     UserBehavioralSession,
 )
-from backend.app.schemas.behavioral import (
-    BehavioralBatchIngestionRequest,
-    BehavioralEventItem,
-)
 from backend.app.services.behavioral_stream import (
     BACKPRESSURE_THRESHOLD,
-    CONSUMER_GROUP,
     STREAM_KEY,
-    IngestionBackpressureException,
     behavioral_stream_producer,
 )
 from backend.app.services.behavioral_worker import (
     BehavioralStreamConsumer,
-    parse_stream_id,
 )
 from backend.app.services.geoip import (
     CLOUDFLARE_IPV4_CIDRS,
@@ -55,6 +46,7 @@ def anyio_backend():
 # =========================================================================
 # CRITICAL VERIFICATION A: Redis Stream Trimming Safety & Backpressure
 # =========================================================================
+
 
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_a_normal_processing():
@@ -286,6 +278,7 @@ async def test_backpressure_threshold_returns_http_429():
 # CRITICAL VERIFICATION B: Crash Recovery between DB commit and XACK
 # =========================================================================
 
+
 @pytest.mark.anyio
 async def test_crash_recovery_between_db_commit_and_xack():
     """Critical Verification B:
@@ -377,7 +370,9 @@ async def test_crash_recovery_between_db_commit_and_xack():
             assert rows[0].event_name == "crash.simulation.test"
 
             # Verify session was updated idempotently
-            sess_res = await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))
+            sess_res = await db.execute(
+                select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id)
+            )
             sess_rows = sess_res.scalars().all()
             assert len(sess_rows) == 1
             # Initial insert + conflict update
@@ -387,6 +382,7 @@ async def test_crash_recovery_between_db_commit_and_xack():
         # Cleanup test DB row
         async with async_session_factory() as db:
             from sqlalchemy import delete
+
             await db.execute(delete(BehavioralEvent).where(BehavioralEvent.id == event_id))
             await db.execute(delete(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))
             await db.commit()
@@ -398,6 +394,7 @@ async def test_crash_recovery_between_db_commit_and_xack():
 # =========================================================================
 # CRITICAL VERIFICATION C: Trusted Proxy & Cloudflare Header Security
 # =========================================================================
+
 
 def test_cf_cidrs_and_internal_proxy_cidrs_definition():
     """Verify Cloudflare and internal CIDR blocks are properly configured and non-empty."""

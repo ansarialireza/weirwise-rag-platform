@@ -1,24 +1,16 @@
 """Comprehensive automated verification and reliability test suite for WBI Phase 1."""
 
-import asyncio
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from backend.app.db.session import async_session_factory
-from backend.app.models.auth import User, Workspace
+from backend.app.models.auth import User
 from backend.app.models.behavioral import (
     BehavioralEvent,
-    BehavioralInsight,
     UserBehavioralProfile,
     UserBehavioralSession,
-)
-from backend.app.schemas.behavioral import (
-    BehavioralBatchIngestionRequest,
-    BehavioralEventItem,
-    DeviceContextSchema,
-    GeographicContextSchema,
 )
 from backend.app.services.behavioral_stream import (
     CONSUMER_GROUP,
@@ -27,7 +19,7 @@ from backend.app.services.behavioral_stream import (
     behavioral_stream_producer,
 )
 from backend.app.services.behavioral_worker import BehavioralStreamConsumer
-from backend.app.services.geoip import geoip_service, is_trusted_proxy_or_cloudflare
+from backend.app.services.geoip import geoip_service
 from backend.app.services.retention import retention_service
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -39,6 +31,7 @@ def anyio_backend():
 
 
 # --- 1. GEOLOCATION & PROXY SECURITY TESTS ---
+
 
 @pytest.mark.anyio
 async def test_trusted_proxy_validation_accepts_authentic_cloudflare():
@@ -85,6 +78,7 @@ async def test_private_gateway_and_localhost_resolution():
 
 
 # --- 2. AUTHENTICATION & OWNERSHIP TESTS ---
+
 
 @pytest.mark.anyio
 async def test_authenticated_ownership_cannot_be_overridden_by_client():
@@ -144,6 +138,7 @@ async def test_authenticated_ownership_cannot_be_overridden_by_client():
     # Clean up user
     async with async_session_factory() as db:
         from sqlalchemy import delete
+
         await db.execute(delete(User).where(User.id == test_user_id))
         await db.commit()
 
@@ -182,6 +177,7 @@ async def test_anonymous_session_handling():
 
 
 # --- 3. PAYLOAD BOUNDS & VALIDATION REJECTIONS ---
+
 
 @pytest.mark.anyio
 async def test_oversized_batch_rejection():
@@ -233,6 +229,7 @@ async def test_prohibited_sensitive_keys_rejection():
 
 # --- 4. REDIS RELIABILITY, WORKER & DLQ TESTS ---
 
+
 @pytest.mark.anyio
 async def test_idempotent_event_persistence():
     """Verify that re-processing identical event IDs creates zero duplicates."""
@@ -272,6 +269,7 @@ async def test_idempotent_event_persistence():
 
         # Clean up
         from sqlalchemy import delete
+
         await db.execute(delete(BehavioralEvent).where(BehavioralEvent.id == dup_event_id))
         await db.execute(delete(UserBehavioralSession).where(UserBehavioralSession.session_id == dup_session_id))
         await db.commit()
@@ -280,8 +278,8 @@ async def test_idempotent_event_persistence():
 @pytest.mark.anyio
 async def test_dead_letter_queue_routing():
     """Verify that malformed poison payloads route to DLQ without crashing the worker."""
-    from redis.asyncio import from_url
     from backend.app.core.config import settings
+    from redis.asyncio import from_url
 
     r = from_url(settings.REDIS_URL, decode_responses=True)
     consumer = BehavioralStreamConsumer(consumer_name="dlq_test_worker")
@@ -310,6 +308,7 @@ async def test_dead_letter_queue_routing():
 
 
 # --- 5. DATA LIFECYCLE & USER ERASURE TESTS ---
+
 
 @pytest.mark.anyio
 async def test_user_deletion_cascading_erasure():
@@ -364,13 +363,18 @@ async def test_user_deletion_cascading_erasure():
     # Now in a fresh session, execute delete
     async with async_session_factory() as db:
         from sqlalchemy import delete
+
         await db.execute(delete(User).where(User.id == test_user_id))
         await db.commit()
 
         # Assert all linked records are completely cascaded in DB
         ev_check = (await db.execute(select(BehavioralEvent).where(BehavioralEvent.id == ev_id))).scalar_one_or_none()
-        sess_check = (await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == sess_id))).scalar_one_or_none()
-        profile_check = (await db.execute(select(UserBehavioralProfile).where(UserBehavioralProfile.user_id == test_user_id))).scalar_one_or_none()
+        sess_check = (
+            await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == sess_id))
+        ).scalar_one_or_none()
+        profile_check = (
+            await db.execute(select(UserBehavioralProfile).where(UserBehavioralProfile.user_id == test_user_id))
+        ).scalar_one_or_none()
 
         assert ev_check is None
         assert sess_check is None
@@ -415,5 +419,6 @@ async def test_retention_service_pruning():
 
         # Clean session
         from sqlalchemy import delete
+
         await db.execute(delete(UserBehavioralSession).where(UserBehavioralSession.session_id == sess_id))
         await db.commit()

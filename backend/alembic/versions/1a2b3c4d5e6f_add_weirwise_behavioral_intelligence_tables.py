@@ -9,8 +9,9 @@ Create Date: 2026-11-03 10:37:00.000000
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from backend.app.db.base import GUID, CompatibleJSON
+
 from alembic import op
-from backend.app.db.base import CompatibleJSON, GUID
 
 revision: str = "1a2b3c4d5e6f"
 down_revision: Union[str, None] = "f7a8b9c0d1e2"
@@ -181,7 +182,9 @@ def upgrade() -> None:
     if "user_behavioral_profiles" not in existing_tables:
         op.create_table(
             "user_behavioral_profiles",
-            sa.Column("user_id", GUID(), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, nullable=False),
+            sa.Column(
+                "user_id", GUID(), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, nullable=False
+            ),
             sa.Column("workspace_id", GUID(), sa.ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True),
             sa.Column("total_active_days", sa.Integer(), server_default="0", nullable=False),
             sa.Column("total_sessions", sa.Integer(), server_default="0", nullable=False),

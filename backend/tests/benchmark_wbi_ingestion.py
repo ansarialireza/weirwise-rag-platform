@@ -60,14 +60,15 @@ async def worker(queue: asyncio.Queue, latencies: list, status_codes: list):
                 t1 = time.perf_counter()
                 latencies.append((t1 - t0) * 1000.0)
                 status_codes.append(resp.status_code)
-            except Exception as e:
+            except Exception:
                 status_codes.append(500)
             finally:
                 queue.task_done()
 
 
 async def run_benchmark():
-    print(f"Starting WBI Ingestion Benchmark: {TOTAL_BATCHES} batches of {BATCH_SIZE} events ({TOTAL_BATCHES * BATCH_SIZE} total events)")
+    total_events = TOTAL_BATCHES * BATCH_SIZE
+    print(f"Starting WBI Ingestion Benchmark: {TOTAL_BATCHES} batches of {BATCH_SIZE} events ({total_events} events)")
     print(f"Target concurrency: {CONCURRENCY} workers")
 
     queue = asyncio.Queue()
