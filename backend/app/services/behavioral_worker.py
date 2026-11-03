@@ -18,7 +18,7 @@ from backend.app.services.behavioral_stream import (
     DLQ_STREAM_KEY,
     STREAM_KEY,
 )
-from sqlalchemy import case, select
+from sqlalchemy import case, literal, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
@@ -309,11 +309,17 @@ class BehavioralStreamConsumer:
                     "exit_route": ev.get("route"),
                     # Immutable ownership: Only bind user_id if session is currently anonymous
                     "user_id": case(
-                        (UserBehavioralSession.user_id.is_(None), user_id),
+                        (
+                            UserBehavioralSession.user_id.is_(None),
+                            literal(user_id, type_=UserBehavioralSession.user_id.type),
+                        ),
                         else_=UserBehavioralSession.user_id,
                     ),
                     "workspace_id": case(
-                        (UserBehavioralSession.workspace_id.is_(None), workspace_id),
+                        (
+                            UserBehavioralSession.workspace_id.is_(None),
+                            literal(workspace_id, type_=UserBehavioralSession.workspace_id.type),
+                        ),
                         else_=UserBehavioralSession.workspace_id,
                     ),
                 },
