@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { HeroActions } from "@/components/landing/hero-actions";
 import { ArrowRight, Bot, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -75,9 +74,6 @@ export default function RootPage() {
           <p className="mt-5 text-sm sm:text-base text-zinc-400 font-normal leading-relaxed max-w-xl mx-auto">
             Autonomous AI assistants grounded in verified company knowledge. Zero hallucinations. Isolated vector stores. Direct deployment.
           </p>
-
-          {/* Interactive CTAs */}
-          <HeroActions />
 
           {/* Live System Preview */}
           <div className="mt-14 rounded-md border border-zinc-800 bg-zinc-950/40 p-5 sm:p-7 text-left max-w-2xl mx-auto">

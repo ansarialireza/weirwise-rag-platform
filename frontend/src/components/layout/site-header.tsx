@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SiteHeaderProps {
@@ -15,7 +14,7 @@ interface SiteHeaderProps {
 }
 
 export function SiteHeader({ className }: SiteHeaderProps) {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -45,18 +44,19 @@ export function SiteHeader({ className }: SiteHeaderProps) {
     };
   }, [mobileMenuOpen]);
 
-  const navLinks = [
+  const primaryLinks = [
     { label: "Pricing", href: "/pricing", active: pathname === "/pricing" },
     { label: "Blog", href: "/blog", active: pathname.startsWith("/blog") },
-    ...(dashboardUrl
-      ? [{ label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/workspaces") }]
-      : [{ label: "Sign In", href: "/login", active: pathname === "/login" }]),
   ];
+
+  const authOrDashboardLink = dashboardUrl
+    ? { label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/overview") }
+    : { label: "Sign In", href: "/login", active: pathname === "/login" };
 
   return (
     <header
       className={cn(
-        "w-full border-b border-border/80 bg-background/90 backdrop-blur-md sticky top-0 z-40 transition-colors",
+        "w-full border-b border-zinc-800/80 bg-background/90 backdrop-blur-md sticky top-0 z-40 transition-colors",
         className
       )}
     >
@@ -67,91 +67,102 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           <span className="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full bg-primary"
+              className="inline-block h-1.5 w-1.5 rounded-full bg-[#46C7D6]"
               title="Platform online"
               aria-hidden="true"
             />
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-3 lg:gap-4 text-xs font-medium">
-          {navLinks.map((link) => (
+        {/* Desktop Navigation: Minimal text-only links, Sign In, and Theme Toggle */}
+        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs font-medium">
+          {primaryLinks.map((link) => (
             <Link
               key={link.label}
               href={link.href}
               className={cn(
-                "whitespace-nowrap px-2 py-1.5 rounded-md transition-colors",
+                "whitespace-nowrap transition-colors",
                 link.active
-                  ? "text-foreground font-semibold bg-secondary/60"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                  ? "text-white font-semibold"
+                  : "text-zinc-400 hover:text-white"
               )}
             >
               {link.label}
             </Link>
           ))}
 
-          <div className="pl-1">
+          <Link
+            href={authOrDashboardLink.href}
+            className={cn(
+              "whitespace-nowrap transition-colors",
+              authOrDashboardLink.active
+                ? "text-white font-semibold"
+                : "text-zinc-400 hover:text-white"
+            )}
+          >
+            {authOrDashboardLink.label}
+          </Link>
+
+          <div className="pl-1 border-l border-zinc-800">
             <ThemeSwitcher />
           </div>
-
-          <Link
-            href={dashboardUrl || "/register"}
-            className="whitespace-nowrap rounded-md bg-white text-black px-3.5 py-1.5 text-xs font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all flex items-center gap-1.5"
-          >
-            <span>{dashboardUrl ? "Open Studio" : "Get Started"}</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
         </nav>
 
-        {/* Mobile Header Controls: Theme Switcher & Menu Toggle */}
-        <div className="flex md:hidden items-center gap-2">
-          <ThemeSwitcher />
-
+        {/* Mobile Header Controls: ONLY Hamburger Menu Button */}
+        <div className="flex md:hidden items-center">
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={mobileMenuOpen}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:text-white hover:border-zinc-700 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-500"
           >
             {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {/* Accessible Mobile Drawer / Dropdown */}
+      {/* Mobile Drawer / Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-xl">
-          <div ref={menuRef} className="px-4 py-4 space-y-3 max-w-sm mx-auto">
+        <div className="md:hidden border-b border-zinc-800 bg-zinc-950/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-xl">
+          <div ref={menuRef} className="px-4 py-4 space-y-4 max-w-sm mx-auto">
             <div className="space-y-1">
-              {navLinks.map((link) => (
+              {primaryLinks.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                     link.active
-                      ? "bg-secondary text-primary font-semibold"
-                      : "text-foreground hover:bg-secondary/70 hover:text-foreground"
+                      ? "bg-zinc-900 text-white font-semibold"
+                      : "text-zinc-400 hover:bg-zinc-900/60 hover:text-white"
                   )}
                 >
                   <span>{link.label}</span>
-                  {link.active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  {link.active && <span className="h-1.5 w-1.5 rounded-full bg-[#46C7D6]" />}
                 </Link>
               ))}
+
+              <Link
+                href={authOrDashboardLink.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                  authOrDashboardLink.active
+                    ? "bg-zinc-900 text-white font-semibold"
+                    : "text-zinc-400 hover:bg-zinc-900/60 hover:text-white"
+                )}
+              >
+                <span>{authOrDashboardLink.label}</span>
+                {authOrDashboardLink.active && <span className="h-1.5 w-1.5 rounded-full bg-[#46C7D6]" />}
+              </Link>
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <Link
-                href={dashboardUrl || "/register"}
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center gap-2 rounded-md bg-white text-black px-4 py-2 text-xs font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all"
-              >
-                <span>{dashboardUrl ? "Open Studio" : "Get Started Free"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+            {/* Theme Toggle placed INSIDE the open hamburger menu */}
+            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between px-3 text-xs text-zinc-400 font-mono">
+              <span>Theme</span>
+              <ThemeSwitcher />
             </div>
           </div>
         </div>
