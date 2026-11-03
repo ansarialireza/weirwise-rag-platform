@@ -17,6 +17,16 @@ jobs:
   backend-ci:
     name: Backend Lint, Typecheck & Tests
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: backend
@@ -45,6 +55,8 @@ jobs:
         run: mypy app
 
       - name: Run Pytest Suite
+        env:
+          REDIS_URL: redis://127.0.0.1:6379/0
         run: PYTHONPATH=.. pytest -v tests
 
   frontend-ci:
