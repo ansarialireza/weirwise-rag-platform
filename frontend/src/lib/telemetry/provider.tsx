@@ -72,8 +72,12 @@ export function TelemetryProvider({
       client.getSessionManager().onLogin();
     } else if (prevUserId !== null && currentUserId === null) {
       // Transition: Authenticated -> Anonymous (Logout)
-      client.flush().catch(() => {});
+      // Capture current token before it's erased from memory for final authenticated flush
+      const currentToken = typeof window !== "undefined" ? localStorage.getItem("wwp_token") : null;
+      // Immediately rotate the telemetry session ID so any subsequent interaction cannot be linked to User A
       client.getSessionManager().onLogout();
+      // Bounded non-blocking flush with the snapshot token
+      client.flush({ explicitToken: currentToken, timeoutMs: 2000 }).catch(() => {});
     }
 
     prevUserRef.current = currentUserId;

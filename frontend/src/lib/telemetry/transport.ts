@@ -51,7 +51,7 @@ export class BatchTransport {
    */
   public async sendBatch(
     payload: BehavioralBatchIngestionRequest,
-    options: { keepalive?: boolean } = {}
+    options: { keepalive?: boolean; explicitToken?: string | null } = {}
   ): Promise<BatchDeliveryResult> {
     if (this.isRateLimited()) {
       if (this.debug) {
@@ -67,9 +67,9 @@ export class BatchTransport {
       "Content-Type": "application/json",
     };
 
-    // Forward Bearer token if user is authenticated
+    // Forward explicit token if provided (e.g. during logout snapshot), else read from api client
     try {
-      const token = api.getToken();
+      const token = options.explicitToken !== undefined ? options.explicitToken : api.getToken();
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }

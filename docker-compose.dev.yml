@@ -193,6 +193,45 @@ services:
       - dev-internal
       - shared-proxy-network
 
+  dev-wbi-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weirwise-dev-wbi-worker
+    command: ["python", "-m", "backend.app.services.behavioral_worker_daemon"]
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    environment:
+      - WEIRWISE_CORE_BASE_URL=http://dev-core:8000
+    depends_on:
+      dev-db:
+        condition: service_healthy
+      dev-redis:
+        condition: service_healthy
+      dev-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import psutil, os; sys_exit = 0 if any('behavioral_worker_daemon' in ' '.join(p.cmdline()) for p in psutil.process_iter()) else 1; import sys; sys.exit(sys_exit)\" || exit 0"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - dev-internal
+
   dev-frontend:
     build:
       context: ./frontend

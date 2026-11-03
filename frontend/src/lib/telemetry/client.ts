@@ -285,7 +285,7 @@ export class TelemetryClient {
   /**
    * Flushes queued events to the backend.
    */
-  public async flush(): Promise<void> {
+  public async flush(options: { explicitToken?: string | null; timeoutMs?: number } = {}): Promise<void> {
     if (!this.config.enabled || this.isFlushing || this.buffer.isEmpty()) {
       return;
     }
@@ -295,9 +295,18 @@ export class TelemetryClient {
     }
 
     this.isFlushing = true;
+    const timeoutMs = options.timeoutMs ?? 5000;
+    const startTime = Date.now();
 
     try {
       while (!this.buffer.isEmpty() && !this.transport.isRateLimited()) {
+        if (Date.now() - startTime >= timeoutMs) {
+          if (this.config.debug) {
+            console.warn("[WBI] Flush operation reached timeout limit; halting remaining iterations.");
+          }
+          break;
+        }
+
         const queuedItems = this.buffer.dequeueBatch(this.config.batchThreshold);
         if (queuedItems.length === 0) break;
 
@@ -309,7 +318,9 @@ export class TelemetryClient {
           events: queuedItems.map((q) => q.event),
         };
 
-        const result = await this.transport.sendBatch(payload);
+        const result = await this.transport.sendBatch(payload, {
+          explicitToken: options.explicitToken,
+        });
 
         if (result.status === "delivered") {
           // Success
