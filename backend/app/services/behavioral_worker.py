@@ -27,6 +27,13 @@ MAX_RETRIES = 3
 AUTO_CLAIM_MIN_IDLE_TIME_MS = 60_000  # 60s
 BATCH_SIZE = 100
 BLOCK_TIMEOUT_MS = 2000
+TRIM_INTERVAL_ITERATIONS = 50  # Safe trim sweep frequency
+
+
+def parse_stream_id(sid: str) -> tuple[int, int]:
+    """Parses a Redis stream ID 'ms-seq' into a numeric tuple for accurate comparison."""
+    parts = sid.split("-")
+    return (int(parts[0]), int(parts[1]))
 
 
 class BehavioralStreamConsumer:
@@ -80,6 +87,10 @@ class BehavioralStreamConsumer:
                         if messages:
                             await self._process_messages(redis, messages)
 
+                # 3. Periodic safe stream trimming
+                if iterations % TRIM_INTERVAL_ITERATIONS == 0:
+                    await self.safe_trim(redis)
+
                 iterations += 1
                 if max_iterations and iterations >= max_iterations:
                     break
@@ -92,6 +103,70 @@ class BehavioralStreamConsumer:
 
     def stop(self):
         self._running = False
+
+    @staticmethod
+    async def calculate_safe_trim_boundary(redis, stream_key: str = STREAM_KEY) -> Optional[str]:
+        """Calculates the safe trimming boundary across all consumer groups.
+        
+        To guarantee zero event loss:
+        - Inspects every consumer group registered on the stream.
+        - For each group:
+          - If the group has pending entries (PEL > 0), the safe boundary is bounded by the oldest pending message (min).
+          - If the group has no pending entries (PEL == 0), the safe boundary is the group's last-delivered-id.
+          - If any group has never delivered any messages (last-delivered-id is '0-0' or None), trimming cannot proceed (returns None).
+        - Returns the minimum boundary across all consumer groups, or None if trimming is unsafe.
+        """
+        try:
+            groups = await redis.xinfo_groups(stream_key)
+        except Exception as e:
+            logger.debug(f"Could not fetch stream groups for trimming: {e!s}")
+            return None
+
+        if not groups:
+            return None
+
+        boundaries: List[str] = []
+        for g in groups:
+            group_name = g.get("name")
+            if not group_name:
+                continue
+
+            try:
+                pending_info = await redis.xpending(stream_key, group_name)
+            except Exception as e:
+                logger.warning(f"Could not fetch xpending for group {group_name}: {e!s}")
+                return None
+
+            if pending_info and pending_info.get("pending", 0) > 0 and pending_info.get("min"):
+                boundaries.append(pending_info["min"])
+            else:
+                last_delivered = g.get("last-delivered-id")
+                if last_delivered and last_delivered != "0-0":
+                    boundaries.append(last_delivered)
+                else:
+                    # Unconsumed messages exist in this group from the beginning
+                    return None
+
+        if not boundaries:
+            return None
+
+        return min(boundaries, key=parse_stream_id)
+
+    @classmethod
+    async def safe_trim(cls, redis, stream_key: str = STREAM_KEY) -> int:
+        """Trims acknowledged messages from Redis Stream strictly up to the safe boundary."""
+        boundary = await cls.calculate_safe_trim_boundary(redis, stream_key)
+        if not boundary:
+            return 0
+
+        try:
+            trimmed = await redis.xtrim(stream_key, minid=boundary, approximate=True)
+            if trimmed > 0:
+                logger.info(f"Safely trimmed {trimmed} acknowledged messages up to MINID {boundary} in {stream_key}.")
+            return trimmed
+        except Exception as e:
+            logger.warning(f"Error during safe stream trimming: {e!s}")
+            return 0
 
     async def _recover_orphans(self, redis):
         """Auto-claims messages unacknowledged for > 60 seconds."""
