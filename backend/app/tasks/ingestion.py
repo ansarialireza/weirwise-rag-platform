@@ -92,7 +92,8 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             document.error_message = None
             await db.commit()
             logger.info(
-                f"Document {document.id} successfully ingested into Core and moved to cold tier vault ({document.storage_path})."
+                f"Document {document.id} successfully ingested into Core and moved to "
+                f"cold tier vault ({document.storage_path})."
             )
 
         except CoreApiException as e:

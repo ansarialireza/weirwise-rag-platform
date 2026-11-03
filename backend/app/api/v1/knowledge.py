@@ -421,7 +421,10 @@ async def download_document_stream(
     try:
         stream_gen = storage_service.stream_file_chunks(doc.storage_path)
     except FileNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Physical document file not found in storage.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Physical document file not found in storage.",
+        )
 
     headers = {
         "Content-Disposition": f'attachment; filename="{doc.filename}"',

@@ -8,12 +8,12 @@ Engineering Principles:
 - Streamed Network Retrieval: Chunked async streaming using aiofiles with StreamingResponse.
 """
 
-from collections.abc import AsyncGenerator
 import hashlib
 import os
 import re
 import shutil
 import time
+from collections.abc import AsyncGenerator
 from typing import Optional
 
 from backend.app.core.config import settings
@@ -45,18 +45,14 @@ class TieredStorageService:
         cold_dir: Optional[str] = None,
     ):
         self.hot_dir = hot_dir or settings.STORAGE_LOCAL_DIR
-        self.cold_dir = cold_dir or getattr(
-            settings, "STORAGE_COLD_DIR", "/mnt/gdrive/weirwise/storage/documents"
-        )
+        self.cold_dir = cold_dir or getattr(settings, "STORAGE_COLD_DIR", "/mnt/gdrive/weirwise/storage/documents")
         # Ensure hot temp spool directory exists
         os.makedirs(self.hot_dir, exist_ok=True)
         # Cold vault directory will be created if accessible, else gracefully fallback
         try:
             os.makedirs(self.cold_dir, exist_ok=True)
         except Exception as e:
-            logger.warning(
-                f"Cold vault directory {self.cold_dir} not immediately accessible at init: {e}"
-            )
+            logger.warning(f"Cold vault directory {self.cold_dir} not immediately accessible at init: {e}")
 
     @property
     def base_dir(self) -> str:
@@ -139,9 +135,7 @@ class TieredStorageService:
         with open(resolved, "rb") as f:
             return f.read()
 
-    async def stream_file_chunks(
-        self, storage_path: str, chunk_size: int = 64 * 1024
-    ) -> AsyncGenerator[bytes, None]:
+    async def stream_file_chunks(self, storage_path: str, chunk_size: int = 64 * 1024) -> AsyncGenerator[bytes, None]:
         """Step 4 (Streamed Network Retrieval): Asynchronous chunked streaming
         from Google Drive cold mount without buffering whole files in RAM.
         """
