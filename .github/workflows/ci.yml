@@ -179,6 +179,7 @@ jobs:
           username: ${{ vars.DEPLOY_USER || 'agyops' }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ vars.DEPLOY_PORT || 22 }}
+          command_timeout: 30m
           script: |
             set -euo pipefail
             TARGET_DIR="/srv/weirwise/dev"
@@ -204,6 +205,7 @@ jobs:
           username: ${{ vars.DEPLOY_USER || 'agyops' }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ vars.DEPLOY_PORT || 22 }}
+          command_timeout: 30m
           script: |
             set -euo pipefail
             TARGET_DIR="/srv/weirwise/prod"
