@@ -12,7 +12,7 @@ services:
       -c maintenance_work_mem=64MB
       -c checkpoint_completion_target=0.9
       -c wal_buffers=8MB
-      -c max_connections=60
+      -c max_connections=300
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-weirwise_prod}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weirwise_prod_secure_password}
@@ -80,7 +80,7 @@ services:
       -c maintenance_work_mem=64MB
       -c checkpoint_completion_target=0.9
       -c wal_buffers=8MB
-      -c max_connections=60
+      -c max_connections=300
     environment:
       POSTGRES_USER: ${PROD_CORE_DB_USER:-weirwise_core_prod}
       POSTGRES_PASSWORD: ${PROD_CORE_DB_PASSWORD:-weirwise_core_prod_pass}

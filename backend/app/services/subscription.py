@@ -142,7 +142,7 @@ class SubscriptionService:
         )
         res = await db.execute(stmt)
         total_bytes = res.scalar() or 0
-        return total_bytes / (1024 * 1024)
+        return float(total_bytes) / (1024 * 1024)
 
     @classmethod
     async def check_chat_entitlement(cls, workspace: Workspace, db: AsyncSession) -> None:
@@ -233,10 +233,10 @@ class SubscriptionService:
         max_storage_mb = int(tier.max_storage_mb) if tier else cls.get_plan(workspace.plan_tier).max_file_size_mb
         tier_name = tier.name if tier else workspace.plan_tier
 
-        current_storage_mb = await cls.get_workspace_storage_mb(workspace.id, db)
-        incoming_storage_mb = additional_bytes / (1024 * 1024)
+        current_storage_mb = float(await cls.get_workspace_storage_mb(workspace.id, db))
+        incoming_storage_mb = float(additional_bytes) / (1024 * 1024)
 
-        if (current_storage_mb + incoming_storage_mb) > max_storage_mb:
+        if (current_storage_mb + incoming_storage_mb) > float(max_storage_mb):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
