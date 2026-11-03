@@ -119,6 +119,7 @@ export default function AdminUsersPage() {
           <input
             type="text"
             placeholder="Search users by email or name..."
+            aria-label="Search users by email or name"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 bg-muted/20 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"

@@ -1,24 +1,35 @@
 """Pytest fixtures and test database isolation."""
 
 import asyncio
+import os
 import sys
+import tempfile
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 # On Windows, asyncpg requires WindowsSelectorEventLoopPolicy to avoid proactor teardown race conditions
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-import uuid
-from datetime import datetime, timezone
+_test_database_directory = tempfile.TemporaryDirectory(prefix="weirwise-platform-tests-")
+_test_database_url = os.environ.get("WEIRWISE_TEST_DATABASE_URL")
+if _test_database_url:
+    os.environ["DATABASE_URL"] = _test_database_url
+else:
+    _test_database_path = Path(_test_database_directory.name, "platform_test.db").as_posix()
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_test_database_path}"
 
 # Import all models to ensure metadata is complete
-import backend.app.models  # noqa
-import pytest
-from backend.app.core.config import settings
-from backend.app.db.base import Base
-from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier, User
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from fastapi.testclient import TestClient
+import backend.app.models  # noqa: E402,F401
+from backend.app.core.config import settings  # noqa: E402
+from backend.app.db.base import Base  # noqa: E402
+from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -112,6 +123,9 @@ def setup_test_database():
             s.commit()
 
         yield
+        from backend.app.db.session import engine as async_engine
+
+        asyncio.run(async_engine.dispose())
         engine.dispose()
     else:
         # PostgreSQL already migrated via Alembic, keep schema intact

@@ -23,9 +23,8 @@ from sqlalchemy import select
 pytestmark = pytest.mark.asyncio
 
 
-async def test_live_chat_invokes_credential_routing_and_finops_ledger():
-    """Verify that calling POST /api/v1/assistants/{id}/chat invokes IntelligentRoutingEngine
-    and writes to TokenCostLedger."""
+async def test_chat_does_not_record_provider_usage_without_provider_execution():
+    """Verify retrieval-only chat does not fabricate provider usage or cost ledger entries."""
     async with async_session_factory() as session:
         # 1. Setup User, Workspace, Project, Assistant
         u = User(
@@ -105,23 +104,16 @@ async def test_live_chat_invokes_credential_routing_and_finops_ledger():
         assert "conversation_id" in data
         assert "content" in data
 
-    # Verify that TokenCostLedger recorded the usage for this workspace & credential
+    # Configured credentials remain untouched until the chat path executes a real provider request.
     async with async_session_factory() as session:
         ledger_stmt = select(TokenCostLedger).where(
             TokenCostLedger.workspace_id == ws_id,
             TokenCostLedger.credential_id == cred_id,
         )
         ledger_entries = (await session.execute(ledger_stmt)).scalars().all()
-        assert len(ledger_entries) == 1
-        entry = ledger_entries[0]
-        assert entry.provider_name == "openai"
-        assert entry.model_name == "gpt-4o-mini"
-        assert entry.total_tokens > 0
-        assert entry.cost_usd > 0
-        assert entry.is_success is True
+        assert ledger_entries == []
 
-        # Verify credential metrics were updated in pool
         c = await session.get(ProviderCredential, cred_id)
-        assert c.total_requests_served >= 1
-        assert c.total_tokens_served > 0
-        assert c.current_month_spend_usd > 0
+        assert c.total_requests_served == 0
+        assert c.total_tokens_served == 0
+        assert c.current_month_spend_usd == 0

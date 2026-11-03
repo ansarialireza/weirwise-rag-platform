@@ -1,17 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ServiceWorkerRegister } from "@/components/pwa-register";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
@@ -66,14 +59,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/weirwise-app-icon.svg", type: "image/svg+xml" },
     ],
-    apple: [
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/favicon.svg" },
-    ],
+    apple: [{ url: "/weirwise-app-icon.svg", type: "image/svg+xml" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -97,7 +85,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground`}>
+      <body className="font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground">
         <ThemeProvider>
           <AuthProvider>
             <ToastProvider>

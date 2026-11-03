@@ -6,6 +6,7 @@ import uuid
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -54,6 +55,41 @@ class AdminUserRole(Base):
     assigned_by = Column(GUID, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class AdminControlSettings(Base):
+    """Persisted global operating mode and bounded automatic recovery policies."""
+
+    __tablename__ = "admin_control_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    management_mode = Column(String(16), default="manual", nullable=False)
+    emergency_stop = Column(Boolean, default=False, nullable=False)
+    automatic_failover = Column(Boolean, default=True, nullable=False)
+    auto_disable_unhealthy = Column(Boolean, default=True, nullable=False)
+    auto_recover_credentials = Column(Boolean, default=True, nullable=False)
+    rate_limit_cooldown_seconds = Column(Integer, default=60, nullable=False)
+    circuit_breaker_failure_threshold = Column(Integer, default=3, nullable=False)
+    circuit_breaker_cooldown_seconds = Column(Integer, default=300, nullable=False)
+    updated_by = Column(GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_admin_control_settings_singleton"),
+        CheckConstraint("management_mode IN ('manual', 'automatic')", name="ck_admin_control_mode"),
+        CheckConstraint(
+            "rate_limit_cooldown_seconds BETWEEN 10 AND 3600",
+            name="ck_admin_control_rate_limit_cooldown",
+        ),
+        CheckConstraint(
+            "circuit_breaker_failure_threshold BETWEEN 1 AND 20",
+            name="ck_admin_control_failure_threshold",
+        ),
+        CheckConstraint(
+            "circuit_breaker_cooldown_seconds BETWEEN 30 AND 86400",
+            name="ck_admin_control_circuit_cooldown",
+        ),
+    )
 
 
 class ProviderAccount(Base):

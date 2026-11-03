@@ -6,6 +6,7 @@ import random
 from typing import Optional
 
 from backend.app.models.admin import (
+    AdminControlSettings,
     CredentialHealthStatus,
     ProviderAccount,
     ProviderCredential,
@@ -55,6 +56,18 @@ class IntelligentRoutingEngine:
         if not provider:
             logger.warning(f"Provider {provider_name} is disabled or does not exist.")
             return None
+        if model_name and provider.supported_models and model_name not in provider.supported_models:
+            logger.warning("Requested model is not enabled for the configured provider.")
+            return None
+
+        control = (
+            await db.execute(select(AdminControlSettings).where(AdminControlSettings.id == 1))
+        ).scalar_one_or_none()
+        if control and control.emergency_stop:
+            logger.error("Provider routing blocked by the admin emergency stop.")
+            return None
+
+        automatic_mode = bool(control and control.management_mode == "automatic")
 
         # 2. Check global budget
         if provider.current_month_spend_usd >= provider.global_monthly_budget_usd:
@@ -76,6 +89,7 @@ class IntelligentRoutingEngine:
             return None
 
         # 4. Filter by health & cooldown
+        request_candidates: list[ProviderCredential] = []
         eligible: list[ProviderCredential] = []
         for cred in candidates:
             # Check model constraint
@@ -87,9 +101,11 @@ class IntelligentRoutingEngine:
             if cred.current_month_spend_usd >= cred.monthly_budget_usd:
                 continue
 
+            request_candidates.append(cred)
+
             # Auto-recover cooldown if time passed
             cred_cooling = _ensure_utc(cred.cooling_down_until)
-            if cred_cooling and cred_cooling <= now:
+            if automatic_mode and control and control.auto_recover_credentials and cred_cooling and cred_cooling <= now:
                 cred.cooling_down_until = None
                 cred.health_status = CredentialHealthStatus.HEALTHY.value
                 cred.consecutive_failures = 0
@@ -104,23 +120,40 @@ class IntelligentRoutingEngine:
             logger.warning(f"No eligible credentials in pool for provider {provider_name}")
             return None
 
-        # 5. Apply Routing Strategy
-        strategy = provider.default_routing_strategy
+        # Manual mode honors the configured priority but does not rotate to another key.
         selected: ProviderCredential
+        if not automatic_mode:
+            selected = max(eligible, key=lambda credential: credential.priority)
+            selected.last_used_at = now
+            selected.total_requests_served += 1
+            await db.commit()
+            return RoutingResolution(
+                credential=selected,
+                raw_secret=decrypt_credential_secret(selected.encrypted_secret),
+            )
 
-        if strategy == ProviderRoutingStrategy.ROUND_ROBIN.value:
+        # 5. Apply Routing Strategy
+        if control and not control.automatic_failover:
+            selected = max(request_candidates, key=lambda credential: credential.priority)
+            if selected not in eligible:
+                logger.warning("Automatic failover is disabled and the primary credential is unavailable.")
+                return None
+        elif provider.default_routing_strategy in (
+            ProviderRoutingStrategy.ROUND_ROBIN.value,
+            ProviderRoutingStrategy.LEAST_RECENTLY_USED.value,
+        ):
             # Order by least recently used
             eligible.sort(
                 key=lambda c: _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
             )
             selected = eligible[0]
 
-        elif strategy == ProviderRoutingStrategy.WEIGHTED.value:
+        elif provider.default_routing_strategy == ProviderRoutingStrategy.WEIGHTED.value:
             # Weighted random selection based on routing_weight
             weights = [max(c.routing_weight, 1) for c in eligible]
             selected = random.choices(eligible, weights=weights, k=1)[0]
 
-        elif strategy == ProviderRoutingStrategy.LOWEST_COST.value:
+        elif provider.default_routing_strategy == ProviderRoutingStrategy.LOWEST_COST.value:
             # Prefer credentials with lowest spend utilization ratio
             eligible.sort(key=lambda c: c.current_month_spend_usd / max(float(c.monthly_budget_usd), 1.0))
             selected = eligible[0]
@@ -158,19 +191,33 @@ class IntelligentRoutingEngine:
         if not cred:
             return
 
+        control = (
+            await db.execute(select(AdminControlSettings).where(AdminControlSettings.id == 1))
+        ).scalar_one_or_none()
+        if not control or control.management_mode != "automatic":
+            logger.warning("Credential failure observed in manual mode; no automatic health changes applied.")
+            return
+
+        if not control.auto_disable_unhealthy:
+            cred.consecutive_failures += 1
+            cred.last_error_reason = reason[:255]
+            cred.health_status = CredentialHealthStatus.DEGRADED.value
+            await db.commit()
+            return
+
         cred.consecutive_failures += 1
         cred.last_error_reason = reason[:255]
 
         if is_rate_limit:
             # 60s cooldown for 429 rate limits
             cred.health_status = CredentialHealthStatus.RATE_LIMITED.value
-            cred.cooling_down_until = now + datetime.timedelta(seconds=60)
-            logger.warning(f"Credential {cred.label} rate limited; cooling down for 60s.")
-        elif cred.consecutive_failures >= 3:
+            cred.cooling_down_until = now + datetime.timedelta(seconds=control.rate_limit_cooldown_seconds)
+            logger.warning("A provider credential was rate limited and placed on a temporary cooldown.")
+        elif cred.consecutive_failures >= control.circuit_breaker_failure_threshold:
             # Degrade or fail on consecutive errors
             cred.health_status = CredentialHealthStatus.FAILED.value
-            cred.cooling_down_until = now + datetime.timedelta(seconds=300)
-            logger.error(f"Credential {cred.label} reached 3 failures; circuit broken for 5m.")
+            cred.cooling_down_until = now + datetime.timedelta(seconds=control.circuit_breaker_cooldown_seconds)
+            logger.error("A provider credential exceeded its failure threshold and entered cooldown.")
         else:
             cred.health_status = CredentialHealthStatus.DEGRADED.value
 

@@ -8,10 +8,9 @@ expired/unauthorized credentials (401, 403), or provider server degradation (503
 import logging
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import httpx
-from backend.app.db.session import get_db_session
 from backend.app.models.admin import (
     AdminAuditLog,
     CredentialHealthStatus,
@@ -19,7 +18,7 @@ from backend.app.models.admin import (
     ProviderCredential,
 )
 from backend.app.services.vault import decrypt_credential_secret, encrypt_credential_secret
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("weirwise.token_manager")
@@ -28,72 +27,73 @@ logger = logging.getLogger("weirwise.token_manager")
 class TokenManager:
     """Smart Failover & Token Rotation Engine for external AI Provider APIs."""
 
+    VALIDATION_ENDPOINTS = {
+        "openai": ("https://api.openai.com/v1/models", "bearer"),
+        "anthropic": ("https://api.anthropic.com/v1/models", "anthropic"),
+        "gemini": ("https://generativelanguage.googleapis.com/v1beta/models", "google"),
+        "deepgram": ("https://api.deepgram.com/v1/projects", "deepgram"),
+        "jina": ("https://api.jina.ai/v1/models", "bearer"),
+        "openrouter": ("https://openrouter.ai/api/v1/auth/key", "bearer"),
+        "resend": ("https://api.resend.com/api-keys", "bearer"),
+    }
+
     @staticmethod
-    async def validate_jina_token(token: str) -> dict[str, Any]:
-        """Proactively validate a Jina AI API token against the live Jina API.
-
-        Queries the Reader/Embedding endpoint, verifies HTTP 200, and extracts
-        available token balance / usage limits.
-        """
-        clean_token = token.strip()
-        if not clean_token:
+    async def validate_provider_token(provider_name: str, token: str) -> dict[str, Any]:
+        """Validate a credential against its provider without exposing the secret."""
+        provider = provider_name.strip().lower().replace("_", "").replace("-", "").replace(" ", "")
+        if provider == "jinaai":
+            provider = "jina"
+        endpoint = TokenManager.VALIDATION_ENDPOINTS.get(provider)
+        if not token.strip():
             return {"valid": False, "error": "Empty token provided."}
+        if endpoint is None:
+            return {"valid": False, "error": "Provider validation is not supported."}
 
-        url = "https://r.jina.ai"
-        headers = {
-            "Authorization": f"Bearer {clean_token}",
-            "Accept": "application/json, text/plain",
-        }
+        url, auth_type = endpoint
+        headers = {"Accept": "application/json"}
+        if auth_type == "anthropic":
+            headers.update({"x-api-key": token.strip(), "anthropic-version": "2023-06-01"})
+        elif auth_type == "google":
+            headers["x-goog-api-key"] = token.strip()
+        elif auth_type == "deepgram":
+            headers["Authorization"] = f"Token {token.strip()}"
+        else:
+            headers["Authorization"] = f"Bearer {token.strip()}"
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(url, headers=headers)
-
-                if resp.status_code == 200:
-                    body_text = resp.text
-                    remaining_balance = "Active (Verified)"
-
-                    # 1. Check response headers for usage or rate limit details
-                    rate_limit_rem = resp.headers.get("x-ratelimit-remaining") or resp.headers.get("x-usage-tokens")
-                    if rate_limit_rem:
-                        remaining_balance = f"{rate_limit_rem} tokens remaining"
-                    else:
-                        # 2. Extract remaining balance pattern from Reader response if present
-                        # Look for patterns like "Remaining Tokens: 4,500,000" or "Balance: 10M"
-                        balance_match = re.search(r"(?:remaining|balance|tokens?):\s*([0-9.,]+[kKmMbB]?)", body_text, re.IGNORECASE)
-                        if balance_match:
-                            remaining_balance = f"{balance_match.group(1)} tokens left"
-
-                    return {
-                        "valid": True,
-                        "status_code": 200,
-                        "remaining_balance": remaining_balance,
-                    }
-
-                elif resp.status_code in (401, 403):
-                    return {
-                        "valid": False,
-                        "status_code": resp.status_code,
-                        "error": "Authentication failed: Invalid or expired API token.",
-                    }
-                elif resp.status_code == 429:
-                    return {
-                        "valid": False,
-                        "status_code": 429,
-                        "error": "Rate limited: API token has exhausted its quota.",
-                    }
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+                if provider == "jina":
+                    response = await client.post(
+                        "https://api.jina.ai/v1/embeddings",
+                        headers=headers,
+                        json={"model": "jina-embeddings-v3", "input": ["credential validation"]},
+                    )
                 else:
-                    return {
-                        "valid": False,
-                        "status_code": resp.status_code,
-                        "error": f"API responded with status {resp.status_code}.",
-                    }
-
+                    response = await client.get(url, headers=headers)
+            if response.is_success:
+                return {"valid": True, "status_code": response.status_code, "remaining_balance": None}
+            if response.status_code in (401, 403):
+                return {"valid": False, "status_code": response.status_code, "error": "Invalid or expired API token."}
+            if response.status_code == 429:
+                return {
+                    "valid": False,
+                    "status_code": 429,
+                    "error": "Provider rate limit reached; retry validation later.",
+                }
+            return {
+                "valid": False,
+                "status_code": response.status_code,
+                "error": f"Provider validation returned HTTP {response.status_code}.",
+            }
         except httpx.TimeoutException:
-            return {"valid": False, "error": "Jina API validation timed out."}
-        except Exception as e:
-            logger.error(f"Failed to validate Jina token: {e!s}")
-            return {"valid": False, "error": f"Connection error: {e!s}"}
+            return {"valid": False, "error": "Provider validation timed out."}
+        except httpx.RequestError:
+            logger.warning("Provider credential validation could not reach the provider endpoint.")
+            return {"valid": False, "error": "Provider validation service is unavailable."}
+
+    @staticmethod
+    async def validate_jina_token(token: str) -> dict[str, Any]:
+        return await TokenManager.validate_provider_token("jina", token)
 
     @staticmethod
     async def validate_and_save_provider_tokens(
@@ -108,15 +108,17 @@ class TokenManager:
         and updates the encrypted credentials pool in PostgreSQL.
         """
         # 1. Resolve or create provider account
-        res = await db.execute(
-            select(ProviderAccount).where(ProviderAccount.provider_name == provider_name.lower())
-        )
+        res = await db.execute(select(ProviderAccount).where(ProviderAccount.provider_name == provider_name.lower()))
         provider = res.scalar_one_or_none()
         if not provider:
             display_names = {
                 "jina": "Jina AI Embeddings",
                 "openai": "OpenAI LLM",
+                "anthropic": "Anthropic Claude",
+                "gemini": "Google Gemini",
                 "deepgram": "Deepgram Speech",
+                "openrouter": "OpenRouter",
+                "resend": "Resend Email",
             }
             provider = ProviderAccount(
                 provider_name=provider_name.lower(),
@@ -128,31 +130,20 @@ class TokenManager:
 
         # 2. Parse input tokens (one per line, comma, or semicolon)
         tokens = [
-            t.strip()
-            for t in re.split(r"[\n,;]+", raw_tokens_text)
-            if t.strip() and not t.strip().startswith("#")
+            t.strip() for t in re.split(r"[\n,;]+", raw_tokens_text) if t.strip() and not t.strip().startswith("#")
         ]
 
         results = []
         for idx, token in enumerate(tokens):
             val_res: dict[str, Any] = {"token_prefix": f"{token[:6]}...{token[-4:]}" if len(token) > 10 else "..."}
 
-            # Proactive verification for Jina AI
-            if provider_name.lower() in ("jina", "jina_ai", "jinaai"):
-                validation = await TokenManager.validate_jina_token(token)
-                is_valid = validation.get("valid", False)
-                balance = validation.get("remaining_balance", "Unknown")
-                health = CredentialHealthStatus.HEALTHY.value if is_valid else CredentialHealthStatus.FAILED.value
-                val_res["status"] = "active" if is_valid else "error"
-                val_res["remaining_balance"] = balance
-                val_res["error"] = validation.get("error")
-            else:
-                # Generic fallback for OpenAI/Deepgram
-                is_valid = len(token) > 8
-                health = CredentialHealthStatus.HEALTHY.value
-                balance = "Active"
-                val_res["status"] = "active" if is_valid else "error"
-                val_res["remaining_balance"] = balance
+            validation = await TokenManager.validate_provider_token(provider_name, token)
+            is_valid = validation.get("valid", False)
+            balance = validation.get("remaining_balance")
+            health = CredentialHealthStatus.HEALTHY.value if is_valid else CredentialHealthStatus.FAILED.value
+            val_res["status"] = "active" if is_valid else "error"
+            val_res["remaining_balance"] = balance
+            val_res["error"] = validation.get("error")
 
             # Encrypt and persist
             encrypted_secret, secret_hash, key_prefix = encrypt_credential_secret(token)
@@ -215,9 +206,7 @@ class TokenManager:
         If a rate limit (429) or auth error (401, 403) is caught, immediately
         degrades the failing token and rotates to the next available token.
         """
-        res = await db.execute(
-            select(ProviderAccount).where(ProviderAccount.provider_name == provider_name.lower())
-        )
+        res = await db.execute(select(ProviderAccount).where(ProviderAccount.provider_name == provider_name.lower()))
         provider = res.scalar_one_or_none()
         if not provider:
             raise RuntimeError(f"No configured provider account for '{provider_name}'.")
@@ -252,9 +241,7 @@ class TokenManager:
 
             except httpx.HTTPStatusError as e:
                 status_code = e.response.status_code
-                logger.warning(
-                    f"Token {cred.key_prefix} failed with HTTP {status_code}: {e!s}. Initiating failover..."
-                )
+                logger.warning(f"Token {cred.key_prefix} failed with HTTP {status_code}: {e!s}. Initiating failover...")
                 cred.consecutive_failures += 1
                 if status_code in (401, 403):
                     cred.health_status = CredentialHealthStatus.FAILED.value

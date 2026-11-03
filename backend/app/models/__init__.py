@@ -3,6 +3,7 @@
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from backend.app.models.admin import (
     AdminAuditLog,
+    AdminControlSettings,
     AdminRole,
     AdminUserRole,
     CredentialHealthStatus,
@@ -57,6 +58,7 @@ from backend.app.models.project import (
 
 __all__ = [
     "AdminAuditLog",
+    "AdminControlSettings",
     "AdminRole",
     "AdminUserRole",
     "AIRoutingStrategy",

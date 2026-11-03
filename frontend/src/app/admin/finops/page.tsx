@@ -17,14 +17,17 @@ import { Button } from "@/components/ui/button";
 export default function AdminFinOpsPage() {
   const [finops, setFinops] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.getFinOpsSummary();
       setFinops(data);
     } catch (err) {
-      console.error(err);
+      setFinops(null);
+      setError(err instanceof Error ? err.message : "Failed to load FinOps data.");
     } finally {
       setLoading(false);
     }
@@ -75,12 +78,19 @@ export default function AdminFinOpsPage() {
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Financial Top KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
           <span className="text-xs text-muted-foreground font-medium">Total Billed Revenue</span>
           <div className="text-2xl font-bold font-mono text-foreground">
-            ${finops ? finops.total_revenue_usd.toFixed(2) : "0.00"}
+            {finops ? `$${finops.total_revenue_usd.toFixed(2)}` : loading ? "Loading..." : "Unavailable"}
           </div>
           <span className="text-[11px] text-muted-foreground">Invoiced customer subscriptions</span>
         </div>
@@ -88,7 +98,7 @@ export default function AdminFinOpsPage() {
         <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
           <span className="text-xs text-muted-foreground font-medium">Total AI Compute Spend</span>
           <div className="text-2xl font-bold font-mono text-primary">
-            ${finops ? finops.total_cost_usd.toFixed(4) : "0.0000"}
+            {finops ? `$${finops.total_cost_usd.toFixed(4)}` : loading ? "Loading..." : "Unavailable"}
           </div>
           <span className="text-[11px] text-muted-foreground">Provider micro-billing ledger</span>
         </div>
@@ -96,7 +106,7 @@ export default function AdminFinOpsPage() {
         <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
           <span className="text-xs text-muted-foreground font-medium">Gross Operating Profit</span>
           <div className="text-2xl font-bold font-mono text-emerald-500">
-            ${finops ? finops.gross_profit_usd.toFixed(2) : "0.00"}
+            {finops ? `$${finops.gross_profit_usd.toFixed(2)}` : loading ? "Loading..." : "Unavailable"}
           </div>
           <span className="text-[11px] text-muted-foreground">Revenue minus AI compute cost</span>
         </div>
@@ -104,7 +114,7 @@ export default function AdminFinOpsPage() {
         <div className="p-5 rounded-xl border border-border bg-card shadow-sm space-y-2">
           <span className="text-xs text-muted-foreground font-medium">Gross Margin</span>
           <div className="text-2xl font-bold font-mono text-emerald-500">
-            {finops ? `${finops.gross_margin_pct}%` : "0%"}
+            {finops ? `${finops.gross_margin_pct}%` : loading ? "Loading..." : "Unavailable"}
           </div>
           <span className="text-[11px] text-muted-foreground">Unit economics efficiency</span>
         </div>
@@ -116,7 +126,11 @@ export default function AdminFinOpsPage() {
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <PieChart className="h-4 w-4 text-primary" /> Cost by Provider
           </h3>
-          {finops && Object.keys(finops.cost_by_provider).length > 0 ? (
+          {loading ? (
+            <p className="p-4 text-center text-xs text-muted-foreground">Loading provider cost data...</p>
+          ) : error ? (
+            <p className="p-4 text-center text-xs text-muted-foreground">Provider cost data is unavailable.</p>
+          ) : finops && Object.keys(finops.cost_by_provider).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(finops.cost_by_provider).map(([provider, cost]) => (
                 <div key={provider} className="flex justify-between p-2.5 rounded-lg border border-border bg-secondary/20 text-xs font-mono">
@@ -134,7 +148,11 @@ export default function AdminFinOpsPage() {
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" /> Tokens by Provider
           </h3>
-          {finops && Object.keys(finops.tokens_by_provider).length > 0 ? (
+          {loading ? (
+            <p className="p-4 text-center text-xs text-muted-foreground">Loading provider token data...</p>
+          ) : error ? (
+            <p className="p-4 text-center text-xs text-muted-foreground">Provider token data is unavailable.</p>
+          ) : finops && Object.keys(finops.tokens_by_provider).length > 0 ? (
             <div className="space-y-2">
               {Object.entries(finops.tokens_by_provider).map(([provider, tokens]) => (
                 <div key={provider} className="flex justify-between p-2.5 rounded-lg border border-border bg-secondary/20 text-xs font-mono">

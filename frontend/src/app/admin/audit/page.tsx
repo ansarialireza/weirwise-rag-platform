@@ -16,15 +16,18 @@ import { Button } from "@/components/ui/button";
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState("");
 
   const loadLogs = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await api.getAdminAuditLogs(100);
       setLogs(data);
     } catch (err) {
-      console.error(err);
+      setLogs([]);
+      setError(err instanceof Error ? err.message : "Failed to load audit records.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +71,7 @@ export default function AdminAuditPage() {
           <input
             type="text"
             placeholder="Search by action, email, or entity..."
+            aria-label="Search audit events by action, email, or entity"
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="w-full rounded-xl border border-border bg-input pl-9 pr-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
@@ -84,7 +88,16 @@ export default function AdminAuditPage() {
           <span className="text-[10px] font-mono text-muted-foreground uppercase">Tamper-Resistant</span>
         </div>
 
-        {filteredLogs.length === 0 ? (
+        {loading && logs.length === 0 ? (
+          <div className="p-8 text-center text-xs text-muted-foreground" aria-live="polite">
+            Loading administrative audit records...
+          </div>
+        ) : error ? (
+          <div role="alert" className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            <Activity className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        ) : filteredLogs.length === 0 ? (
           <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
             <Shield className="h-6 w-6 text-muted-foreground/50 mx-auto" />
             <p>No administrative audit records found matching query.</p>

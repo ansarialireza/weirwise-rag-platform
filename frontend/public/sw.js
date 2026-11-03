@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weirwise-pwa-v1';
+const CACHE_NAME = 'weirwise-pwa-v2';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [
@@ -8,8 +8,6 @@ const PRECACHE_ASSETS = [
   '/favicon.svg',
   '/weirwise-app-icon.svg',
   '/weirwise-symbol.svg',
-  '/icon-192.png',
-  '/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

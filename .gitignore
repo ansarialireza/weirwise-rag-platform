@@ -36,6 +36,8 @@ htmlcov/
 .env
 .env.*
 !.env.example
+/token/
+/tokens/
 
 # Node / Frontend
 node_modules/

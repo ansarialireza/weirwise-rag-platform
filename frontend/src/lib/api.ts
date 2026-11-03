@@ -307,6 +307,23 @@ class ApiClient {
     return this.request<any>("/admin/metrics");
   }
 
+  async getAdminAccess(): Promise<{ is_admin: boolean; role: string }> {
+    return this.request<{ is_admin: boolean; role: string }>("/admin/access");
+  }
+
+  async getAdminControlSettings(): Promise<AdminControlSettings> {
+    return this.request<AdminControlSettings>("/admin/operations/settings");
+  }
+
+  async updateAdminControlSettings(
+    settings: Partial<Omit<AdminControlSettings, "id" | "updated_by" | "updated_at">>
+  ): Promise<AdminControlSettings> {
+    return this.request<AdminControlSettings>("/admin/operations/settings", {
+      method: "PATCH",
+      body: JSON.stringify(settings),
+    });
+  }
+
   async getAdminStats(): Promise<{
     active_users: number;
     total_users: number;
@@ -319,8 +336,10 @@ class ApiClient {
     return this.request<any>("/admin/stats");
   }
 
-  async getAdminUsers(limit = 100, offset = 0): Promise<any[]> {
-    return this.request<any[]>(`/admin/users?limit=${limit}&offset=${offset}`);
+  async getAdminUsers(limit = 100, offset = 0, query = ""): Promise<any[]> {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (query.trim()) params.set("q", query.trim());
+    return this.request<any[]>(`/admin/users?${params.toString()}`);
   }
 
   async toggleAdminUserStatus(userId: string, isActive: boolean): Promise<any> {
@@ -334,19 +353,36 @@ class ApiClient {
     return this.request<any[]>(`/admin/activity?limit=${limit}`);
   }
 
-  async getAdminProviders(): Promise<any[]> {
-    return this.request<any[]>("/admin/providers");
+  async getAdminProviders(): Promise<AdminProviderAccount[]> {
+    return this.request<AdminProviderAccount[]>("/admin/providers");
   }
 
   async createAdminProvider(data: {
     provider_name: string;
     display_name: string;
+    is_enabled?: boolean;
     default_routing_strategy?: string;
     global_monthly_budget_usd?: number;
     supported_models?: string[];
-  }): Promise<any> {
-    return this.request<any>("/admin/providers", {
+  }): Promise<AdminProviderAccount> {
+    return this.request<AdminProviderAccount>("/admin/providers", {
       method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminProvider(
+    providerId: string,
+    data: {
+      display_name?: string;
+      is_enabled?: boolean;
+      default_routing_strategy?: string;
+      global_monthly_budget_usd?: number;
+      supported_models?: string[];
+    }
+  ): Promise<AdminProviderAccount> {
+    return this.request<AdminProviderAccount>(`/admin/providers/${providerId}`, {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -362,8 +398,11 @@ class ApiClient {
     });
   }
 
-  async saveProviderTokens(provider_name: string, tokens_raw: string): Promise<any> {
-    return this.request<any>("/admin/providers/save-tokens", {
+  async saveProviderTokens(
+    provider_name: string,
+    tokens_raw: string
+  ): Promise<{ status: string; tokens: Array<{ id: string; status: "active" | "error"; error?: string }> }> {
+    return this.request("/admin/providers/save-tokens", {
       method: "POST",
       body: JSON.stringify({ provider_name, tokens_raw }),
     });
@@ -391,6 +430,13 @@ class ApiClient {
     });
   }
 
+  async updateAdminCredentialStatus(credentialId: string, isActive: boolean): Promise<any> {
+    return this.request<any>(`/admin/credentials/${credentialId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_active: isActive }),
+    });
+  }
+
   async getFinOpsSummary(): Promise<any> {
     return this.request<any>("/admin/finops/summary");
   }
@@ -402,3 +448,30 @@ class ApiClient {
 
 export const api = new ApiClient();
 export { ApiError };
+
+export interface AdminControlSettings {
+  id: number;
+  management_mode: "manual" | "automatic";
+  emergency_stop: boolean;
+  automatic_failover: boolean;
+  auto_disable_unhealthy: boolean;
+  auto_recover_credentials: boolean;
+  rate_limit_cooldown_seconds: number;
+  circuit_breaker_failure_threshold: number;
+  circuit_breaker_cooldown_seconds: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface AdminProviderAccount {
+  id: string;
+  provider_name: string;
+  display_name: string;
+  is_enabled: boolean;
+  default_routing_strategy: string;
+  global_monthly_budget_usd: number;
+  current_month_spend_usd: number;
+  supported_models: string[];
+  created_at: string;
+  updated_at: string;
+}

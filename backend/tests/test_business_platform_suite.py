@@ -40,6 +40,7 @@ def auth_context():
 
     # Create workspace & project
     ws = client.post("/api/v1/workspaces", headers=headers, json={"name": f"Org {uid}"}).json()
+    assert "id" in ws, ws
     proj = client.post(f"/api/v1/workspaces/{ws['id']}/projects", headers=headers, json={"name": f"Proj {uid}"}).json()
 
     return {

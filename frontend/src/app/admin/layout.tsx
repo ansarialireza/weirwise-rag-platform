@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   ShieldAlert,
-  Server,
   DollarSign,
   Cpu,
   History,
@@ -14,8 +13,11 @@ import {
   Activity,
   LogOut,
   Users,
+  SlidersHorizontal,
 } from "lucide-react";
 import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
+import { api } from "@/lib/api";
+import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
 
 export default function AdminLayout({
   children,
@@ -25,18 +27,35 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+  const [accessLoading, setAccessLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push("/login");
-      } else if (!user.is_superuser) {
-        router.push("/");
-      }
+    if (authLoading) return;
+    if (!user) {
+      router.replace("/login");
+      setAccessLoading(false);
+      return;
     }
+
+    let active = true;
+    api.getAdminAccess()
+      .then(({ role }) => {
+        if (active) setAdminRole(role);
+      })
+      .catch(() => {
+        if (active) router.replace("/");
+      })
+      .finally(() => {
+        if (active) setAccessLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [user, authLoading, router]);
 
-  if (authLoading || !user || !user.is_superuser) {
+  if (authLoading || accessLoading || !user || !adminRole) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -50,21 +69,18 @@ export default function AdminLayout({
       href: "/admin",
       icon: Activity,
     },
-    {
-      name: "User Management",
-      href: "/admin/users",
-      icon: Users,
-    },
-    {
-      name: "System AI Providers",
-      href: "/admin/providers",
-      icon: Cpu,
-    },
-    {
-      name: "FinOps & Costs",
-      href: "/admin/finops",
-      icon: DollarSign,
-    },
+    ...(adminRole === "super_admin"
+      ? [{ name: "User Management", href: "/admin/users", icon: Users }]
+      : []),
+    ...(["super_admin", "platform_admin"].includes(adminRole)
+      ? [{ name: "System AI Providers", href: "/admin/providers", icon: Cpu }]
+      : []),
+    ...(adminRole === "super_admin"
+      ? [{ name: "Operations", href: "/admin/operations", icon: SlidersHorizontal }]
+      : []),
+    ...(["super_admin", "platform_admin", "finance_admin"].includes(adminRole)
+      ? [{ name: "FinOps & Costs", href: "/admin/finops", icon: DollarSign }]
+      : []),
     {
       name: "Security & Audit Trail",
       href: "/admin/audit",
@@ -73,19 +89,20 @@ export default function AdminLayout({
   ];
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground antialiased overflow-hidden">
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground antialiased md:flex-row">
       {/* Super Admin High-Security Sidebar */}
-      <aside className="w-64 border-r border-border bg-card flex flex-col justify-between shrink-0">
+      <aside className="flex w-full shrink-0 flex-col justify-between border-b border-border bg-card md:h-full md:w-64 md:border-b-0 md:border-r">
         <div>
           {/* Header */}
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2.5">
+              <WeirwiseWordmark className="w-20" />
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 border border-red-500/30 text-red-500">
                 <ShieldAlert className="h-4 w-4" />
               </div>
               <div>
                 <span className="font-bold text-xs tracking-tight text-foreground block">
-                  SUPER ADMIN
+                  {adminRole.replaceAll("_", " ").toUpperCase()}
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
                   Control Center
@@ -102,7 +119,7 @@ export default function AdminLayout({
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1">
+          <nav className="flex gap-1 overflow-x-auto p-2 md:block md:space-y-1 md:p-3">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
@@ -110,7 +127,7 @@ export default function AdminLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                  className={`flex min-w-max items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                     isActive
                       ? "bg-primary/10 text-primary border border-primary/20 font-semibold"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -126,7 +143,7 @@ export default function AdminLayout({
 
         {/* Footer: Security context and admin user */}
         <div
-          className="p-3 border-t border-border space-y-2.5 bg-secondary/20"
+          className="flex flex-col items-stretch gap-2 border-t border-border bg-secondary/20 p-2 md:block md:space-y-2.5 md:p-3"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
           <div className="flex items-center justify-between">
@@ -161,7 +178,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Administrative Work Canvas */}
-      <main className="flex-1 overflow-y-auto bg-background/50">
+      <main className="min-h-0 flex-1 overflow-y-auto bg-background/50">
         {children}
       </main>
     </div>

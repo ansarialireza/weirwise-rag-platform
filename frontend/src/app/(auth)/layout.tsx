@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { Shield, Sparkles, CheckCircle2, Lock, ArrowUpRight } from "lucide-react";
 
@@ -15,7 +15,7 @@ export default function AuthLayout({
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 xl:p-16 bg-card border-r border-border select-none overflow-hidden">
         {/* Subtle Ambient Background Gradients */}
         <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#2563FF]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-brand-secondary/10 rounded-full blur-3xl pointer-events-none" />
         
         {/* Geometric Background Grid Pattern */}
         <div 
@@ -28,12 +28,8 @@ export default function AuthLayout({
 
         {/* Top Header: Logo & Product Tag */}
         <div className="relative z-10 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <WeirwiseSymbol className="h-8 w-auto transition-transform group-hover:scale-105" priority />
-            <span className="font-bold text-xl tracking-tight text-foreground flex items-center gap-1.5 font-sans">
-              Weirwise
-              <span className="inline-block h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-            </span>
+          <Link href="/" className="inline-flex items-center transition-transform group-hover:scale-[1.02]">
+            <WeirwiseWordmark className="w-40" priority />
           </Link>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-mono text-muted-foreground backdrop-blur-xs">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -107,12 +103,8 @@ export default function AuthLayout({
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 relative overflow-y-auto">
         {/* Mobile Header: Logo & Theme Switcher */}
         <div className="flex items-center justify-between w-full max-w-md mx-auto mb-6">
-          <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 group">
-            <WeirwiseSymbol className="h-7 w-auto" priority />
-            <span className="font-bold text-base tracking-tight text-foreground flex items-center gap-1.5">
-              Weirwise
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-            </span>
+          <Link href="/" className="lg:hidden inline-flex items-center">
+            <WeirwiseWordmark className="w-32" priority />
           </Link>
           <div className="ml-auto flex items-center gap-2">
             <ThemeSwitcher />

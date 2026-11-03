@@ -109,6 +109,7 @@ def test_cross_tenant_resource_isolation_two_users():
         json={"email": email_a, "password": "Password123!", "full_name": "User A"},
     )
     l_res_a = client.post("/api/v1/auth/login", json={"email": email_a, "password": "Password123!"})
+    assert l_res_a.status_code == 200, l_res_a.text
     tok_a = l_res_a.json()["access_token"]
     headers_a = {"Authorization": f"Bearer {tok_a}"}
 
@@ -138,6 +139,7 @@ def test_cross_tenant_resource_isolation_two_users():
         json={"email": email_b, "password": "Password123!", "full_name": "User B"},
     )
     l_res_b = client.post("/api/v1/auth/login", json={"email": email_b, "password": "Password123!"})
+    assert l_res_b.status_code == 200, l_res_b.text
     tok_b = l_res_b.json()["access_token"]
     headers_b = {"Authorization": f"Bearer {tok_b}"}
 
@@ -163,7 +165,7 @@ def test_cross_tenant_resource_isolation_two_users():
 
     # 7. User B attempts to access User A's billing status
     bill_res = client.get(f"/api/v1/workspaces/{ws_id_a}/billing", headers=headers_b)
-    assert bill_res.status_code in (403, 404)
+    assert bill_res.status_code in (403, 404), bill_res.text
 
     # 8. User B attempts to change User A's billing plan
     change_res = client.post(

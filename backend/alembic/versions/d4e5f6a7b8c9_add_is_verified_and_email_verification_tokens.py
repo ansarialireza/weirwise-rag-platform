@@ -10,6 +10,7 @@ import uuid
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -33,7 +34,13 @@ def upgrade() -> None:
     op.create_table(
         "email_verification_tokens",
         sa.Column("id", sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
-        sa.Column("user_id", sa.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column(
+            "user_id",
+            sa.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
         sa.Column("token_hash", sa.String(length=64), unique=True, nullable=False, index=True),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("is_used", sa.Boolean(), nullable=False, server_default="false"),

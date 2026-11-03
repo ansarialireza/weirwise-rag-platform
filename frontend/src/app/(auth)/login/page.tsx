@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,26 @@ export default function LoginPage() {
       const user = await api.getMe();
       login(res.access_token, user);
 
+      if (user.is_superuser) {
+        router.push("/admin");
+        return;
+      }
+
+      try {
+        const adminAccess = await api.getAdminAccess();
+        if (adminAccess.is_admin) {
+          router.push("/admin");
+          return;
+        }
+      } catch (accessError) {
+        if (!(accessError instanceof ApiError) || accessError.status !== 403) {
+          throw accessError;
+        }
+      }
+
       const workspaces = await api.getWorkspaces();
       if (workspaces.length > 0) {
         router.push(`/workspaces/${workspaces[0].id}`);
-      } else if (user.is_superuser) {
-        router.push("/admin");
       } else {
         router.push("/");
       }

@@ -101,19 +101,16 @@ def upgrade() -> None:
     )
 
     # 5. Add subscription_tier_id foreign key column to workspaces table
-    op.add_column(
-        "workspaces",
-        sa.Column("subscription_tier_id", sa.UUID(as_uuid=True), nullable=True),
-    )
-    op.create_foreign_key(
-        "fk_workspaces_subscription_tier_id",
-        "workspaces",
-        "subscription_tiers",
-        ["subscription_tier_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_index("ix_workspaces_subscription_tier_id", "workspaces", ["subscription_tier_id"])
+    with op.batch_alter_table("workspaces") as batch_op:
+        batch_op.add_column(sa.Column("subscription_tier_id", sa.UUID(as_uuid=True), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_workspaces_subscription_tier_id",
+            "subscription_tiers",
+            ["subscription_tier_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch_op.create_index("ix_workspaces_subscription_tier_id", ["subscription_tier_id"])
 
     # Backfill existing workspaces with Free Trial tier
     op.execute(
@@ -124,16 +121,22 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     ws_cols = [c["name"] for c in inspector.get_columns("workspaces")]
-    if "promotional_credit_balance" in ws_cols:
-        op.drop_column("workspaces", "promotional_credit_balance")
-    if "fiat_spend_balance" in ws_cols:
-        op.drop_column("workspaces", "fiat_spend_balance")
+    workspace_columns_to_drop = [
+        column for column in ("promotional_credit_balance", "fiat_spend_balance") if column in ws_cols
+    ]
+    if workspace_columns_to_drop:
+        with op.batch_alter_table("workspaces") as batch_op:
+            for column in workspace_columns_to_drop:
+                batch_op.drop_column(column)
 
     ledger_cols = [c["name"] for c in inspector.get_columns("admin_token_cost_ledger")]
-    if "covered_by_promotional_credit" in ledger_cols:
-        op.drop_column("admin_token_cost_ledger", "covered_by_promotional_credit")
-    if "covered_by_fiat" in ledger_cols:
-        op.drop_column("admin_token_cost_ledger", "covered_by_fiat")
+    ledger_columns_to_drop = [
+        column for column in ("covered_by_promotional_credit", "covered_by_fiat") if column in ledger_cols
+    ]
+    if ledger_columns_to_drop:
+        with op.batch_alter_table("admin_token_cost_ledger") as batch_op:
+            for column in ledger_columns_to_drop:
+                batch_op.drop_column(column)
 
 
 def downgrade() -> None:
@@ -156,9 +159,10 @@ def downgrade() -> None:
     )
 
     # 2. Drop subscription_tier_id from workspaces
-    op.drop_constraint("fk_workspaces_subscription_tier_id", "workspaces", type_="foreignkey")
-    op.drop_index("ix_workspaces_subscription_tier_id", table_name="workspaces")
-    op.drop_column("workspaces", "subscription_tier_id")
+    with op.batch_alter_table("workspaces") as batch_op:
+        batch_op.drop_constraint("fk_workspaces_subscription_tier_id", type_="foreignkey")
+        batch_op.drop_index("ix_workspaces_subscription_tier_id")
+        batch_op.drop_column("subscription_tier_id")
 
     # 3. Drop tables
     op.drop_table("ai_routing_strategies")

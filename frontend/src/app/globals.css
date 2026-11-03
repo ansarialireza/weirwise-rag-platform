@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark Theme (Default) - Weirwise Onyx Charcoal */
+  /* Dark Theme (Default) - graphite, silver, white, and cyan */
   :root,
   .dark {
     --background: 240 10% 4%;        /* #090A0C */
@@ -14,13 +14,13 @@
     --popover-foreground: 0 0% 98%;
     --primary: 0 0% 98%;              /* Clean solid primary white for dark backgrounds */
     --primary-foreground: 240 10% 4%; /* Crisp dark text on primary button */
-    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue */
+    --brand-secondary: 187 62% 57%;   /* #46C7D6 Cyan */
     --brand-secondary-foreground: 0 0% 100%;
     --secondary: 220 18% 16%;         /* #222731 */
     --secondary-foreground: 0 0% 94%;
     --muted: 225 15% 12%;             /* #171A22 */
     --muted-foreground: 220 15% 69%;  /* #A3ACBD (>8.2:1 WCAG AAA) */
-    --accent: 223 100% 57%;
+    --accent: 187 62% 57%;
     --accent-foreground: 0 0% 100%;
     --destructive: 4 90% 58%;         /* #FF453A */
     --destructive-foreground: 0 0% 100%;
@@ -29,10 +29,10 @@
     --ring: 0 0% 98%;
     --radius: 0.5rem;
     --brand-glow: rgba(255, 255, 255, 0.08);
-    --brand-glow-secondary: rgba(37, 99, 255, 0.18);
+    --brand-glow-secondary: rgba(70, 199, 214, 0.14);
   }
 
-  /* Light Theme - Soft neutral off-white surfaces, crisp typography */
+  /* Light Theme - white, silver, graphite, and accessible cyan */
   .light {
     --background: 220 14% 96%;        /* #F3F4F6 */
     --foreground: 240 10% 4%;         /* #090A0C Onyx */
@@ -42,13 +42,13 @@
     --popover-foreground: 240 10% 4%;
     --primary: 240 10% 4%;            /* #090A0C Onyx solid */
     --primary-foreground: 0 0% 98%;   /* White text on dark button */
-    --brand-secondary: 223 100% 57%;  /* #2563FF */
+    --brand-secondary: 190 100% 28%;  /* #007E91 */
     --brand-secondary-foreground: 0 0% 100%;
     --secondary: 220 13% 91%;         /* #E2E8F0 */
     --secondary-foreground: 240 10% 4%;
     --muted: 220 14% 92%;             /* #E5E7EB */
     --muted-foreground: 215 16% 37%;  /* #505D6E (>7:1) */
-    --accent: 223 100% 57%;
+    --accent: 190 100% 28%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 56%;         /* #DC2626 */
     --destructive-foreground: 0 0% 100%;
@@ -57,7 +57,7 @@
     --ring: 240 10% 4%;
     --radius: 0.5rem;
     --brand-glow: rgba(9, 10, 12, 0.08);
-    --brand-glow-secondary: rgba(37, 99, 255, 0.12);
+    --brand-glow-secondary: rgba(0, 126, 145, 0.12);
   }
 }
 

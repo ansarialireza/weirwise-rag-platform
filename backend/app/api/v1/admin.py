@@ -1,31 +1,43 @@
 """Super Admin API endpoints for Executive Control, AI Credentials, FinOps, and Auditing."""
 
 import uuid
-from typing import List
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import List, Optional
 
 from backend.app.api.admin_deps import require_admin_role, require_admin_user
 from backend.app.db.session import get_db_session
 from backend.app.models.admin import (
     AdminAuditLog,
+    AdminControlSettings,
     AdminRole,
+    AdminUserRole,
     FinancialInvoice,
     ProviderAccount,
     ProviderCredential,
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
-from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier, User, Workspace
+from backend.app.models.auth import AIRoutingStrategy, Membership, SubscriptionTier, User, Workspace
 from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.admin import (
+    AdminAccessResponse,
     AdminAuditLogResponse,
+    AdminControlSettingsResponse,
+    AdminControlSettingsUpdate,
+    AdminUserStatusUpdate,
     AIRoutingStrategyCreate,
     AIRoutingStrategyResponse,
     AIRoutingStrategyUpdate,
     CredentialCreate,
     CredentialResponse,
+    CredentialStatusUpdate,
     FinOpsSummaryResponse,
     ProviderAccountCreate,
     ProviderAccountResponse,
+    ProviderAccountUpdate,
+    ProviderTokensSaveRequest,
+    ProviderTokenValidationRequest,
     SubscriptionTierCreate,
     SubscriptionTierResponse,
     SubscriptionTierUpdate,
@@ -33,10 +45,72 @@ from backend.app.schemas.admin import (
 )
 from backend.app.services.vault import encrypt_credential_secret
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/admin", tags=["Super Admin Control Center"])
+
+
+@router.get("/access", response_model=AdminAccessResponse)
+async def get_admin_access(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AdminAccessResponse:
+    if current_admin.is_superuser:
+        return AdminAccessResponse(is_admin=True, role=AdminRole.SUPER_ADMIN.value)
+
+    role_assignment = (
+        await db.execute(select(AdminUserRole).where(AdminUserRole.user_id == current_admin.id))
+    ).scalar_one_or_none()
+    if role_assignment is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+    return AdminAccessResponse(is_admin=True, role=role_assignment.role)
+
+
+async def _get_control_settings(db: AsyncSession) -> AdminControlSettings:
+    settings = (await db.execute(select(AdminControlSettings).where(AdminControlSettings.id == 1))).scalar_one_or_none()
+    if settings is None:
+        settings = AdminControlSettings(id=1)
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
+@router.get("/operations/settings", response_model=AdminControlSettingsResponse)
+async def get_admin_control_settings(
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AdminControlSettings:
+    return await _get_control_settings(db)
+
+
+@router.patch("/operations/settings", response_model=AdminControlSettingsResponse)
+async def update_admin_control_settings(
+    payload: AdminControlSettingsUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> AdminControlSettings:
+    settings = await _get_control_settings(db)
+    updates = payload.model_dump(exclude_unset=True)
+    before = {key: getattr(settings, key) for key in updates}
+    for key, value in updates.items():
+        setattr(settings, key, value)
+    settings.updated_by = current_admin.id
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="admin.operations.settings_updated",
+        target_entity="admin_control_settings",
+        target_id="1",
+        details={"before": before, "after": updates},
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(settings)
+    return settings
 
 
 @router.get("/metrics", response_model=SystemMetricsResponse)
@@ -55,12 +129,25 @@ async def get_system_metrics(
 
     # Token and AI Cost ledger metrics
     tokens_res = (await db.execute(select(func.sum(TokenCostLedger.total_tokens)))).scalar() or 0
-    cost_res = float((await db.execute(select(func.sum(TokenCostLedger.cost_usd)))).scalar() or 0.0)
+    now = datetime.now(UTC)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    cost_res = float(
+        (
+            await db.execute(
+                select(func.sum(TokenCostLedger.cost_usd)).where(TokenCostLedger.created_at >= month_start)
+            )
+        ).scalar()
+        or 0.0
+    )
 
-    # Invoiced Revenue metrics
+    # Current recurring revenue is based on active workspaces' persisted subscription tier.
     revenue_res = float(
         (
-            await db.execute(select(func.sum(FinancialInvoice.amount_usd)).where(FinancialInvoice.status == "paid"))
+            await db.execute(
+                select(func.sum(SubscriptionTier.monthly_price))
+                .join(Workspace, Workspace.subscription_tier_id == SubscriptionTier.id)
+                .where(Workspace.is_active.is_(True))
+            )
         ).scalar()
         or 0.0
     )
@@ -68,7 +155,30 @@ async def get_system_metrics(
     # Calculate Gross Margin
     gross_margin = 0.0
     if revenue_res > 0:
-        gross_margin = max(0.0, ((revenue_res - cost_res) / revenue_res) * 100.0)
+        gross_margin = ((revenue_res - cost_res) / revenue_res) * 100.0
+
+    active_credentials = (
+        await db.execute(
+            select(func.count(ProviderCredential.id)).where(
+                ProviderCredential.is_active.is_(True),
+                ProviderCredential.health_status.in_(("healthy", "degraded")),
+            )
+        )
+    ).scalar() or 0
+    has_failed_credentials = (
+        await db.execute(
+            select(func.count(ProviderCredential.id)).where(
+                ProviderCredential.is_active.is_(True),
+                ProviderCredential.health_status.notin_(("healthy", "degraded")),
+            )
+        )
+    ).scalar() or 0
+    control_settings = (
+        await db.execute(select(AdminControlSettings).where(AdminControlSettings.id == 1))
+    ).scalar_one_or_none()
+    system_health = "unconfigured" if not active_credentials else "configured"
+    if has_failed_credentials or (control_settings and control_settings.emergency_stop):
+        system_health = "degraded"
 
     return SystemMetricsResponse(
         total_users=total_users,
@@ -81,7 +191,7 @@ async def get_system_metrics(
         total_ai_spend_usd=cost_res,
         monthly_recurring_revenue_usd=revenue_res,
         gross_margin_pct=round(gross_margin, 1),
-        system_health="healthy",
+        system_health=system_health,
     )
 
 
@@ -115,13 +225,13 @@ async def create_provider(
     provider = ProviderAccount(
         provider_name=payload.provider_name,
         display_name=payload.display_name,
+        is_enabled=payload.is_enabled,
         default_routing_strategy=payload.default_routing_strategy,
         global_monthly_budget_usd=payload.global_monthly_budget_usd,
         supported_models=payload.supported_models,
     )
     db.add(provider)
-    await db.commit()
-    await db.refresh(provider)
+    await db.flush()
 
     # Log audit event
     audit = AdminAuditLog(
@@ -134,7 +244,41 @@ async def create_provider(
     )
     db.add(audit)
     await db.commit()
+    await db.refresh(provider)
 
+    return provider
+
+
+@router.patch("/providers/{provider_id}", response_model=ProviderAccountResponse)
+async def update_provider(
+    provider_id: uuid.UUID,
+    payload: ProviderAccountUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    provider = (await db.execute(select(ProviderAccount).where(ProviderAccount.id == provider_id))).scalar_one_or_none()
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider account not found.")
+
+    updates = payload.model_dump(exclude_unset=True)
+    before = {
+        field: str(value) if isinstance(value := getattr(provider, field), Decimal) else value for field in updates
+    }
+    for field, value in updates.items():
+        setattr(provider, field, value)
+
+    db.add(
+        AdminAuditLog(
+            actor_id=current_admin.id,
+            actor_email=current_admin.email,
+            action="provider.update",
+            target_entity="provider",
+            target_id=str(provider_id),
+            details={"before": before, "after": updates},
+        )
+    )
+    await db.commit()
+    await db.refresh(provider)
     return provider
 
 
@@ -164,7 +308,27 @@ async def add_credential(
     if not provider:
         raise HTTPException(status_code=404, detail="Provider account not found.")
 
-    encrypted, secret_hash, prefix = encrypt_credential_secret(payload.secret)
+    from backend.app.services.token_manager import TokenManager
+
+    secret = payload.secret.get_secret_value()
+    validation = await TokenManager.validate_provider_token(provider.provider_name, secret)
+    if not validation.get("valid"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=validation.get("error", "Provider credential validation failed."),
+        )
+
+    encrypted, secret_hash, prefix = encrypt_credential_secret(secret)
+    duplicate = (
+        await db.execute(
+            select(ProviderCredential.id).where(
+                ProviderCredential.provider_id == provider.id,
+                ProviderCredential.secret_hash == secret_hash,
+            )
+        )
+    ).scalar_one_or_none()
+    if duplicate:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This provider credential already exists.")
 
     cred = ProviderCredential(
         provider_id=provider.id,
@@ -180,8 +344,7 @@ async def add_credential(
         rate_limit_tpm=payload.rate_limit_tpm,
     )
     db.add(cred)
-    await db.commit()
-    await db.refresh(cred)
+    await db.flush()
 
     # Audit log (no secret stored)
     audit = AdminAuditLog(
@@ -194,7 +357,62 @@ async def add_credential(
     )
     db.add(audit)
     await db.commit()
+    await db.refresh(cred)
 
+    return cred
+
+
+@router.patch("/credentials/{credential_id}/status", response_model=CredentialResponse)
+async def update_credential_status(
+    credential_id: uuid.UUID,
+    payload: CredentialStatusUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    cred = (
+        await db.execute(select(ProviderCredential).where(ProviderCredential.id == credential_id))
+    ).scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found.")
+
+    if payload.is_active:
+        provider = await db.get(ProviderAccount, cred.provider_id)
+        if provider is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Credential provider no longer exists.")
+        from backend.app.services.token_manager import TokenManager
+        from backend.app.services.vault import decrypt_credential_secret
+
+        validation = await TokenManager.validate_provider_token(
+            provider.provider_name,
+            decrypt_credential_secret(cred.encrypted_secret),
+        )
+        if not validation.get("valid"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=validation.get("error", "Provider credential validation failed."),
+            )
+
+    cred.is_active = payload.is_active
+    if payload.is_active:
+        cred.health_status = "healthy"
+        cred.cooling_down_until = None
+        cred.consecutive_failures = 0
+        cred.last_error_reason = None
+    else:
+        cred.health_status = "disabled"
+
+    db.add(
+        AdminAuditLog(
+            actor_id=current_admin.id,
+            actor_email=current_admin.email,
+            action="credential.activate" if payload.is_active else "credential.deactivate",
+            target_entity="credential",
+            target_id=str(credential_id),
+            details={"label": cred.label, "is_active": payload.is_active},
+        )
+    )
+    await db.commit()
+    await db.refresh(cred)
     return cred
 
 
@@ -211,9 +429,6 @@ async def delete_credential(
     if not cred:
         raise HTTPException(status_code=404, detail="Credential not found.")
 
-    await db.delete(cred)
-    await db.commit()
-
     audit = AdminAuditLog(
         actor_id=current_admin.id,
         actor_email=current_admin.email,
@@ -222,6 +437,7 @@ async def delete_credential(
         target_id=str(credential_id),
         details={"label": cred.label},
     )
+    await db.delete(cred)
     db.add(audit)
     await db.commit()
 
@@ -237,7 +453,12 @@ async def get_finops_summary(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Provides consolidated FinOps economics, provider cost breakdown, and gross margin."""
-    total_rev = float((await db.execute(select(func.sum(FinancialInvoice.amount_usd)))).scalar() or 0.0)
+    total_rev = float(
+        (
+            await db.execute(select(func.sum(FinancialInvoice.amount_usd)).where(FinancialInvoice.status == "paid"))
+        ).scalar()
+        or 0.0
+    )
     total_cost = float((await db.execute(select(func.sum(TokenCostLedger.cost_usd)))).scalar() or 0.0)
     profit = total_rev - total_cost
     margin = (profit / total_rev * 100.0) if total_rev > 0 else 0.0
@@ -476,25 +697,18 @@ async def delete_routing_strategy(
     return None
 
 
-class ProviderTokensSaveRequest(BaseModel):
-    provider_name: str
-    tokens_raw: str
-
-
 @router.post("/providers/validate")
 async def validate_provider_token(
-    payload: dict[str, str],
+    payload: ProviderTokenValidationRequest,
     current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
 ):
     """Proactively validate a single API token live against the upstream provider API."""
     from backend.app.services.token_manager import TokenManager
 
-    token = payload.get("token", "")
-    provider = payload.get("provider", "jina")
-
-    if provider.lower() in ("jina", "jina_ai", "jinaai"):
-        return await TokenManager.validate_jina_token(token)
-    return {"valid": len(token.strip()) > 8, "remaining_balance": "Active"}
+    return await TokenManager.validate_provider_token(
+        payload.provider,
+        payload.token.get_secret_value(),
+    )
 
 
 @router.post("/providers/save-tokens")
@@ -508,7 +722,7 @@ async def save_provider_tokens(
 
     results = await TokenManager.validate_and_save_provider_tokens(
         provider_name=payload.provider_name,
-        raw_tokens_text=payload.tokens_raw,
+        raw_tokens_text=payload.tokens_raw.get_secret_value(),
         admin_id=current_admin.id,
         admin_email=current_admin.email,
         db=db,
@@ -575,8 +789,9 @@ async def get_mission_control_stats(
 
 @router.get("/users", response_model=List[AdminUserItemResponse])
 async def list_admin_users(
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    q: str | None = Query(None, max_length=255),
     current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
     db: AsyncSession = Depends(get_db_session),
 ):
@@ -584,6 +799,9 @@ async def list_admin_users(
     stmt = (
         select(User, func.count(Membership.id).label("ws_count"))
         .outerjoin(Membership, Membership.user_id == User.id)
+        .where(
+            *([User.email.ilike(f"%{q.strip()}%") | User.full_name.ilike(f"%{q.strip()}%")] if q and q.strip() else [])
+        )
         .group_by(User.id)
         .order_by(User.created_at.desc())
         .limit(limit)
@@ -611,16 +829,27 @@ async def list_admin_users(
 @router.patch("/users/{user_id}/status")
 async def toggle_user_status(
     user_id: uuid.UUID,
-    payload: dict[str, bool],
+    payload: AdminUserStatusUpdate,
     current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN])),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Suspend or activate a user account."""
-    is_active = payload.get("is_active", True)
+    is_active = payload.is_active
     user_res = await db.execute(select(User).where(User.id == user_id))
     user_obj = user_res.scalar_one_or_none()
     if not user_obj:
         raise HTTPException(status_code=404, detail="User not found.")
+    if user_obj.id == current_admin.id and not is_active:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="You cannot deactivate your own account.")
+    if user_obj.is_superuser and user_obj.is_active and not is_active:
+        active_superusers = (
+            await db.execute(select(func.count(User.id)).where(User.is_superuser.is_(True), User.is_active.is_(True)))
+        ).scalar() or 0
+        if active_superusers <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The last active superuser cannot be deactivated.",
+            )
 
     user_obj.is_active = is_active
 

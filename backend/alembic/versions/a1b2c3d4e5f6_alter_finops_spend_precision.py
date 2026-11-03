@@ -20,63 +20,58 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Alter current_month_spend_usd and monthly_budget_usd in admin_provider_accounts and admin_provider_credentials
-    op.alter_column(
-        "admin_provider_accounts",
-        "current_month_spend_usd",
-        type_=sa.Numeric(precision=12, scale=6),
-        existing_type=sa.Numeric(precision=10, scale=2),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_accounts",
-        "global_monthly_budget_usd",
-        type_=sa.Numeric(precision=12, scale=6),
-        existing_type=sa.Numeric(precision=10, scale=2),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_credentials",
-        "current_month_spend_usd",
-        type_=sa.Numeric(precision=12, scale=6),
-        existing_type=sa.Numeric(precision=10, scale=2),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_credentials",
-        "monthly_budget_usd",
-        type_=sa.Numeric(precision=12, scale=6),
-        existing_type=sa.Numeric(precision=10, scale=2),
-        existing_nullable=False,
-    )
+    with op.batch_alter_table("admin_provider_accounts") as batch_op:
+        batch_op.alter_column(
+            "current_month_spend_usd",
+            type_=sa.Numeric(precision=12, scale=6),
+            existing_type=sa.Numeric(precision=10, scale=2),
+            existing_nullable=False,
+        )
+        batch_op.alter_column(
+            "global_monthly_budget_usd",
+            type_=sa.Numeric(precision=12, scale=6),
+            existing_type=sa.Numeric(precision=10, scale=2),
+            existing_nullable=False,
+        )
+    with op.batch_alter_table("admin_provider_credentials") as batch_op:
+        batch_op.alter_column(
+            "current_month_spend_usd",
+            type_=sa.Numeric(precision=12, scale=6),
+            existing_type=sa.Numeric(precision=10, scale=2),
+            existing_nullable=False,
+        )
+        batch_op.alter_column(
+            "monthly_budget_usd",
+            type_=sa.Numeric(precision=12, scale=6),
+            existing_type=sa.Numeric(precision=10, scale=2),
+            existing_nullable=False,
+        )
 
 
 def downgrade() -> None:
-    op.alter_column(
-        "admin_provider_credentials",
-        "monthly_budget_usd",
-        type_=sa.Numeric(precision=10, scale=2),
-        existing_type=sa.Numeric(precision=12, scale=6),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_credentials",
-        "current_month_spend_usd",
-        type_=sa.Numeric(precision=10, scale=2),
-        existing_type=sa.Numeric(precision=12, scale=6),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_accounts",
-        "global_monthly_budget_usd",
-        type_=sa.Numeric(precision=10, scale=2),
-        existing_type=sa.Numeric(precision=12, scale=6),
-        existing_nullable=False,
-    )
-    op.alter_column(
-        "admin_provider_accounts",
-        "current_month_spend_usd",
-        type_=sa.Numeric(precision=10, scale=2),
-        existing_type=sa.Numeric(precision=12, scale=6),
-        existing_nullable=False,
-    )
+    with op.batch_alter_table("admin_provider_credentials") as batch_op:
+        batch_op.alter_column(
+            "monthly_budget_usd",
+            type_=sa.Numeric(precision=10, scale=2),
+            existing_type=sa.Numeric(precision=12, scale=6),
+            existing_nullable=False,
+        )
+        batch_op.alter_column(
+            "current_month_spend_usd",
+            type_=sa.Numeric(precision=10, scale=2),
+            existing_type=sa.Numeric(precision=12, scale=6),
+            existing_nullable=False,
+        )
+    with op.batch_alter_table("admin_provider_accounts") as batch_op:
+        batch_op.alter_column(
+            "global_monthly_budget_usd",
+            type_=sa.Numeric(precision=10, scale=2),
+            existing_type=sa.Numeric(precision=12, scale=6),
+            existing_nullable=False,
+        )
+        batch_op.alter_column(
+            "current_month_spend_usd",
+            type_=sa.Numeric(precision=10, scale=2),
+            existing_type=sa.Numeric(precision=12, scale=6),
+            existing_nullable=False,
+        )
