@@ -13,11 +13,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "admin_provider_credentials",
-        sa.Column("remaining_balance", sa.String(length=100), nullable=True),
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_cols = [c["name"] for c in inspector.get_columns("admin_provider_credentials")]
+    if "remaining_balance" not in existing_cols:
+        op.add_column(
+            "admin_provider_credentials",
+            sa.Column("remaining_balance", sa.String(length=100), nullable=True),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("admin_provider_credentials", "remaining_balance")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_cols = [c["name"] for c in inspector.get_columns("admin_provider_credentials")]
+    if "remaining_balance" in existing_cols:
+        op.drop_column("admin_provider_credentials", "remaining_balance")
