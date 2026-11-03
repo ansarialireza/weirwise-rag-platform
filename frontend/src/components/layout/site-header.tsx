@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useI18n } from "@/lib/i18n/context";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { Menu, X, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,6 +17,7 @@ interface SiteHeaderProps {
 
 export function SiteHeader({ className }: SiteHeaderProps) {
   const { user } = useAuth();
+  const { dict } = useI18n();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
@@ -71,13 +74,13 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   }, [mobileMenuOpen]);
 
   const primaryLinks = [
-    { label: "Pricing", href: "/pricing", active: pathname === "/pricing" },
-    { label: "Blog", href: "/blog", active: pathname.startsWith("/blog") },
+    { label: dict.common.pricing, href: "/pricing", active: pathname === "/pricing" },
+    { label: dict.common.blog, href: "/blog", active: pathname.startsWith("/blog") },
   ];
 
   const authOrDashboardLink = dashboardUrl
-    ? { label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/overview") }
-    : { label: "Sign In", href: "/login", active: pathname === "/login" };
+    ? { label: dict.common.overview, href: dashboardUrl, active: pathname.startsWith("/overview") }
+    : { label: dict.common.signIn, href: "/login", active: pathname === "/login" };
 
   return (
     <header
@@ -129,13 +132,15 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             {authOrDashboardLink.label}
           </Link>
 
-          <div className="pl-1 border-l border-zinc-800">
+          <div className="ps-2 pe-1 border-s border-zinc-800 flex items-center gap-2">
+            <LanguageSwitcher />
             <ThemeSwitcher />
           </div>
         </nav>
 
-        {/* Mobile Header Controls: Clean Sign In link + Hamburger Menu Button */}
-        <div className="flex md:hidden items-center gap-3">
+        {/* Mobile Header Controls: Language switcher, Clean Sign In link + Hamburger Menu Button */}
+        <div className="flex md:hidden items-center gap-2.5">
+          <LanguageSwitcher />
           <Link
             href={authOrDashboardLink.href}
             className={cn(
@@ -205,7 +210,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 >
                   <span className="flex items-center gap-2">
                     <Download className="h-3.5 w-3.5 text-[#46C7D6]" />
-                    INSTALL APP (PWA)
+                    {dict.common.installApp}
                   </span>
                   <span className="text-[10px] uppercase text-zinc-400">Native</span>
                 </button>
@@ -213,7 +218,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
 
               <div className="p-3 rounded-md border border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between">
                 <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-                  Interface Theme
+                  {dict.common.appearance}
                 </span>
                 <ThemeSwitcher />
               </div>

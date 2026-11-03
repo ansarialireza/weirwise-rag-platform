@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { I18nProvider } from "@/lib/i18n/context";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ServiceWorkerRegister } from "@/components/pwa-register";
@@ -88,31 +89,33 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var stored=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light","colorful");if(stored==="light"){root.classList.add("light");}else if(stored==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}}catch(e){}})();`,
+            __html: `(function(){try{var storedTheme=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light","colorful");if(storedTheme==="light"){root.classList.add("light");}else if(storedTheme==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}var storedLocale=localStorage.getItem("wwp_locale");if(!storedLocale){var match=document.cookie.match(/(^|;\\s*)wwp_locale=([^;]*)/);if(match)storedLocale=match[2];}if(!storedLocale&&navigator.language&&navigator.language.toLowerCase().startsWith("fa")){storedLocale="fa";}if(storedLocale==="fa"){root.lang="fa";root.dir="rtl";}else{root.lang="en";root.dir="ltr";}}catch(e){}})();`,
           }}
         />
       </head>
       <body className="font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground">
-        <ThemeProvider>
-          <AuthProvider>
-            <TelemetryProvider>
-              <StoryStageProvider>
-                <ToastProvider>
-                  <ContinuousThreadStage />
-                  <div className="relative z-10 min-h-screen">
-                    {children}
-                  </div>
-                  <CommandPalette />
-                  <ServiceWorkerRegister />
-                </ToastProvider>
-              </StoryStageProvider>
-            </TelemetryProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <I18nProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <TelemetryProvider>
+                <StoryStageProvider>
+                  <ToastProvider>
+                    <ContinuousThreadStage />
+                    <div className="relative z-10 min-h-screen">
+                      {children}
+                    </div>
+                    <CommandPalette />
+                    <ServiceWorkerRegister />
+                  </ToastProvider>
+                </StoryStageProvider>
+              </TelemetryProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

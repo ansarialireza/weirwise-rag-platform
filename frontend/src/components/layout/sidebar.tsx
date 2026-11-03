@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import { useI18n } from "@/lib/i18n/context";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 
 interface SidebarProps {
@@ -32,28 +34,29 @@ export function Sidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { dict } = useI18n();
 
   const navItems = [
     {
-      label: "Overview",
+      label: dict.common.overview,
       href: "/overview",
       icon: LayoutDashboard,
       active: pathname === "/overview" || pathname === "/",
     },
     {
-      label: "Knowledge",
+      label: dict.common.knowledge,
       href: "/sources",
       icon: Database,
       active: pathname.startsWith("/sources"),
     },
     {
-      label: "Assistants",
+      label: dict.common.assistants,
       href: "/assistants",
       icon: Bot,
       active: pathname.startsWith("/assistants"),
     },
     {
-      label: "Playground",
+      label: dict.common.playground,
       href: "/playground",
       icon: Sliders,
       active: pathname.startsWith("/playground"),
@@ -119,22 +122,22 @@ export function Sidebar({
 
       {/* Bottom User Profile Section */}
       <div
-        className="p-3 border-t border-zinc-800 shrink-0 relative space-y-3 bg-zinc-950/40"
+        className="p-3 border-t border-zinc-800 shrink-0 relative space-y-2.5 bg-zinc-950/40"
         style={{ paddingBottom: "max(0.85rem, env(safe-area-inset-bottom))" }}
       >
         {/* User Profile Block */}
         <div className="flex items-center justify-between gap-2 p-1.5 rounded-md border border-zinc-800/80 bg-zinc-900/40">
-          <div className="flex items-center gap-2.5 overflow-hidden text-left min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 overflow-hidden text-start min-w-0 flex-1">
             {/* Geometric Sharp Initial Box */}
             <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-950 font-mono text-xs font-semibold text-[#46C7D6] shrink-0 select-none shadow-xs">
               {user?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
             </div>
-            <div className="flex flex-col truncate min-w-0 pr-1">
+            <div className="flex flex-col truncate min-w-0 pe-1">
               <span className="text-xs font-medium text-zinc-200 truncate leading-snug">
-                {user?.full_name || "User"}
+                {user?.full_name || dict.common.user}
               </span>
               <span className="text-[11px] font-mono text-zinc-500 truncate leading-tight">
-                {user?.email || "Account"}
+                {user?.email || dict.common.account}
               </span>
             </div>
           </div>
@@ -144,17 +147,20 @@ export function Sidebar({
             type="button"
             onClick={logout}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-950/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 hover:border-zinc-700 active:scale-95 transition-all focus:outline-none"
-            title="Sign out"
-            aria-label="Sign out"
+            title={dict.common.signOut}
+            aria-label={dict.common.signOut}
           >
             <LogOut className="h-4 w-4" />
           </button>
         </div>
 
+        {/* Brutalist Language Switcher Control */}
+        <LanguageSwitcher variant="sidebar" />
+
         {/* Structured Theme / Appearance Segmented Control */}
         <div className="rounded-md border border-zinc-800/80 bg-zinc-900/30 p-1.5 flex items-center justify-between gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 pl-1">
-            Appearance
+          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 ps-1">
+            {dict.common.theme}
           </span>
           <div className="flex items-center gap-0.5 rounded-sm border border-zinc-800/90 bg-zinc-950/80 p-0.5">
             <button

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n/context";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -14,6 +15,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { dict } = useI18n();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,10 +40,10 @@ export default function RegisterPage() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
+    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all text-start">
       <CardHeader className="pb-3 border-b border-zinc-800/80">
         <CardTitle className="text-xl font-semibold tracking-tight text-white">
-          Create Account
+          {dict.auth.registerTitle}
         </CardTitle>
       </CardHeader>
 
@@ -49,14 +51,14 @@ export default function RegisterPage() {
         {error && (
           <Alert
             type="destructive"
-            title="Registration Error"
+            title={dict.auth.authError}
             message={error}
           />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
-            label="Full Name"
+            label={dict.auth.fullName}
             type="text"
             required
             autoComplete="name"
@@ -66,7 +68,7 @@ export default function RegisterPage() {
           />
 
           <Input
-            label="Work Email"
+            label={dict.auth.workEmail}
             type="email"
             required
             autoComplete="email"
@@ -76,7 +78,7 @@ export default function RegisterPage() {
           />
 
           <Input
-            label="Password"
+            label={dict.auth.password}
             type="password"
             required
             minLength={8}
@@ -92,20 +94,20 @@ export default function RegisterPage() {
             className="w-full mt-2 inline-flex items-center justify-center font-medium text-sm rounded-md h-9 px-4 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
-              <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse mr-2" aria-hidden="true" />
+              <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse me-2" aria-hidden="true" />
             ) : null}
-            Register
+            {dict.auth.registerTitle}
           </button>
         </form>
       </CardContent>
 
       <CardFooter className="flex items-center justify-between pt-3 pb-4 border-t border-zinc-800/80 text-xs text-zinc-500 font-mono">
-        <span>Already have an account?</span>
+        <span>{dict.auth.haveAccount}</span>
         <Link
           href="/login"
           className="text-white hover:underline transition-colors font-medium"
         >
-          Sign in
+          {dict.auth.signInTitle}
         </Link>
       </CardFooter>
     </Card>
