@@ -6,8 +6,6 @@ import { useAuth } from "@/lib/auth-context";
 import {
   Users,
   Search,
-  Shield,
-  ShieldAlert,
   CheckCircle2,
   XCircle,
   RefreshCw,
@@ -16,6 +14,9 @@ import {
   AlertTriangle,
   UserX,
   UserCheck,
+  Shield,
+  ShieldAlert,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -57,211 +58,187 @@ export default function AdminUsersPage() {
 
   const handleToggleStatus = async (user: AdminUser) => {
     if (user.id === currentAdmin?.id) {
-      toast({ message: "You cannot suspend your own superuser account.", type: "error" });
+      toast({
+        message: "You cannot change the status of your own account.",
+        type: "error",
+      });
       return;
     }
+
+    const action = user.is_active ? "suspend" : "activate";
+    if (!window.confirm(`Are you sure you want to ${action} user "${user.email}"?`)) {
+      return;
+    }
+
     setUpdatingId(user.id);
-    const newStatus = !user.is_active;
     try {
-      await api.toggleAdminUserStatus(user.id, newStatus);
+      const updated = await api.toggleAdminUserStatus(user.id, !user.is_active);
       setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, is_active: newStatus } : u))
+        prev.map((u) => (u.id === user.id ? { ...u, is_active: updated.is_active } : u))
       );
       toast({
-        message: `User ${user.email} marked as ${newStatus ? "Active" : "Suspended"}.`,
+        message: `User ${user.email} successfully ${action}d.`,
         type: "success",
       });
     } catch (err: any) {
-      toast({ message: err.message || "Failed to update user status", type: "error" });
+      toast({ message: err.message || `Failed to ${action} user`, type: "error" });
     } finally {
       setUpdatingId(null);
     }
   };
 
   const filteredUsers = users.filter((u) => {
-    const query = searchTerm.toLowerCase();
+    const term = searchTerm.toLowerCase();
     return (
-      u.email.toLowerCase().includes(query) ||
-      (u.full_name && u.full_name.toLowerCase().includes(query))
+      u.email.toLowerCase().includes(term) ||
+      (u.full_name && u.full_name.toLowerCase().includes(term))
     );
   });
 
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
+    <div className="space-y-6">
+      {/* GitHub-style Header */}
+      <div className="flex flex-col gap-3 pb-5 border-b border-border/70 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-            User Management
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Global directory of registered platform accounts, workspaces, and authorization status.
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
+              Users
+            </h1>
+            <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-muted border border-border/70 text-muted-foreground font-semibold">
+              {users.length}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Directory of registered member accounts, administrative roles, and access states.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchUsers}
-            disabled={loading}
-            className="rounded-xl border-border bg-card/60 hover:bg-accent text-xs h-9 px-3 gap-2"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchUsers}
+          disabled={loading}
+          className="h-8 text-xs font-medium border-border/80 hover:bg-accent self-start sm:self-auto"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* GitHub-style Search Box */}
+      <div className="flex items-center gap-2 max-w-sm">
+        <div className="relative w-full">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search users by email or name..."
-            aria-label="Search users by email or name"
+            placeholder="Filter by name or email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-muted/20 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 transition-all"
+            className="w-full rounded-md border border-border/70 bg-card py-1.5 pl-8 pr-3 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
           />
-        </div>
-        <div className="text-xs font-mono text-muted-foreground">
-          Showing {filteredUsers.length} of {users.length} users
         </div>
       </div>
 
-      {/* Users Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-border/60 bg-muted/10 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                <th className="py-3.5 px-4">User</th>
-                <th className="py-3.5 px-4">Role</th>
-                <th className="py-3.5 px-4">Workspaces</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Joined</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40 text-sm">
-              {loading && users.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
-                    Loading platform users...
-                  </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    No users match your search criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((u) => {
-                  const isSelf = u.id === currentAdmin?.id;
-                  const isUpdating = updatingId === u.id;
+      {/* GitHub-style Table Box */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between text-xs font-semibold text-muted-foreground">
+          <span>{filteredUsers.length} total members</span>
+          <span className="font-mono text-[11px]">Role & Authorization</span>
+        </div>
 
-                  return (
-                    <tr
-                      key={u.id}
-                      className="hover:bg-muted/15 transition-colors font-mono text-xs"
-                    >
-                      {/* User Info */}
-                      <td className="py-3 px-4 font-sans">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            {u.email}
-                            {isSelf && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
-                                You
-                              </span>
-                            )}
+        {loading ? (
+          <div className="p-8 text-center text-xs text-muted-foreground">
+            <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
+            <p>Loading users directory...</p>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="p-8 text-center text-xs text-muted-foreground">
+            No accounts match your query.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {filteredUsers.map((u) => {
+              const isSelf = u.id === currentAdmin?.id;
+              const isUpdating = updatingId === u.id;
+
+              return (
+                <div
+                  key={u.id}
+                  className="px-4 py-3 flex items-center justify-between gap-4 text-xs hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-8 w-8 rounded-full bg-muted border border-border/80 flex items-center justify-center font-mono font-medium text-xs text-foreground shrink-0 uppercase">
+                      {u.email.substring(0, 2)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-foreground truncate">
+                          {u.full_name || u.email.split("@")[0]}
+                        </span>
+                        {isSelf && (
+                          <span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 text-[10px] font-mono">
+                            You
                           </span>
-                          {u.full_name && (
-                            <span className="text-xs text-muted-foreground">
-                              {u.full_name}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Role */}
-                      <td className="py-3 px-4">
+                        )}
                         {u.is_superuser ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/10 text-red-500 border border-red-500/20">
-                            <ShieldAlert className="h-3 w-3" />
-                            SUPER_ADMIN
+                          <span className="px-1.5 py-0.2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-mono font-medium">
+                            Staff Admin
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground border border-border">
+                          <span className="px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border/60 text-[10px] font-mono">
                             User
                           </span>
                         )}
-                      </td>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+                        <span className="font-mono">{u.email}</span>
+                        <span>•</span>
+                        <span>{u.workspaces_count} {u.workspaces_count === 1 ? "workspace" : "workspaces"}</span>
+                        <span>•</span>
+                        <span>Joined {new Date(u.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* Workspaces */}
-                      <td className="py-3 px-4 text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <FolderTree className="h-3.5 w-3.5" />
-                          <span>{u.workspaces_count}</span>
-                        </div>
-                      </td>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium font-mono">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          u.is_active ? "bg-emerald-500" : "bg-rose-500"
+                        }`}
+                      />
+                      <span className={u.is_active ? "text-emerald-500" : "text-rose-500"}>
+                        {u.is_active ? "Active" : "Suspended"}
+                      </span>
+                    </span>
 
-                      {/* Status */}
-                      <td className="py-3 px-4">
-                        {u.is_active ? (
-                          <span className="inline-flex items-center gap-1 text-emerald-500 font-semibold text-[11px]">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                            Active
-                          </span>
+                    {!isSelf && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleStatus(u)}
+                        disabled={isUpdating}
+                        className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
+                          u.is_active
+                            ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                            : "hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30"
+                        }`}
+                      >
+                        {isUpdating ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : u.is_active ? (
+                          "Suspend"
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-red-400 font-semibold text-[11px]">
-                            <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                            Suspended
-                          </span>
+                          "Activate"
                         )}
-                      </td>
-
-                      {/* Joined Date */}
-                      <td className="py-3 px-4 text-muted-foreground">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isSelf || isUpdating}
-                          onClick={() => handleToggleStatus(u)}
-                          className={`h-7 px-2.5 text-xs rounded-lg border transition-all ${
-                            u.is_active
-                              ? "border-red-500/20 text-red-500 hover:bg-red-500/10"
-                              : "border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10"
-                          }`}
-                        >
-                          {isUpdating ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          ) : u.is_active ? (
-                            <span className="flex items-center gap-1">
-                              <UserX className="h-3 w-3" /> Suspend
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <UserCheck className="h-3 w-3" /> Activate
-                            </span>
-                          )}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
