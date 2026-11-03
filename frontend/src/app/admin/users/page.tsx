@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -9,14 +9,10 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
-  FolderTree,
-  Calendar,
-  AlertTriangle,
-  UserX,
-  UserCheck,
+  ChevronLeft,
+  ChevronRight,
   Shield,
   ShieldAlert,
-  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -32,25 +28,47 @@ interface AdminUser {
   created_at: string;
 }
 
+const PAGE_SIZE = 50;
+
 export default function AdminUsersPage() {
   const { user: currentAdmin } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Debounce search input to avoid spamming the backend
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Reset to page 1 on search
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.getAdminUsers(200, 0);
-      setUsers(data);
+      const offset = (page - 1) * PAGE_SIZE;
+      // Fetch PAGE_SIZE + 1 to know if there's a next page
+      const data = await api.getAdminUsers(PAGE_SIZE + 1, offset, debouncedSearch);
+      if (data.length > PAGE_SIZE) {
+        setHasMore(true);
+        setUsers(data.slice(0, PAGE_SIZE));
+      } else {
+        setHasMore(false);
+        setUsers(data);
+      }
     } catch (err: any) {
       toast({ message: err.message || "Failed to fetch users", type: "error" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [page, debouncedSearch, toast]);
 
   useEffect(() => {
     fetchUsers();
@@ -87,14 +105,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      u.email.toLowerCase().includes(term) ||
-      (u.full_name && u.full_name.toLowerCase().includes(term))
-    );
-  });
-
   return (
     <div className="space-y-6">
       {/* GitHub-style Header */}
@@ -102,14 +112,14 @@ export default function AdminUsersPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Users
+              Users Directory
             </h1>
             <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-muted border border-border/70 text-muted-foreground font-semibold">
-              {users.length}
+              Page {page}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Directory of registered member accounts, administrative roles, and access states.
+            Browse, search and manage all platform member accounts across all workspaces.
           </p>
         </div>
 
@@ -125,39 +135,68 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
-      {/* GitHub-style Search Box */}
-      <div className="flex items-center gap-2 max-w-sm">
-        <div className="relative w-full">
+      {/* GitHub-style Search & Filter Bar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Filter by name or email..."
+            placeholder="Search across all users (email, name)..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full rounded-md border border-border/70 bg-card py-1.5 pl-8 pr-3 text-xs placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-colors"
           />
+        </div>
+
+        {/* Top Pagination controls */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || loading}
+            className="h-7 px-2 text-xs border-border/80"
+          >
+            <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+            Previous
+          </Button>
+          <span className="px-2 font-mono text-[11px]">
+            Page {page}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={!hasMore || loading}
+            className="h-7 px-2 text-xs border-border/80"
+          >
+            Next
+            <ChevronRight className="h-3.5 w-3.5 ml-1" />
+          </Button>
         </div>
       </div>
 
       {/* GitHub-style Table Box */}
       <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
         <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between text-xs font-semibold text-muted-foreground">
-          <span>{filteredUsers.length} total members</span>
-          <span className="font-mono text-[11px]">Role & Authorization</span>
+          <span>
+            {debouncedSearch ? `Search results for "${debouncedSearch}"` : `Showing ${(page - 1) * PAGE_SIZE + 1} - ${(page - 1) * PAGE_SIZE + users.length}`}
+          </span>
+          <span className="font-mono text-[11px]">Status & Actions</span>
         </div>
 
         {loading ? (
           <div className="p-8 text-center text-xs text-muted-foreground">
             <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
-            <p>Loading users directory...</p>
+            <p>Querying users from database...</p>
           </div>
-        ) : filteredUsers.length === 0 ? (
+        ) : users.length === 0 ? (
           <div className="p-8 text-center text-xs text-muted-foreground">
-            No accounts match your query.
+            No accounts found matching your search.
           </div>
         ) : (
           <div className="divide-y divide-border/60">
-            {filteredUsers.map((u) => {
+            {users.map((u) => {
               const isSelf = u.id === currentAdmin?.id;
               const isUpdating = updatingId === u.id;
 
@@ -186,7 +225,7 @@ export default function AdminUsersPage() {
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border/60 text-[10px] font-mono">
-                            User
+                            Member
                           </span>
                         )}
                       </div>
@@ -239,6 +278,34 @@ export default function AdminUsersPage() {
             })}
           </div>
         )}
+
+        {/* Bottom Pagination Bar */}
+        <div className="bg-muted/30 px-4 py-2.5 border-t border-border/70 flex items-center justify-between">
+          <span className="text-[11px] text-muted-foreground">
+            Showing up to {PAGE_SIZE} users per page
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1 || loading}
+              className="h-7 px-2.5 text-xs border-border/80"
+            >
+              Previous
+            </Button>
+            <span className="text-xs font-mono px-2">Page {page}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasMore || loading}
+              className="h-7 px-2.5 text-xs border-border/80"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
