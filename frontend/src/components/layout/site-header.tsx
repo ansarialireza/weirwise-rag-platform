@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { useI18n } from "@/lib/i18n/context";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { Menu, X, Download } from "lucide-react";
+import { Menu, X, Download, Sun, Moon, Laptop } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SiteHeaderProps {
@@ -18,6 +19,7 @@ interface SiteHeaderProps {
 export function SiteHeader({ className }: SiteHeaderProps) {
   const { user } = useAuth();
   const { dict } = useI18n();
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
@@ -165,48 +167,51 @@ export function SiteHeader({ className }: SiteHeaderProps) {
 
       {/* Mobile Drawer / Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-zinc-800 bg-zinc-950/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-xl">
+        <div className="md:hidden border-b border-zinc-800 bg-zinc-950/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-2xl">
           <div ref={menuRef} className="px-5 py-6 space-y-6 max-w-sm mx-auto">
-            <div className="space-y-1.5">
+            {/* Primary Navigation Links: Generous padding, bold typography, no redundancy */}
+            <div className="space-y-2">
               {primaryLinks.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center justify-between px-3.5 py-3 rounded-md text-base sm:text-lg font-semibold tracking-tight transition-colors",
+                    "flex items-center justify-between px-4 py-3.5 rounded-md text-lg font-semibold tracking-tight transition-all",
                     link.active
-                      ? "bg-zinc-900/80 text-white font-bold"
-                      : "text-zinc-300 hover:bg-zinc-900/50 hover:text-white"
+                      ? "bg-zinc-900 text-white border border-zinc-800 font-bold"
+                      : "text-zinc-300 hover:bg-zinc-900/60 hover:text-white"
                   )}
                 >
                   <span>{link.label}</span>
-                  {link.active && <span className="h-1.5 w-1.5 rounded-full bg-[#46C7D6]" />}
+                  {link.active && <span className="h-1.5 w-1.5 rounded-none bg-[#46C7D6]" />}
                 </Link>
               ))}
 
-              <Link
-                href={authOrDashboardLink.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center justify-between px-3.5 py-3 rounded-md text-base sm:text-lg font-semibold tracking-tight transition-colors",
-                  authOrDashboardLink.active
-                    ? "bg-zinc-900/80 text-white font-bold"
-                    : "text-zinc-300 hover:bg-zinc-900/50 hover:text-white"
-                )}
-              >
-                <span>{authOrDashboardLink.label}</span>
-                {authOrDashboardLink.active && <span className="h-1.5 w-1.5 rounded-full bg-[#46C7D6]" />}
-              </Link>
+              {dashboardUrl && (
+                <Link
+                  href={dashboardUrl}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3.5 rounded-md text-lg font-semibold tracking-tight transition-all",
+                    pathname.startsWith("/overview")
+                      ? "bg-zinc-900 text-white border border-zinc-800 font-bold"
+                      : "text-zinc-300 hover:bg-zinc-900/60 hover:text-white"
+                  )}
+                >
+                  <span>{dict.common.overview}</span>
+                  {pathname.startsWith("/overview") && <span className="h-1.5 w-1.5 rounded-none bg-[#46C7D6]" />}
+                </Link>
+              )}
             </div>
 
-            {/* Polished Theme Toggle & Install Section */}
-            <div className="space-y-2">
+            {/* Bottom Controls: Native PWA Install + Sleek Inline Theme Segmented Control */}
+            <div className="space-y-3 pt-3 border-t border-zinc-800/80">
               {isInstallable && (
                 <button
                   type="button"
                   onClick={handleInstallClick}
-                  className="w-full flex items-center justify-between p-3 rounded-md border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-white transition-all text-xs font-mono font-medium"
+                  className="w-full flex items-center justify-between px-3.5 py-3 rounded-md border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-white transition-all text-xs font-mono font-medium"
                 >
                   <span className="flex items-center gap-2">
                     <Download className="h-3.5 w-3.5 text-[#46C7D6]" />
@@ -216,11 +221,47 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 </button>
               )}
 
-              <div className="p-3 rounded-md border border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between">
-                <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-                  {dict.common.appearance}
-                </span>
-                <ThemeSwitcher />
+              {/* Inline Segmented Theme Control: 3 equal elegant buttons [ Light ] [ Dark ] [ System ] */}
+              <div className="p-1 rounded-md border border-zinc-800/80 bg-zinc-900/50 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTheme("light")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-sm text-xs font-medium transition-all select-none",
+                    theme === "light"
+                      ? "bg-zinc-800 text-white shadow-xs font-semibold"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/40"
+                  )}
+                >
+                  <Sun className="h-3.5 w-3.5" />
+                  <span>Light</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme("dark")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-sm text-xs font-medium transition-all select-none",
+                    theme === "dark"
+                      ? "bg-zinc-800 text-white shadow-xs font-semibold"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/40"
+                  )}
+                >
+                  <Moon className="h-3.5 w-3.5" />
+                  <span>Dark</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTheme("system")}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-sm text-xs font-medium transition-all select-none",
+                    theme === "system"
+                      ? "bg-zinc-800 text-white shadow-xs font-semibold"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-800/40"
+                  )}
+                >
+                  <Laptop className="h-3.5 w-3.5" />
+                  <span>System</span>
+                </button>
               </div>
             </div>
           </div>
