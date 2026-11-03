@@ -27,7 +27,7 @@ export default function AuthLayout({
         {/* Centerpiece Showcase */}
         <div className="relative z-10 max-w-md space-y-6 my-auto py-10">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#46C7D6]" />
+            <span className="w-1.5 h-1.5 rounded-none bg-[#46C7D6]" />
             <span>STRICT GROUNDING ARCHITECTURE</span>
           </div>
 
