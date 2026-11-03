@@ -10,9 +10,12 @@ import {
   Sliders,
   LogOut,
   X,
+  Sun,
+  Moon,
+  Laptop,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
+import { useTheme } from "@/lib/theme-context";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 
 interface SidebarProps {
@@ -28,6 +31,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const navItems = [
     {
@@ -74,7 +78,7 @@ export function Sidebar({
           <WeirwiseSymbol className="h-7 w-auto transition-transform group-hover:scale-105" priority />
           <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            <span className="h-1.5 w-1.5 rounded-none bg-[#46C7D6]" aria-hidden="true" />
           </span>
         </Link>
 
@@ -115,28 +119,31 @@ export function Sidebar({
 
       {/* Bottom User Profile Section */}
       <div
-        className="p-3 border-t border-border/40 shrink-0 relative"
-        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        className="p-3 border-t border-zinc-800 shrink-0 relative space-y-3 bg-zinc-950/40"
+        style={{ paddingBottom: "max(0.85rem, env(safe-area-inset-bottom))" }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden text-left p-1 rounded-md flex-1 mr-1">
-            {/* Brutalist Stark Square graphic instead of circular avatar */}
-            <div className="flex h-7 w-7 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 font-mono text-xs font-bold text-[#46C7D6] shrink-0">
-              {user?.full_name?.charAt(0)?.toUpperCase() || "U"}
+        {/* User Profile Block */}
+        <div className="flex items-center justify-between gap-2 p-1.5 rounded-md border border-zinc-800/80 bg-zinc-900/40">
+          <div className="flex items-center gap-2.5 overflow-hidden text-left min-w-0 flex-1">
+            {/* Geometric Sharp Initial Box */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-950 font-mono text-xs font-semibold text-[#46C7D6] shrink-0 select-none shadow-xs">
+              {user?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
             </div>
-            <div className="flex flex-col truncate min-w-0">
-              <span className="text-xs font-semibold text-foreground truncate">
+            <div className="flex flex-col truncate min-w-0 pr-1">
+              <span className="text-xs font-medium text-zinc-200 truncate leading-snug">
                 {user?.full_name || "User"}
               </span>
-              <span className="text-[11px] font-mono text-muted-foreground truncate">
+              <span className="text-[11px] font-mono text-zinc-500 truncate leading-tight">
                 {user?.email || "Account"}
               </span>
             </div>
           </div>
 
+          {/* Sharp Hoverable Square Logout Action */}
           <button
+            type="button"
             onClick={logout}
-            className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent hover:border-zinc-800 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors focus:outline-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-950/60 text-zinc-400 hover:text-white hover:bg-zinc-800/80 hover:border-zinc-700 active:scale-95 transition-all focus:outline-none"
             title="Sign out"
             aria-label="Sign out"
           >
@@ -144,10 +151,55 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Compact theme selector */}
-        <div className="flex items-center justify-between pt-2 mt-2 border-t border-border/30">
-          <span className="text-[11px] text-muted-foreground font-medium">Appearance</span>
-          <CompactThemeMenu />
+        {/* Structured Theme / Appearance Segmented Control */}
+        <div className="rounded-md border border-zinc-800/80 bg-zinc-900/30 p-1.5 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 pl-1">
+            Appearance
+          </span>
+          <div className="flex items-center gap-0.5 rounded-sm border border-zinc-800/90 bg-zinc-950/80 p-0.5">
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-xs transition-colors",
+                theme === "dark"
+                  ? "bg-zinc-800 text-white font-medium shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60"
+              )}
+              title="Dark Mode"
+              aria-label="Dark Mode"
+            >
+              <Moon className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-xs transition-colors",
+                theme === "light"
+                  ? "bg-zinc-800 text-white font-medium shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60"
+              )}
+              title="Light Mode"
+              aria-label="Light Mode"
+            >
+              <Sun className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("system")}
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-xs transition-colors",
+                theme === "system"
+                  ? "bg-zinc-800 text-white font-medium shadow-xs"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60"
+              )}
+              title="System Theme"
+              aria-label="System Theme"
+            >
+              <Laptop className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
     </aside>
