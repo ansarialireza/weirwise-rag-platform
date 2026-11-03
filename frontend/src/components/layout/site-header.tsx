@@ -96,7 +96,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           <span className="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
             Weirwise
             <span
-              className="inline-block h-1.5 w-1.5 rounded-full bg-[#46C7D6]"
+              className="inline-block h-1.5 w-1.5 rounded-none bg-[#46C7D6]"
               title="Platform online"
               aria-hidden="true"
             />
