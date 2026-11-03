@@ -6,6 +6,8 @@ import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
 import { ServiceWorkerRegister } from "@/components/pwa-register";
 import { TelemetryProvider } from "@/lib/telemetry";
+import { StoryStageProvider } from "@/lib/story-stage-context";
+import { ContinuousThreadStage } from "@/components/layout/continuous-thread-stage";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
@@ -90,11 +92,16 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <TelemetryProvider>
-              <ToastProvider>
-                {children}
-                <CommandPalette />
-                <ServiceWorkerRegister />
-              </ToastProvider>
+              <StoryStageProvider>
+                <ToastProvider>
+                  <ContinuousThreadStage />
+                  <div className="relative z-10 min-h-screen">
+                    {children}
+                  </div>
+                  <CommandPalette />
+                  <ServiceWorkerRegister />
+                </ToastProvider>
+              </StoryStageProvider>
             </TelemetryProvider>
           </AuthProvider>
         </ThemeProvider>

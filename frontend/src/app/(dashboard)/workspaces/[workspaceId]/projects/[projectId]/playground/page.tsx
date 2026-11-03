@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { CrystallineCursor } from "@/components/chat/crystalline-cursor";
 
 export default function DedicatedPlaygroundPage() {
   const params = useParams();
@@ -395,9 +396,9 @@ export default function DedicatedPlaygroundPage() {
 
             {/* Chatting Loading indicator */}
             {chatting && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2 animate-pulse">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                Searching knowledge and generating response...
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
+                <span className="font-mono text-xs text-foreground/80">Synthesizing ground truth</span>
+                <CrystallineCursor />
               </div>
             )}
 

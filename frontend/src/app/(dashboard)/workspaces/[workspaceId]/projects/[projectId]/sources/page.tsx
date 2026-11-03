@@ -27,6 +27,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
+import { useStoryStage } from "@/lib/story-stage-context";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
@@ -35,6 +36,7 @@ export default function SourcesKnowledgePage() {
   const uploadWorkflow = useWorkflow("wf_upload_documents");
   const createSourceWorkflow = useWorkflow("wf_create_source");
   const { trackAction, trackFriction } = useTelemetry();
+  const { triggerChunkDrop } = useStoryStage();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
@@ -168,6 +170,7 @@ export default function SourcesKnowledgePage() {
 
     setUploading(true);
     setUploadError(null);
+    triggerChunkDrop();
 
     try {
       await api.uploadDocuments(selectedSource.id, files);
