@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -19,6 +19,20 @@ export function Modal({
   children,
   maxWidth = "md",
 }: ModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const maxWidths = {
@@ -30,7 +44,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-150"
       role="dialog"
       aria-modal="true"
     >
@@ -41,20 +55,20 @@ export function Modal({
       />
       <div
         className={cn(
-          "relative w-full rounded-2xl border border-border bg-card text-card-foreground shadow-2xl z-10 overflow-hidden animate-in zoom-in-95 duration-150",
+          "relative w-full rounded-xl border border-zinc-800 bg-[#0c0d10] text-foreground shadow-2xl z-10 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150",
           maxWidths[maxWidth]
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between border-b border-border/80 px-6 py-4">
+          <div className="flex items-start justify-between border-b border-zinc-800/80 px-6 sm:px-8 py-5 shrink-0">
             <div>
               {title && (
-                <h3 className="text-base font-semibold text-foreground tracking-tight">
+                <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-zinc-400 mt-1">
                   {description}
                 </p>
               )}
@@ -62,14 +76,14 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800/60 hover:text-foreground transition-colors"
               aria-label="Close dialog"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="p-6 sm:p-8 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

@@ -223,22 +223,22 @@ export default function SourcesKnowledgePage() {
   const hasSources = sources.length > 0;
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-150">
-      {/* Top Header: Clean, Typographic, Minimalist */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-150">
+      {/* Top Header: Clean, Typographic, Precision-Engineered Brutalist-Tech */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               Knowledge Base
             </h1>
             {hasSources && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                {sources.length}
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/50 text-zinc-400">
+                {sources.length} {sources.length === 1 ? "source" : "sources"}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Manage reference documents and data sources for grounded semantic retrieval.
+          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+            Manage reference documents, chunks, and data sources for grounded semantic retrieval.
           </p>
         </div>
 
@@ -247,7 +247,7 @@ export default function SourcesKnowledgePage() {
             onClick={() => setShowModal(true)}
             variant="primary"
             size="sm"
-            className="rounded-2xl h-9 px-4 text-xs font-semibold gap-2 shrink-0 self-start sm:self-center shadow-xs"
+            className="gap-2 shrink-0 self-start sm:self-center"
           >
             <Plus className="h-4 w-4" /> Add Knowledge Source
           </Button>
@@ -263,36 +263,36 @@ export default function SourcesKnowledgePage() {
       )}
 
       {!hasSources ? (
-        /* Minimalist Zero-State: Beautiful centered hero with soft bg-muted/30, no dotted borders */
-        <div className="rounded-3xl bg-muted/30 p-8 sm:p-14 text-center flex flex-col items-center justify-center space-y-5 animate-in fade-in duration-150">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-primary">
-            <Database className="h-7 w-7" />
+        /* Minimalist Zero-State: Transparent/subtle fill with ultra-thin delicate border */
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 py-20 px-8 text-center flex flex-col items-center justify-center space-y-5 animate-in fade-in duration-150">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400">
+            <Database className="h-5 w-5 stroke-[1.5]" />
           </div>
 
           <div className="max-w-md space-y-1.5">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground">
+            <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
               No knowledge sources yet
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Upload documents (PDF, TXT, Markdown) or crawl websites to build your vector knowledge base.
+            <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+              Upload enterprise documents (PDF, TXT, Markdown, CSV) or crawl web domains to generate high-dimensional vector embeddings.
             </p>
           </div>
 
           <Button
             onClick={() => setShowModal(true)}
             variant="primary"
-            size="lg"
-            className="rounded-2xl px-6 font-semibold gap-2 shadow-xs text-xs sm:text-sm h-10"
+            size="sm"
+            className="gap-2 mt-2"
           >
             <Plus className="h-4 w-4" /> Add Knowledge Source
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column: Clean Dataset List */}
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Clean Datasets List */}
+          <div className="lg:col-span-4 space-y-4">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
                 Datasets ({sources.length})
               </span>
             </div>
@@ -305,34 +305,41 @@ export default function SourcesKnowledgePage() {
                     key={src.id}
                     type="button"
                     onClick={() => setSelectedSource(src)}
-                    className={`w-full text-left p-4 rounded-2xl transition-all duration-150 flex items-center justify-between gap-3 ${
+                    className={`w-full text-left p-3.5 rounded-lg border transition-all duration-150 flex items-center justify-between gap-3 ${
                       isSelected
-                        ? "bg-muted text-foreground shadow-xs"
-                        : "bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                        ? "border-zinc-700 bg-zinc-900/50 text-foreground"
+                        : "border-zinc-850 border-zinc-800/60 bg-transparent hover:border-zinc-700 hover:bg-zinc-900/30 text-zinc-400 hover:text-foreground"
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-xl shrink-0 ${
-                        isSelected ? "bg-muted text-foreground" : "bg-muted/60 text-muted-foreground"
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-md border shrink-0 ${
+                        isSelected
+                          ? "border-zinc-700 bg-zinc-800/80 text-foreground"
+                          : "border-zinc-800 bg-zinc-900/40 text-zinc-500"
                       }`}>
-                        <FolderOpen className="h-4 w-4" />
+                        <FolderOpen className="h-4 w-4 stroke-[1.5]" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">
+                      <div className="min-w-0 space-y-1">
+                        <div className="text-xs sm:text-sm font-medium text-foreground truncate">
                           {src.name}
                         </div>
-                        <div className="text-[11px] text-muted-foreground truncate font-mono">
-                          {src.source_type === "file_upload" ? "Files" : "Web Crawl"} &middot; {src.document_count ?? 0} docs
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.2 rounded border border-zinc-800 bg-zinc-950/60 text-zinc-400 uppercase">
+                            {src.source_type === "file_upload" ? "Files" : "Web Crawl"}
+                          </span>
+                          <span className="text-[11px] text-zinc-500 font-mono">
+                            {src.document_count ?? 0} docs
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         {formatStatus(src.status)}
                       </span>
-                      <ChevronRight className={`h-4 w-4 text-muted-foreground/40 transition-transform ${isSelected ? "text-foreground" : ""}`} />
+                      <ChevronRight className={`h-4 w-4 transition-transform ${isSelected ? "text-foreground" : "text-zinc-600"}`} />
                     </div>
                   </button>
                 );
@@ -341,31 +348,43 @@ export default function SourcesKnowledgePage() {
           </div>
 
           {/* Right Column: Seamless Integrated Document View */}
-          <div className="md:col-span-2 space-y-5">
+          <div className="lg:col-span-8 space-y-6">
             {selectedSource ? (
-              <div className="space-y-5">
+              <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 p-6 sm:p-7 space-y-6">
                 {/* Clean Top Action Bar for Selected Dataset */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pb-2 border-b border-border/30">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-base sm:text-lg font-bold text-foreground truncate">{selectedSource.name}</h2>
-                      <span className="px-2 py-0.5 rounded-md bg-muted text-[10px] font-mono text-muted-foreground uppercase">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/60">
+                  <div className="min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-base sm:text-lg font-semibold text-foreground tracking-tight truncate">
+                        {selectedSource.name}
+                      </h2>
+                      <span className="px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/60 text-[10px] font-mono text-zinc-400 uppercase">
                         {selectedSource.source_type}
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                      {formatStatus(selectedSource.status)} &middot; 1536-dim vector embeddings
+                    <p className="text-[11px] text-zinc-400 flex items-center gap-2 font-mono">
+                      <span className="inline-flex items-center gap-1 text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        {formatStatus(selectedSource.status)}
+                      </span>
+                      <span className="text-zinc-600">•</span>
+                      <span>1536-dim vector embeddings</span>
+                      {selectedSource.target_url && (
+                        <>
+                          <span className="text-zinc-600">•</span>
+                          <span className="truncate max-w-xs">{selectedSource.target_url}</span>
+                        </>
+                      )}
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={loadDocuments}
                       isLoading={refreshing}
-                      className="rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5"
+                      className="gap-1.5"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Refresh
                     </Button>
@@ -384,7 +403,7 @@ export default function SourcesKnowledgePage() {
                         variant="primary"
                         size="sm"
                         isLoading={uploading}
-                        className="pointer-events-none rounded-xl h-8 px-3.5 text-xs font-semibold gap-1.5 shadow-xs"
+                        className="pointer-events-none gap-1.5"
                       >
                         <Upload className="h-3.5 w-3.5" /> Upload Files
                       </Button>
@@ -393,65 +412,67 @@ export default function SourcesKnowledgePage() {
                 </div>
 
                 {/* Documents List & Mass Management */}
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-medium text-muted-foreground px-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-foreground font-semibold">Indexed Documents ({documents.length})</span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-muted">PDF, TXT, MD, CSV</span>
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400 px-0.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-foreground font-medium">Indexed Documents ({documents.length})</span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-900/40 text-zinc-400">
+                        PDF, TXT, MD, CSV
+                      </span>
                     </div>
 
                     {documents.length > 5 && (
-                      <div className="relative w-full sm:w-56">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <div className="relative w-full sm:w-60">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
                         <input
                           type="text"
                           placeholder="Filter documents..."
                           value={docFilter}
                           onChange={(e) => setDocFilter(e.target.value)}
-                          className="w-full h-8 pl-8 pr-3 text-xs rounded-xl bg-muted/40 border border-border/40 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                          className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-zinc-800 bg-zinc-950/40 text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20"
                         />
                       </div>
                     )}
                   </div>
 
                   {documents.length === 0 ? (
-                    <div className="rounded-3xl bg-muted/20 p-8 text-center space-y-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground mx-auto">
-                        <Upload className="h-5 w-5" />
+                    <div className="rounded-lg border border-zinc-850 border-zinc-800/60 bg-transparent py-14 px-4 text-center space-y-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400 mx-auto">
+                        <Upload className="h-4 w-4 stroke-[1.5]" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-semibold text-foreground">No documents uploaded yet</p>
-                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                          Upload files to chunk and index them for assistant retrieval.
+                        <p className="text-xs sm:text-sm font-medium text-foreground">No documents uploaded yet</p>
+                        <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                          Upload files to chunk, calculate embeddings, and index them for assistant retrieval.
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="divide-y divide-border/30 rounded-2xl bg-card overflow-hidden">
+                    <div className="divide-y divide-zinc-800/60 rounded-lg border border-zinc-800/80 overflow-hidden bg-transparent">
                       {documents
                         .filter((d) => d.filename.toLowerCase().includes(docFilter.toLowerCase()))
                         .map((doc) => (
                           <div
                             key={doc.id}
-                            className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-muted/30 transition-colors gap-3"
+                            className="flex items-center justify-between p-3.5 hover:bg-zinc-900/30 transition-colors gap-3"
                           >
                             <div className="flex items-center gap-3 truncate min-w-0">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-foreground shrink-0">
-                                <FileText className="h-4 w-4" />
+                              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/40 text-zinc-400 shrink-0">
+                                <FileText className="h-4 w-4 stroke-[1.5]" />
                               </div>
                               <div className="truncate min-w-0">
-                                <div className="text-xs font-semibold text-foreground truncate">
+                                <div className="text-xs sm:text-sm font-medium text-foreground truncate">
                                   {doc.filename}
                                 </div>
-                                <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
                                   {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2.5 shrink-0">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-500 font-mono">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                                 {formatStatus(doc.status)}
                               </span>
 
@@ -459,7 +480,7 @@ export default function SourcesKnowledgePage() {
                                 type="button"
                                 disabled={deletingDocId === doc.id}
                                 onClick={() => setDocToDelete({ id: doc.id, filename: doc.filename })}
-                                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                                className="h-7 w-7 rounded-md flex items-center justify-center text-zinc-400 hover:bg-red-950/30 hover:text-red-400 transition-colors disabled:opacity-50"
                                 title="Delete document"
                                 aria-label="Delete document"
                               >
@@ -473,8 +494,8 @@ export default function SourcesKnowledgePage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl bg-muted/20 p-8 text-center text-xs text-muted-foreground">
-                Select a dataset to view its documents.
+              <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/20 py-16 text-center text-xs text-zinc-400">
+                Select a dataset from the left column to view its documents and indexed vectors.
               </div>
             )}
           </div>
@@ -511,7 +532,7 @@ export default function SourcesKnowledgePage() {
       */}
       {showModal && (
         <div
-          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-4"
+          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-6"
           onClick={() => setShowModal(false)}
           role="dialog"
           aria-modal="true"
@@ -527,94 +548,102 @@ export default function SourcesKnowledgePage() {
               transition: touchStartY === null ? "transform 0.15s ease-out" : "none",
             }}
             className={cn(
-              "w-full bg-card text-card-foreground border-border/40 shadow-2xl overflow-hidden flex flex-col relative",
+              "w-full bg-[#0c0d10] text-foreground border-zinc-800 shadow-2xl flex flex-col relative",
               // Mobile (< md): Slides up from bottom as Drawer
-              "mt-auto md:mt-0 rounded-t-3xl md:rounded-3xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-md animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
+              "mt-auto md:mt-0 rounded-t-xl md:rounded-xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
             )}
           >
             {/* Mobile Swipe-Down Handle */}
             <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
-              <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30 hover:bg-muted-foreground/50 transition-colors" />
+              <div className="h-1.5 w-12 rounded-full bg-zinc-700" />
             </div>
 
-            {/* Header with Title and 'X' Button */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-foreground shrink-0">
-                  <Database className="h-4 w-4" />
+            {/* Header with Title and 'X' Button - Spacious breathing room */}
+            <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-800/80 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/60 text-zinc-300 shrink-0">
+                  <Database className="h-4 w-4 stroke-[1.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground">Add Knowledge Source</h3>
+                <div>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Add Knowledge Source</h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Configure documents or website URLs for indexing</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Form Body */}
+            {/* Form Body - Increased padding and gap between form groups */}
             <form onSubmit={handleCreateSource} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Knowledge Source Name</label>
+              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-300">
+                    Source Name
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Employee Handbook, Technical Specs"
                     value={sourceName}
                     onChange={(e) => setSourceName(e.target.value)}
-                    className="w-full rounded-xl bg-muted/50 border border-transparent px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors"
+                    className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                   />
+                  <p className="text-[11px] text-zinc-500">A human-readable label to identify this dataset in your project.</p>
                 </div>
 
                 {/* Custom Select with Bottom-Sheet behavior on mobile */}
-                <CustomSelect
-                  label="Source Type"
-                  value={sourceType}
-                  onChange={(val) => setSourceType(val as any)}
-                  triggerClassName="bg-muted/50 border-transparent focus:ring-2 focus:ring-primary/20"
-                  options={[
-                    {
-                      value: "file_upload",
-                      label: "File Upload (PDF, TXT, Markdown)",
-                      description: "Upload local documents to generate vector embeddings",
-                      icon: <Upload className="h-4 w-4" />,
-                    },
-                    {
-                      value: "website_crawl",
-                      label: "Website URL Crawl",
-                      description: "Extract and index live web pages or documentation",
-                      icon: <ExternalLink className="h-4 w-4" />,
-                    },
-                  ]}
-                />
+                <div className="space-y-2">
+                  <CustomSelect
+                    label="Source Type"
+                    value={sourceType}
+                    onChange={(val) => setSourceType(val as any)}
+                    triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500"
+                    options={[
+                      {
+                        value: "file_upload",
+                        label: "File Upload (PDF, TXT, Markdown, CSV)",
+                        description: "Upload local files to chunk and generate 1536-dim vector embeddings",
+                        icon: <Upload className="h-4 w-4 stroke-[1.5]" />,
+                      },
+                      {
+                        value: "website_crawl",
+                        label: "Website URL Crawl",
+                        description: "Extract, clean, and vectorize live documentation or web domains",
+                        icon: <ExternalLink className="h-4 w-4 stroke-[1.5]" />,
+                      },
+                    ]}
+                  />
+                </div>
 
                 {sourceType === "website_crawl" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Target URL</label>
+                  <div className="space-y-2 animate-in fade-in duration-150">
+                    <label className="text-xs font-medium text-zinc-300">Target URL</label>
                     <input
                       type="url"
                       required
                       placeholder="https://docs.example.com"
                       value={targetUrl}
                       onChange={(e) => setTargetUrl(e.target.value)}
-                      className="w-full rounded-xl bg-muted/50 border border-transparent px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                     />
+                    <p className="text-[11px] text-zinc-500">Provide the canonical root URL for recursive web scraping.</p>
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons Footer */}
-              <div className="p-4 sm:p-5 border-t border-border/40 bg-card/60 flex items-center justify-end gap-2.5 shrink-0">
+              {/* Action Buttons Footer - Proper padding, distinct Ghost cancel and solid primary */}
+              <div className="px-6 sm:px-8 py-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl text-xs font-medium"
                 >
                   Cancel
                 </Button>
@@ -624,7 +653,7 @@ export default function SourcesKnowledgePage() {
                   size="sm"
                   isLoading={creating}
                   disabled={!sourceName.trim()}
-                  className="rounded-xl text-xs font-semibold px-5 h-9 shadow-xs"
+                  className="px-5"
                 >
                   Create Source
                 </Button>

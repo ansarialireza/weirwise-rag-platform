@@ -296,7 +296,7 @@ export default function AssistantsListPage() {
       */}
       {showCreate && (
         <div
-          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-4"
+          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-6"
           onClick={() => setShowCreate(false)}
           role="dialog"
           aria-modal="true"
@@ -312,28 +312,31 @@ export default function AssistantsListPage() {
               transition: touchStartY === null ? "transform 0.15s ease-out" : "none",
             }}
             className={cn(
-              "w-full bg-card text-card-foreground border-border/40 shadow-2xl overflow-hidden flex flex-col relative",
+              "w-full bg-[#0c0d10] text-foreground border-zinc-800 shadow-2xl flex flex-col relative",
               // Mobile (< md): Slides up from bottom as Drawer
-              "mt-auto md:mt-0 rounded-t-3xl md:rounded-3xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
+              "mt-auto md:mt-0 rounded-t-xl md:rounded-xl border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
             )}
           >
             {/* Mobile Swipe-Down Handle */}
             <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
-              <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30 hover:bg-muted-foreground/50 transition-colors" />
+              <div className="h-1.5 w-12 rounded-full bg-zinc-700" />
             </div>
 
             {/* Header with Title and 'X' Button */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted text-primary shrink-0">
-                  <Bot className="h-4 w-4" />
+            <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-800/80 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/60 text-zinc-300 shrink-0">
+                  <Bot className="h-4 w-4 stroke-[1.5]" />
                 </div>
-                <h3 className="text-sm font-bold text-foreground">Create New Assistant</h3>
+                <div>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Create New Assistant</h3>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Configure retrieval parameters and behavioral intelligence</p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-xl bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground active:scale-95 transition-all"
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
                 aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
@@ -342,88 +345,91 @@ export default function AssistantsListPage() {
 
             {/* Form Body - Scrollable on mobile so virtual keyboard doesn't occlude fields */}
             <form onSubmit={handleCreateAssistant} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                {/* Assistant Name */}
+              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto flex-1">
                 {/* Engine Mode Toggle */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Engine Mode</label>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-300">Engine Mode</label>
+                  <div className="grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => setNewEngineMode("search_only")}
-                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                      className={`p-3 rounded-lg text-left border text-xs transition-all ${
                         newEngineMode === "search_only"
-                          ? "border-foreground bg-card text-foreground font-semibold"
-                          : "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                          ? "border-zinc-500 bg-zinc-900/60 text-foreground font-medium"
+                          : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:text-foreground"
                       }`}
                     >
-                      <div>Semantic Search</div>
-                      <div className="text-[10px] text-muted-foreground font-normal">Vector retrieval only</div>
+                      <div className="font-semibold text-foreground">Semantic Search</div>
+                      <div className="text-[11px] text-zinc-400 font-normal mt-0.5">Vector retrieval &amp; rankings only</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewEngineMode("ai_answer")}
-                      className={`p-2.5 rounded-xl text-left border text-xs transition-all ${
+                      className={`p-3 rounded-lg text-left border text-xs transition-all ${
                         newEngineMode === "ai_answer"
-                          ? "border-foreground bg-card text-foreground font-semibold"
-                          : "border-border/40 bg-muted/40 text-muted-foreground hover:bg-muted/70"
+                          ? "border-zinc-500 bg-zinc-900/60 text-foreground font-medium"
+                          : "border-zinc-800 bg-zinc-950/40 text-zinc-400 hover:border-zinc-700 hover:text-foreground"
                       }`}
                     >
-                      <div>AI Answer</div>
-                      <div className="text-[10px] text-muted-foreground font-normal">RAG synthesized</div>
+                      <div className="font-semibold text-foreground">AI Answer</div>
+                      <div className="text-[11px] text-zinc-400 font-normal mt-0.5">RAG synthesized grounded reasoning</div>
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Assistant Name</label>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-zinc-300">Assistant Name</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Compliance Analyst, Legal Advisor"
                     value={newAssistantName}
                     onChange={(e) => setNewAssistantName(e.target.value)}
-                    className="w-full rounded-xl bg-muted/50 border border-transparent px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors"
+                    className="w-full h-9 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
                   />
+                  <p className="text-[11px] text-zinc-500">A clear, descriptive name for your autonomous or retrieval assistant.</p>
                 </div>
 
                 {/* AI Routing Strategy (CustomSelect with Mobile Bottom Sheet) */}
                 {newEngineMode === "ai_answer" && (
-                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <CustomSelect
-                      label="AI Routing Strategy"
-                      value={newModel}
-                      onChange={(val) => setNewModel(val)}
-                      triggerClassName="bg-muted/50 border-transparent focus:ring-2 focus:ring-primary/20"
-                      options={[
-                        {
-                          value: "Auto",
-                          label: "Auto Routing",
-                          description: "Balanced reasoning latency and citation precision",
-                        },
-                        {
-                          value: "Fast",
-                          label: "Fast Response",
-                          description: "Optimized for minimal response times and summary tasks",
-                        },
-                        {
-                          value: "Deep Thinking",
-                          label: "Deep Thinking",
-                          description: "High-reasoning multi-step analysis for complex docs",
-                        },
-                      ]}
-                    />
+                  <div className="space-y-6 animate-in fade-in duration-150">
+                    <div className="space-y-2">
+                      <CustomSelect
+                        label="AI Routing Strategy"
+                        value={newModel}
+                        onChange={(val) => setNewModel(val)}
+                        triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500"
+                        options={[
+                          {
+                            value: "Auto",
+                            label: "Auto Routing",
+                            description: "Balanced reasoning latency and citation precision",
+                          },
+                          {
+                            value: "Fast",
+                            label: "Fast Response",
+                            description: "Optimized for minimal response times and summary tasks",
+                          },
+                          {
+                            value: "Deep Thinking",
+                            label: "Deep Thinking",
+                            description: "High-reasoning multi-step analysis for complex docs",
+                          },
+                        ]}
+                      />
+                    </div>
 
                     {/* System Instructions (Textarea with comfortable height) */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-foreground">System Instructions</label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-zinc-300">System Instructions</label>
                       <textarea
                         rows={4}
                         placeholder="Describe role, tone, grounding rules, and response structure..."
                         value={newInstructions}
                         onChange={(e) => setNewInstructions(e.target.value)}
-                        className="w-full rounded-2xl bg-muted/50 border border-transparent p-3.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-muted/80 transition-colors leading-relaxed resize-none"
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all leading-relaxed resize-none"
                       />
+                      <p className="text-[11px] text-zinc-500">Provide boundary guidelines and strict enterprise constraints.</p>
                     </div>
                   </div>
                 )}
@@ -431,8 +437,8 @@ export default function AssistantsListPage() {
                 {/* Knowledge Sources Checklist */}
                 {sources.length > 0 && (
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-foreground">Attach Knowledge Sources</label>
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto rounded-2xl p-2 bg-muted/40">
+                    <label className="text-xs font-medium text-zinc-300">Attach Knowledge Sources</label>
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto rounded-lg border border-zinc-800/80 p-2 bg-zinc-950/30">
                       {sources.map((s) => {
                         const isSelected = selectedSourceIds.includes(s.id);
                         return (
@@ -445,17 +451,17 @@ export default function AssistantsListPage() {
                                 setSelectedSourceIds([...selectedSourceIds, s.id]);
                               }
                             }}
-                            className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer text-xs transition-colors ${
+                            className={`flex items-center justify-between p-2.5 rounded-md cursor-pointer text-xs transition-colors ${
                               isSelected
-                                ? "bg-primary/10 text-primary font-semibold"
-                                : "hover:bg-muted/80 text-muted-foreground hover:text-foreground"
+                                ? "bg-zinc-800/70 text-foreground font-medium border border-zinc-700/60"
+                                : "hover:bg-zinc-900/60 text-zinc-400 hover:text-foreground border border-transparent"
                             }`}
                           >
-                            <div className="flex items-center gap-2 truncate">
-                              <Database className="h-3.5 w-3.5 shrink-0" />
+                            <div className="flex items-center gap-2.5 truncate">
+                              <Database className="h-3.5 w-3.5 shrink-0 stroke-[1.5]" />
                               <span className="truncate">{s.name}</span>
                             </div>
-                            {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                            {isSelected && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
                           </div>
                         );
                       })}
@@ -465,13 +471,12 @@ export default function AssistantsListPage() {
               </div>
 
               {/* Action Buttons Footer */}
-              <div className="p-4 sm:p-5 border-t border-border/40 bg-card/60 flex items-center justify-end gap-2.5 shrink-0">
+              <div className="px-6 sm:px-8 py-5 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowCreate(false)}
-                  className="rounded-xl text-xs font-medium"
                 >
                   Cancel
                 </Button>
@@ -481,7 +486,7 @@ export default function AssistantsListPage() {
                   size="sm"
                   isLoading={creating}
                   disabled={!newAssistantName.trim()}
-                  className="rounded-xl text-xs font-semibold px-5 h-9 shadow-xs"
+                  className="px-5"
                 >
                   Create &amp; Configure
                 </Button>

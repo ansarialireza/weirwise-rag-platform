@@ -67,31 +67,31 @@ export function AlertDialog({
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "relative w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-2xl z-10 space-y-5 animate-in zoom-in-95 duration-200"
+          "relative w-full max-w-md rounded-xl border border-zinc-800 bg-[#0c0d10] p-6 sm:p-8 shadow-2xl z-10 space-y-6 animate-in zoom-in-95 duration-200"
         )}
       >
         <div className="flex items-start gap-4">
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
               variant === "destructive"
-                ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                : "bg-primary/10 text-primary border border-primary/20"
+                ? "bg-red-500/10 text-red-400 border-red-500/20"
+                : "bg-zinc-900 text-zinc-300 border-zinc-800"
             )}
           >
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-4 w-4 stroke-[1.5]" />
           </div>
 
           <div className="space-y-1.5 flex-1 min-w-0">
             <h2
               id="alert-dialog-title"
-              className="text-base font-semibold tracking-tight text-foreground"
+              className="text-sm sm:text-base font-semibold tracking-tight text-foreground"
             >
               {title}
             </h2>
             <div
               id="alert-dialog-description"
-              className="text-xs sm:text-sm text-muted-foreground leading-relaxed"
+              className="text-xs text-zinc-400 leading-relaxed"
             >
               {description}
             </div>
@@ -102,26 +102,20 @@ export function AlertDialog({
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={isLoading}
             onClick={onClose}
-            className="rounded-xl px-4 h-9 text-xs font-medium"
           >
             {cancelText}
           </Button>
 
           <Button
             type="button"
+            variant={variant === "destructive" ? "destructive" : "primary"}
             size="sm"
             disabled={isLoading}
             onClick={onConfirm}
-            className={cn(
-              "rounded-xl px-4 h-9 text-xs font-semibold gap-2 transition-all shadow-xs",
-              variant === "destructive"
-                ? "bg-red-600 hover:bg-red-700 text-white active:bg-red-800"
-                : "bg-primary hover:bg-primary/90 text-primary-foreground"
-            )}
           >
             {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             <span>{isLoading ? "Deleting..." : confirmText}</span>
