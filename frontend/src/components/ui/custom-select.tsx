@@ -124,14 +124,14 @@ export function CustomSelect({
             className={cn(
               "z-50 bg-[#0c0d10] text-foreground border border-zinc-800 shadow-2xl transition-all duration-150 select-none overflow-hidden",
               // Mobile: Slide-up bottom sheet
-              "fixed inset-x-3 bottom-4 sm:inset-x-auto sm:bottom-auto rounded-xl p-2 max-h-[60vh] sm:max-h-60 overflow-y-auto animate-in slide-in-from-bottom-5 duration-200",
+              "fixed inset-x-3 bottom-4 sm:inset-x-auto sm:bottom-auto rounded-md p-2 max-h-[60vh] sm:max-h-60 overflow-y-auto animate-in slide-in-from-bottom-5 duration-200",
               // Desktop: Standard anchored popover
-              "sm:absolute sm:top-full sm:left-0 sm:right-0 sm:mt-1.5 sm:rounded-lg sm:p-1 sm:animate-in sm:fade-in-50 sm:zoom-in-95"
+              "sm:absolute sm:top-full sm:left-0 sm:right-0 sm:mt-1.5 sm:rounded-md sm:p-1 sm:animate-in sm:fade-in-50 sm:zoom-in-95"
             )}
           >
             {/* Mobile Sheet Drag Handle indicator */}
             <div className="flex justify-center pb-2 pt-1 sm:hidden">
-              <div className="h-1 w-10 rounded-full bg-zinc-700" />
+              <div className="h-1 w-10 rounded-sm bg-zinc-700" />
             </div>
 
             {label && (

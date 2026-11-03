@@ -162,13 +162,10 @@ export default function AssistantConfigurePage() {
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground truncate max-w-[200px] sm:max-w-xs md:max-w-sm">
                 {name || "Configure Assistant"}
               </h1>
-              <Badge variant={assistant?.status === "published" ? "success" : "outline"} className="text-xs px-2.5 py-0.5 shrink-0">
+              <Badge variant={assistant?.status === "published" ? "success" : "outline"} className="text-xs px-2.5 py-0.5 shrink-0 rounded-sm">
                 v{assistant?.version || 1} • {assistant?.status || "draft"}
               </Badge>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1 truncate">
-              Configure system instructions, inference model parameters, and knowledge attachments.
-            </p>
           </div>
         </div>
 
@@ -258,9 +255,6 @@ export default function AssistantConfigurePage() {
                     <span className="text-xs font-bold text-foreground">Semantic Search</span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-zinc-400">Retrieval Only</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Bypasses LLM generation. Directly retrieves and ranks raw matched document chunks based on vector similarity.
-                  </p>
                 </div>
               </button>
 
@@ -278,9 +272,6 @@ export default function AssistantConfigurePage() {
                     <span className="text-xs font-bold text-foreground">AI Answer</span>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">RAG Synthesized</span>
                   </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Retrieves relevant chunks and passes them to the LLM to generate conversational, cited answers.
-                  </p>
                 </div>
               </button>
             </div>

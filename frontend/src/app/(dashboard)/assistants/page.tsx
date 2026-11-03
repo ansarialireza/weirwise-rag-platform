@@ -176,18 +176,15 @@ export default function AssistantsListPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-mono">
               Assistants
             </h1>
             {hasAssistants && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-zinc-400">
                 {assistants.length}
               </span>
             )}
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Build and configure specialized RAG assistants grounded in your business knowledge.
-          </p>
         </div>
 
         {hasAssistants && (
@@ -349,8 +346,7 @@ export default function AssistantsListPage() {
                   <Bot className="h-4 w-4 stroke-[1.5]" />
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Create Assistant</h3>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Configure retrieval parameters and behavioral intelligence</p>
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight font-mono">Create Assistant</h3>
                 </div>
               </div>
               <button
@@ -380,7 +376,6 @@ export default function AssistantsListPage() {
                       }`}
                     >
                       <div className="font-semibold text-foreground">Semantic Search</div>
-                      <div className="text-[11px] text-zinc-400 font-normal mt-0.5">Vector retrieval &amp; rankings only</div>
                     </button>
                     <button
                       type="button"
@@ -392,7 +387,6 @@ export default function AssistantsListPage() {
                       }`}
                     >
                       <div className="font-semibold text-foreground">AI Answer</div>
-                      <div className="text-[11px] text-zinc-400 font-normal mt-0.5">RAG synthesized grounded reasoning</div>
                     </button>
                   </div>
                 </div>
@@ -405,7 +399,7 @@ export default function AssistantsListPage() {
                     placeholder="e.g. Compliance Analyst"
                     value={newAssistantName}
                     onChange={(e) => setNewAssistantName(e.target.value)}
-                    className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
+                    className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all font-mono"
                   />
                 </div>
 
@@ -422,17 +416,14 @@ export default function AssistantsListPage() {
                           {
                             value: "Auto",
                             label: "Auto Routing",
-                            description: "Balanced reasoning latency and citation precision",
                           },
                           {
                             value: "Fast",
                             label: "Fast Response",
-                            description: "Optimized for minimal response times and summary tasks",
                           },
                           {
                             value: "Deep Thinking",
                             label: "Deep Thinking",
-                            description: "High-reasoning multi-step analysis for complex docs",
                           },
                         ]}
                       />
@@ -443,7 +434,7 @@ export default function AssistantsListPage() {
                       <label className="text-xs font-mono font-medium text-zinc-300">System Instructions</label>
                       <textarea
                         rows={4}
-                        placeholder="Describe role, tone, grounding rules, and response structure..."
+                        placeholder="Instructions, grounding rules, and tone..."
                         value={newInstructions}
                         onChange={(e) => setNewInstructions(e.target.value)}
                         className="w-full rounded-md border border-zinc-800 bg-zinc-950/40 p-3.5 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all leading-relaxed resize-none font-mono"
@@ -495,6 +486,7 @@ export default function AssistantsListPage() {
                   variant="ghost"
                   size="sm"
                   onClick={closeCreateModal}
+                  className="rounded-md"
                 >
                   Cancel
                 </Button>
@@ -504,7 +496,7 @@ export default function AssistantsListPage() {
                   size="sm"
                   isLoading={creating}
                   disabled={!newAssistantName.trim()}
-                  className="px-5"
+                  className="rounded-md px-5 font-semibold"
                 >
                   Create Assistant
                 </Button>
