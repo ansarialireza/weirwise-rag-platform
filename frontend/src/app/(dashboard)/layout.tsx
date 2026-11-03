@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/lib/auth-context";
 import { Menu, Sliders } from "lucide-react";
 import Link from "next/link";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function DashboardLayout({
   children,
@@ -58,7 +59,7 @@ export default function DashboardLayout({
   if (authLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="AUTHENTICATING" />
       </div>
     );
   }
@@ -114,7 +115,7 @@ export default function DashboardLayout({
               ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted transition-colors focus:outline-none"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors focus:outline-none"
               aria-label="Open navigation menu"
               aria-expanded={mobileMenuOpen}
             >
@@ -136,7 +137,7 @@ export default function DashboardLayout({
           <div className="flex items-center justify-end">
             <Link
               href="/playground"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted hover:text-primary transition-colors focus:outline-none"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors focus:outline-none"
               title="Open Playground"
               aria-label="Open Playground"
             >

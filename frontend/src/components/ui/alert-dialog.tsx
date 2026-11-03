@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "./button";
 
 export interface AlertDialogProps {
@@ -117,7 +117,9 @@ export function AlertDialog({
             disabled={isLoading}
             onClick={onConfirm}
           >
-            {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {isLoading && (
+              <span className="inline-block h-3 w-1.5 bg-[#46C7D6] animate-pulse mr-1" aria-hidden="true" />
+            )}
             <span>{isLoading ? "Deleting..." : confirmText}</span>
           </Button>
         </div>

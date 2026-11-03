@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function DashboardRootRedirect() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function DashboardRootRedirect() {
 
   return (
     <div className="flex h-full min-h-[400px] items-center justify-center">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <BrutalistLoader label="ROUTING" />
     </div>
   );
 }

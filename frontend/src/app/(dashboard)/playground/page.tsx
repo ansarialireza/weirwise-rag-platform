@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { CrystallineCursor } from "@/components/chat/crystalline-cursor";
 import { ScrambleText } from "@/components/chat/scramble-text";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function DedicatedPlaygroundPage() {
   const params = useParams();
@@ -139,7 +140,7 @@ export default function DedicatedPlaygroundPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="INITIALIZING PLAYGROUND" />
       </div>
     );
   }
@@ -154,17 +155,17 @@ export default function DedicatedPlaygroundPage() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden relative">
-      {/* Top Header: Clean & Minimalist. No warning text when no assistant is configured */}
-      <header className="flex h-14 items-center justify-between border-b border-border/40 px-4 sm:px-6 shrink-0 bg-background/80 backdrop-blur-md">
+      {/* Top Header: Clean & Minimalist data-terminal bar */}
+      <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 sm:px-6 shrink-0 bg-zinc-950/80 backdrop-blur-md">
         <div className="flex items-center gap-3 min-w-0">
           {hasAssistants ? (
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-muted-foreground shrink-0 hidden sm:inline">Assistant:</span>
+              <span className="text-xs font-mono font-bold text-zinc-400 shrink-0 hidden sm:inline uppercase">Assistant:</span>
               <div className="w-48 sm:w-60 shrink-0">
                 <CustomSelect
                   value={selectedAssistant?.id || ""}
                   onChange={(val) => handleSelectAssistant(val)}
-                  triggerClassName="h-8 rounded-xl bg-muted/60 hover:bg-muted px-2.5 text-xs font-semibold text-foreground border-none"
+                  triggerClassName="h-8 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-2.5 text-xs font-semibold text-foreground"
                   options={assistants.map((a) => ({
                     value: a.id,
                     label: a.name,
@@ -177,7 +178,7 @@ export default function DedicatedPlaygroundPage() {
               </span>
             </div>
           ) : (
-            <span className="text-xs font-medium text-muted-foreground">Playground</span>
+            <span className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Playground Terminal</span>
           )}
         </div>
 
@@ -190,7 +191,7 @@ export default function DedicatedPlaygroundPage() {
                 setMessages([]);
                 setConversationId(undefined);
               }}
-              className="rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground gap-1.5 transition-colors"
+              className="rounded-md border border-transparent hover:border-zinc-800 h-8 px-2.5 text-xs font-medium text-zinc-400 hover:text-white gap-1.5 transition-colors"
               title="Clear chat"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -203,8 +204,10 @@ export default function DedicatedPlaygroundPage() {
               variant="ghost"
               size="sm"
               onClick={() => setShowInspector(!showInspector)}
-              className={`rounded-xl h-8 px-2.5 text-xs font-medium gap-1.5 transition-colors ${
-                showInspector ? "text-primary bg-muted" : "text-muted-foreground hover:text-foreground"
+              className={`rounded-md border h-8 px-2.5 text-xs font-medium gap-1.5 transition-colors ${
+                showInspector
+                  ? "text-[#46C7D6] bg-zinc-900 border-zinc-700"
+                  : "text-zinc-400 hover:text-white border-transparent hover:border-zinc-800"
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -223,8 +226,8 @@ export default function DedicatedPlaygroundPage() {
             {/* Case 1: No Assistant Configured in Project (Single focused hero action) */}
             {!hasAssistants ? (
               <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-5 px-4 animate-in fade-in duration-150">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
-                  <Bot className="h-7 w-7" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
+                  <Bot className="h-6 w-6" />
                 </div>
                 <div className="space-y-1.5 max-w-sm">
                   <h2 className="text-lg sm:text-xl font-bold text-foreground">
@@ -236,8 +239,8 @@ export default function DedicatedPlaygroundPage() {
                 </div>
 
                 {/* Single, Primary Centered Action Button with Solid Clean Styling */}
-                <Link href={`/dashboard/assistants`} className="pt-1">
-                  <Button variant="primary" size="lg" className="rounded-2xl px-6 h-10 text-xs sm:text-sm font-semibold gap-2 shadow-xs">
+                <Link href={`/assistants`} className="pt-1">
+                  <Button variant="primary" size="lg" className="rounded-md px-6 h-9 text-xs sm:text-sm font-bold gap-2 shadow-xs">
                     <Plus className="h-4 w-4" /> Create Assistant
                   </Button>
                 </Link>
@@ -245,7 +248,7 @@ export default function DedicatedPlaygroundPage() {
             ) : messages.length === 0 ? (
               /* Case 2: Assistant Ready, Empty State with Clickable Prompt Chips */
               <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-6 px-4 animate-in fade-in duration-150">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-primary">
+                <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
                   <Bot className="h-6 w-6" />
                 </div>
                 <div className="space-y-1.5">
@@ -310,29 +313,29 @@ export default function DedicatedPlaygroundPage() {
                               {msg.sources.map((s, idx) => (
                                 <div
                                   key={idx}
-                                  className="rounded-2xl bg-muted/30 p-3.5 text-xs border border-border/30 space-y-2"
+                                  className="rounded-md bg-zinc-900/60 p-3.5 text-xs border border-zinc-800 space-y-2"
                                 >
                                   <div className="flex justify-between items-center text-foreground font-medium">
                                     <span className="text-xs font-semibold">Passage #{s.rank || idx + 1}</span>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-xs font-mono font-bold text-foreground">
+                                      <span className="text-xs font-mono font-bold text-[#46C7D6]">
                                         {(s.similarity_score * 100).toFixed(1)}% match
                                       </span>
                                       <button
                                         type="button"
                                         onClick={() => handleCopyEvidence(s.content, idx)}
-                                        className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                        className="p-1 rounded-sm hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
                                         title="Copy chunk text"
                                       >
                                         {copiedIndex === idx ? (
-                                          <Check className="h-3 w-3 text-foreground" />
+                                          <Check className="h-3 w-3 text-white" />
                                         ) : (
                                           <Copy className="h-3 w-3" />
                                         )}
                                       </button>
                                     </div>
                                   </div>
-                                  <p className="text-[12px] text-foreground leading-relaxed whitespace-pre-wrap">
+                                  <p className="text-[12px] text-zinc-300 leading-relaxed whitespace-pre-wrap">
                                     {s.content}
                                   </p>
                                 </div>
@@ -363,29 +366,29 @@ export default function DedicatedPlaygroundPage() {
                                 {msg.sources.map((s, idx) => (
                                   <div
                                     key={idx}
-                                    className="rounded-2xl bg-background/80 p-3 text-xs border border-border/30 text-muted-foreground"
+                                    className="rounded-md bg-zinc-900/60 p-3 text-xs border border-zinc-800 text-zinc-300"
                                   >
                                     <div className="flex justify-between items-center text-foreground font-medium mb-1">
-                                      <span className="text-[11px]">Chunk #{s.rank || idx + 1}</span>
+                                      <span className="text-[11px] font-mono">Chunk #{s.rank || idx + 1}</span>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[11px] font-mono text-primary font-semibold">
+                                        <span className="text-[11px] font-mono text-[#46C7D6] font-bold">
                                           {(s.similarity_score * 100).toFixed(1)}% match
                                         </span>
                                         <button
                                           type="button"
                                           onClick={() => handleCopyEvidence(s.content, idx)}
-                                          className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                          className="p-1 rounded-sm hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
                                           title="Copy quote"
                                         >
                                           {copiedIndex === idx ? (
-                                            <Check className="h-3 w-3 text-primary" />
+                                            <Check className="h-3 w-3 text-white" />
                                           ) : (
                                             <Copy className="h-3 w-3" />
                                           )}
                                         </button>
                                       </div>
                                     </div>
-                                    <p className="text-[12px] text-foreground/90 leading-relaxed italic line-clamp-3">
+                                    <p className="text-[12px] text-zinc-300 leading-relaxed italic line-clamp-3">
                                       &quot;{s.content}&quot;
                                     </p>
                                   </div>
@@ -453,9 +456,9 @@ export default function DedicatedPlaygroundPage() {
 
         {/* Right Parameters Drawer/Inspector */}
         {showInspector && selectedAssistant && (
-          <aside className="w-72 border-l border-border/40 bg-card/60 backdrop-blur-md p-5 overflow-y-auto space-y-5 animate-in slide-in-from-right-10 duration-150">
+          <aside className="w-72 border-l border-zinc-800 bg-zinc-950/80 backdrop-blur-md p-5 overflow-y-auto space-y-5 animate-in slide-in-from-right-10 duration-150">
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 mb-1">
                 Assistant Settings
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -463,7 +466,7 @@ export default function DedicatedPlaygroundPage() {
               </p>
             </div>
 
-            <div className="space-y-3 rounded-2xl bg-muted/40 p-4 text-xs">
+            <div className="space-y-3 rounded-md bg-zinc-900/60 border border-zinc-800 p-4 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Model</span>
                 <span className="font-semibold text-foreground font-mono">{selectedAssistant.model}</span>
@@ -484,20 +487,20 @@ export default function DedicatedPlaygroundPage() {
 
             <div className="space-y-2">
               <span className="text-xs font-semibold text-foreground">Instructions</span>
-              <div className="rounded-2xl bg-muted/30 p-3 text-xs text-muted-foreground line-clamp-6 leading-relaxed">
+              <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-300 line-clamp-6 leading-relaxed font-mono">
                 {selectedAssistant.system_instructions || "Default assistant instructions."}
               </div>
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-border/40">
+            <div className="space-y-2 pt-2 border-t border-zinc-800">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-foreground">Indexed Sources</span>
-                <span className="text-xs text-muted-foreground">{sources.length}</span>
+                <span className="text-xs font-mono text-muted-foreground">{sources.length}</span>
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {sources.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2 text-xs">
-                    <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <div key={s.id} className="flex items-center gap-2 rounded-md border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-xs">
+                    <FileText className="h-3.5 w-3.5 text-[#46C7D6] shrink-0" />
                     <span className="truncate text-foreground font-medium">{s.name}</span>
                   </div>
                 ))}
@@ -505,8 +508,8 @@ export default function DedicatedPlaygroundPage() {
             </div>
 
             <div className="pt-2">
-              <Link href={`/dashboard/assistants/${selectedAssistant.id}`}>
-                <Button variant="outline" size="sm" className="w-full rounded-xl text-xs font-medium">
+              <Link href={`/assistants/${selectedAssistant.id}`}>
+                <Button variant="outline" size="sm" className="w-full rounded-md text-xs font-medium border-zinc-800 hover:border-zinc-700">
                   Full Configuration &rarr;
                 </Button>
               </Link>

@@ -105,6 +105,19 @@ textarea,
 }
 
 /* Reduced motion preference */
+@keyframes brutalist-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.animate-shimmer {
+  animation: brutalist-shimmer 1.5s infinite linear;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;

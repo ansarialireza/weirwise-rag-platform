@@ -28,6 +28,7 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 import { useStoryStage } from "@/lib/story-stage-context";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
@@ -240,7 +241,7 @@ export default function SourcesKnowledgePage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="INDEXING KNOWLEDGE SOURCES" />
       </div>
     );
   }

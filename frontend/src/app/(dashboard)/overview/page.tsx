@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { Assistant, KnowledgeSource } from "@/types";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 import {
   Bot,
   Database,
@@ -32,7 +33,7 @@ export default function OverviewPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="LOADING OVERVIEW" />
       </div>
     );
   }
@@ -54,16 +55,16 @@ export default function OverviewPage() {
         {/* Card 1: Knowledge Base */}
         <Link
           href="/sources"
-          className="group rounded-3xl border border-border/40 bg-card/60 backdrop-blur-sm p-6 sm:p-8 flex flex-col justify-between hover:border-foreground/30 hover:bg-card/90 transition-all shadow-xs"
+          className="group rounded-md border border-zinc-800 bg-zinc-950/40 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/60 transition-all shadow-xs"
         >
           <div className="space-y-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-foreground group-hover:scale-105 transition-transform">
-              <Database className="h-6 w-6" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6] transition-transform">
+              <Database className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center justify-between">
+              <h2 className="text-base font-bold text-foreground flex items-center justify-between">
                 <span>Knowledge Base</span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-normal">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/60 text-zinc-400">
                   {sources.length} sources
                 </span>
               </h2>
@@ -72,7 +73,7 @@ export default function OverviewPage() {
               </p>
             </div>
           </div>
-          <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:underline underline-offset-4">
+          <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:text-[#46C7D6] transition-colors">
             <span>Open Knowledge Base</span>
             <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </div>
@@ -81,16 +82,16 @@ export default function OverviewPage() {
         {/* Card 2: Assistants & Search */}
         <Link
           href="/assistants"
-          className="group rounded-3xl border border-border/40 bg-card/60 backdrop-blur-sm p-6 sm:p-8 flex flex-col justify-between hover:border-foreground/30 hover:bg-card/90 transition-all shadow-xs"
+          className="group rounded-md border border-zinc-800 bg-zinc-950/40 p-6 sm:p-8 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/60 transition-all shadow-xs"
         >
           <div className="space-y-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-foreground group-hover:scale-105 transition-transform">
-              <Bot className="h-6 w-6" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6] transition-transform">
+              <Bot className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center justify-between">
+              <h2 className="text-base font-bold text-foreground flex items-center justify-between">
                 <span>Assistants &amp; Search</span>
-                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-normal">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/60 text-zinc-400">
                   {assistants.length} configured
                 </span>
               </h2>
@@ -99,7 +100,7 @@ export default function OverviewPage() {
               </p>
             </div>
           </div>
-          <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:underline underline-offset-4">
+          <div className="pt-6 flex items-center gap-1.5 text-xs font-semibold text-foreground group-hover:text-[#46C7D6] transition-colors">
             <span>Manage Assistants</span>
             <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
           </div>

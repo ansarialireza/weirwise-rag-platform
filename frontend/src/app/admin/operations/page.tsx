@@ -99,7 +99,7 @@ export default function AdminOperationsPage() {
   if (loading) {
     return (
       <div className="flex min-h-64 items-center justify-center text-xs text-muted-foreground" aria-live="polite">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" /> Loading operations policy...
+        <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse mr-2" aria-hidden="true" /> Loading operations policy...
       </div>
     );
   }

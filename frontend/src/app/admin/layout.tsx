@@ -19,6 +19,7 @@ import {
 import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
 import { api } from "@/lib/api";
 import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function AdminLayout({
   children,
@@ -59,7 +60,7 @@ export default function AdminLayout({
   if (authLoading || accessLoading || !user || !adminRole) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-[#0d1117]">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="AUTHENTICATING ADMIN" />
       </div>
     );
   }

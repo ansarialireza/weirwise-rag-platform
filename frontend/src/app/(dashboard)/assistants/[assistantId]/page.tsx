@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge, Alert } from "@/components/ui/alert";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function AssistantConfigurePage() {
   const params = useParams();
@@ -140,7 +141,7 @@ export default function AssistantConfigurePage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="RETRIEVING ASSISTANT" />
       </div>
     );
   }

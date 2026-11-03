@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
+import { BrutalistLoader } from "@/components/ui/brutalist-loader";
 
 export default function AssistantsListPage() {
   const router = useRouter();
@@ -164,7 +165,7 @@ export default function AssistantsListPage() {
   if (loading) {
     return (
       <div className="flex h-full min-h-[400px] items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <BrutalistLoader label="RETRIEVING ASSISTANTS" />
       </div>
     );
   }
