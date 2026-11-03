@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weirwise-pwa-v2';
+const CACHE_NAME = 'weirwise-pwa-v3';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [
@@ -8,6 +8,7 @@ const PRECACHE_ASSETS = [
   '/favicon.svg',
   '/weirwise-app-icon.svg',
   '/weirwise-symbol.svg',
+  '/weirwise-horizontal.svg',
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,45 +37,80 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const url = new URL(request.url);
 
-  // Ignore non-GET requests or chrome extension schemes
-  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
+  // Only handle GET requests within same origin
+  if (request.method !== 'GET' || url.origin !== self.location.origin) {
     return;
   }
 
-  // Handle navigation requests (HTML pages)
+  // 1. Never cache API routes, health checks, or telemetry
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/health/') ||
+    url.pathname.startsWith('/_telemetry')
+  ) {
+    return;
+  }
+
+  // 2. Navigation requests: Network-first with cache and offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(async () => {
-        const cache = await caches.open(CACHE_NAME);
-        const cachedResponse = await cache.match(request);
-        if (cachedResponse) {
-          return cachedResponse;
+      fetch(request)
+        .then((response) => {
+          if (response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match(request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return cache.match(OFFLINE_URL);
+        })
+    );
+    return;
+  }
+
+  // 3. Static assets: Cache-first with network fallback (Next.js chunks, fonts, SVG)
+  if (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.jpg')
+  ) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) {
+          return cached;
         }
-        return cache.match(OFFLINE_URL);
+        return fetch(request).then((networkResponse) => {
+          if (networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        });
       })
     );
     return;
   }
 
-  // Network-first with cache fallback for other assets
+  // 4. Default strategy: Network-first with cache fallback
   event.respondWith(
     fetch(request)
-      .then((response) => {
-        if (response.status === 200) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+      .then((networkResponse) => {
+        if (networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         }
-        return response;
+        return networkResponse;
       })
-      .catch(async () => {
-        const cached = await caches.match(request);
-        if (cached) {
-          return cached;
-        }
-        return new Response('Network unavailable', { status: 503, statusText: 'Offline' });
-      })
+      .catch(() => caches.match(request))
   );
 });

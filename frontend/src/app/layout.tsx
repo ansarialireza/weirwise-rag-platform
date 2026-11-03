@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
@@ -10,6 +10,14 @@ import { StoryStageProvider } from "@/lib/story-stage-context";
 import { ContinuousThreadStage } from "@/components/layout/continuous-thread-stage";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
+
+export const viewport: Viewport = {
+  themeColor: "#09090b",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),

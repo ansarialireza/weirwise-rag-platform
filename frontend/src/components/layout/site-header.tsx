@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SiteHeaderProps {
@@ -16,9 +16,35 @@ interface SiteHeaderProps {
 export function SiteHeader({ className }: SiteHeaderProps) {
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
   const dashboardUrl = user ? "/overview" : null;
+
+  // Listen for beforeinstallprompt event
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choiceResult = await installPrompt.userChoice;
+    if (choiceResult.outcome === "accepted") {
+      setIsInstallable(false);
+      setInstallPrompt(null);
+    }
+  };
 
   // Close mobile menu when pathname changes
   useEffect(() => {
@@ -169,12 +195,28 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               </Link>
             </div>
 
-            {/* Polished Theme Toggle Section: Dedicated subtle container */}
-            <div className="p-3 rounded-md border border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between">
-              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-                Interface Theme
-              </span>
-              <ThemeSwitcher />
+            {/* Polished Theme Toggle & Install Section */}
+            <div className="space-y-2">
+              {isInstallable && (
+                <button
+                  type="button"
+                  onClick={handleInstallClick}
+                  className="w-full flex items-center justify-between p-3 rounded-md border border-zinc-800 bg-zinc-900/60 hover:bg-zinc-800/80 text-white transition-all text-xs font-mono font-medium"
+                >
+                  <span className="flex items-center gap-2">
+                    <Download className="h-3.5 w-3.5 text-[#46C7D6]" />
+                    INSTALL APP (PWA)
+                  </span>
+                  <span className="text-[10px] uppercase text-zinc-400">Native</span>
+                </button>
+              )}
+
+              <div className="p-3 rounded-md border border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between">
+                <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+                  Interface Theme
+                </span>
+                <ThemeSwitcher />
+              </div>
             </div>
           </div>
         </div>
