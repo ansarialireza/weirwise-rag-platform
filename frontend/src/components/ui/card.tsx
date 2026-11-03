@@ -15,7 +15,7 @@ export function Card({ className, variant = "default", ...props }: CardProps) {
 
   return (
     <div
-      className={cn("rounded-xl transition-colors", variants[variant], className)}
+      className={cn("rounded-lg transition-colors", variants[variant], className)}
       {...props}
     />
   );

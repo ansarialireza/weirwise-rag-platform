@@ -110,7 +110,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
 
           <Link
             href={dashboardUrl || "/register"}
-            className="whitespace-nowrap rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
+            className="whitespace-nowrap rounded-md bg-white text-black px-3.5 py-1.5 text-xs font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all flex items-center gap-1.5"
           >
             <span>{dashboardUrl ? "Open Studio" : "Get Started"}</span>
             <ArrowRight className="h-3 w-3" />
@@ -160,7 +160,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               <Link
                 href={dashboardUrl || "/register"}
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs hover:opacity-90 active:scale-[0.98] transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-md bg-white text-black px-4 py-2 text-xs font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all"
               >
                 <span>{dashboardUrl ? "Open Studio" : "Get Started Free"}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
