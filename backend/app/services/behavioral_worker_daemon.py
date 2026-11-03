@@ -4,18 +4,19 @@ Handles SIGTERM/SIGINT for clean graceful shutdown, connection teardown, and lif
 """
 
 import asyncio
-import logging
 import signal
 import sys
+
 from backend.app.core.logging import configure_logging, logger
 from backend.app.services.behavioral_worker import BehavioralStreamConsumer
 
 configure_logging()
 
+
 async def main():
     logger.info("Initializing WBI Stream Consumer Background Daemon...")
     consumer = BehavioralStreamConsumer(consumer_name="daemon_wbi_worker")
-    
+
     stop_event = asyncio.Event()
 
     def _signal_handler(sig, frame):
@@ -38,6 +39,7 @@ async def main():
         sys.exit(1)
     finally:
         logger.info("WBI Stream Consumer Background Daemon shutdown complete.")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

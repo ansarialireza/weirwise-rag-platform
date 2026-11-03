@@ -10,9 +10,8 @@ Verifies:
 import json
 import uuid
 from datetime import UTC, datetime
-import pytest
-from sqlalchemy import select, delete
 
+import pytest
 from backend.app.db.session import async_session_factory
 from backend.app.models.auth import User
 from backend.app.models.behavioral import BehavioralEvent, UserBehavioralSession
@@ -21,6 +20,7 @@ from backend.app.services.behavioral_stream import (
     behavioral_stream_producer,
 )
 from backend.app.services.behavioral_worker import BehavioralStreamConsumer
+from sqlalchemy import delete, select
 
 
 @pytest.fixture
@@ -88,7 +88,8 @@ async def test_remediation_session_ownership_and_batch_isolation():
         await consumer._process_messages(redis, [(msg1_id, {"data": json.dumps(envelope_anon)})])
 
         async with async_session_factory() as db:
-            s1 = (await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))).scalar_one()
+            query = select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id)
+            s1 = (await db.execute(query)).scalar_one()
             assert s1.user_id is None
             assert s1.event_count == 1
 
@@ -112,7 +113,8 @@ async def test_remediation_session_ownership_and_batch_isolation():
         await consumer._process_messages(redis, [(msg2_id, {"data": json.dumps(envelope_login)})])
 
         async with async_session_factory() as db:
-            s2 = (await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))).scalar_one()
+            query = select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id)
+            s2 = (await db.execute(query)).scalar_one()
             assert s2.user_id == user_a_id
             assert s2.event_count == 2
 
@@ -162,14 +164,17 @@ async def test_remediation_session_ownership_and_batch_isolation():
         # Session owner MUST STILL BE User A (WBI-AUDIT-01)
         # Event count should now be 3 (ev1, ev2, ev4); hijack ev3 MUST NOT be persisted
         async with async_session_factory() as db:
-            s3 = (await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))).scalar_one()
+            query_s3 = select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id)
+            s3 = (await db.execute(query_s3)).scalar_one()
             assert s3.user_id == user_a_id
             assert s3.event_count == 3
 
-            ev3_check = (await db.execute(select(BehavioralEvent).where(BehavioralEvent.id == ev3_hijack_id))).scalar_one_or_none()
+            query_ev3 = select(BehavioralEvent).where(BehavioralEvent.id == ev3_hijack_id)
+            ev3_check = (await db.execute(query_ev3)).scalar_one_or_none()
             assert ev3_check is None, "Hijack event must not be saved to DB"
 
-            ev4_check = (await db.execute(select(BehavioralEvent).where(BehavioralEvent.id == ev4_valid_sibling_id))).scalar_one_or_none()
+            query_ev4 = select(BehavioralEvent).where(BehavioralEvent.id == ev4_valid_sibling_id)
+            ev4_check = (await db.execute(query_ev4)).scalar_one_or_none()
             assert ev4_check is not None, "Valid sibling event must be saved (savepoint isolation)"
 
         # Step 4: Verify DLQ received the hijack poison message
@@ -202,11 +207,13 @@ async def test_remediation_session_ownership_and_batch_isolation():
         await consumer._process_messages(redis, [(msg5_id, {"data": json.dumps(envelope_case_e)})])
 
         async with async_session_factory() as db:
-            s4 = (await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))).scalar_one()
+            query_s4 = select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id)
+            s4 = (await db.execute(query_s4)).scalar_one()
             assert s4.user_id == user_a_id
             assert s4.event_count == 4
 
-            ev5_row = (await db.execute(select(BehavioralEvent).where(BehavioralEvent.id == ev5_case_e_id))).scalar_one()
+            query_ev5 = select(BehavioralEvent).where(BehavioralEvent.id == ev5_case_e_id)
+            ev5_row = (await db.execute(query_ev5)).scalar_one()
             assert ev5_row.user_id == user_a_id, "Case E event must inherit authenticated session owner"
 
     finally:
