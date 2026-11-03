@@ -1,9 +1,8 @@
-"""User, Workspace, and Membership database models."""
+"""User, Session, and Token database models."""
 
-import enum
 import uuid
 
-from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
+from backend.app.db.base import GUID, Base, utc_now
 from sqlalchemy import (
     Boolean,
     Column,
@@ -11,16 +10,8 @@ from sqlalchemy import (
     ForeignKey,
     Numeric,
     String,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-
-
-class WorkspaceRole(str, enum.Enum):
-    OWNER = "owner"
-    ADMIN = "admin"
-    MEMBER = "member"
-    VIEWER = "viewer"
 
 
 class SubscriptionTier(Base):
@@ -34,8 +25,6 @@ class SubscriptionTier(Base):
     max_storage_mb = Column(Numeric(10, 0), default=50, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
-
-    workspaces = relationship("Workspace", back_populates="subscription_tier")
 
 
 class AIRoutingStrategy(Base):
@@ -63,48 +52,13 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     password_resets = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     email_verifications = relationship("EmailVerificationToken", back_populates="user", cascade="all, delete-orphan")
-
-
-class Workspace(Base):
-    __tablename__ = "workspaces"
-
-    id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    slug = Column(String(100), unique=True, nullable=False, index=True)
-    plan_tier = Column(String(50), default="free", nullable=False)
-    subscription_tier_id = Column(
-        GUID, ForeignKey("subscription_tiers.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    settings = Column(CompatibleJSON, default=dict, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
-
-    subscription_tier = relationship("SubscriptionTier", back_populates="workspaces")
-    memberships = relationship("Membership", back_populates="workspace", cascade="all, delete-orphan")
-    projects = relationship("Project", back_populates="workspace", cascade="all, delete-orphan")
-    api_credentials = relationship("ApiCredential", back_populates="workspace", cascade="all, delete-orphan")
-    audit_events = relationship("AuditEvent", back_populates="workspace", cascade="all, delete-orphan")
-
-
-class Membership(Base):
-    __tablename__ = "memberships"
-
-    id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = Column(String(50), default=WorkspaceRole.MEMBER.value, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
-
-    workspace = relationship("Workspace", back_populates="memberships")
-    user = relationship("User", back_populates="memberships")
-
-    __table_args__ = (UniqueConstraint("workspace_id", "user_id", name="uq_workspace_user_membership"),)
+    assistants = relationship("Assistant", back_populates="user", cascade="all, delete-orphan")
+    knowledge_sources = relationship("KnowledgeSource", back_populates="user", cascade="all, delete-orphan")
+    api_credentials = relationship("ApiCredential", back_populates="user", cascade="all, delete-orphan")
+    audit_events = relationship("AuditEvent", back_populates="user", cascade="all, delete-orphan")
 
 
 class UserSession(Base):

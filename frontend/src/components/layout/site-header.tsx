@@ -16,23 +16,10 @@ interface SiteHeaderProps {
 
 export function SiteHeader({ className }: SiteHeaderProps) {
   const { user, loading } = useAuth();
-  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!loading && user) {
-      api
-        .getWorkspaces()
-        .then((workspaces) => {
-          if (workspaces.length > 0) {
-            setDashboardUrl(`/workspaces/${workspaces[0].id}`);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user, loading]);
+  const dashboardUrl = user ? "/overview" : null;
 
   // Close mobile menu when pathname changes
   useEffect(() => {

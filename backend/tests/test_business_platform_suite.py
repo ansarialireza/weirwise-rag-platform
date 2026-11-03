@@ -83,7 +83,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
 
     # 1. Create Assistant
     ast_resp = client.post(
-        f"/api/v1/projects/{proj_id}/assistants",
+        f"/api/v1/assistants",
         headers=headers,
         json={
             "name": "E-Commerce Support Bot",
@@ -105,7 +105,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
 
     # 3. Create KnowledgeSource & attach to assistant
     ks_resp = client.post(
-        f"/api/v1/projects/{proj_id}/sources",
+        f"/api/v1/sources",
         headers=headers,
         json={"name": "Store Policies", "source_type": "file_upload"},
     )
@@ -188,7 +188,7 @@ def test_feedback_unanswered_and_evaluations(auth_context):
 
     # Create & publish assistant
     ast = client.post(
-        f"/api/v1/projects/{proj_id}/assistants",
+        f"/api/v1/assistants",
         headers=headers,
         json={"name": "Analytics Bot"},
     ).json()

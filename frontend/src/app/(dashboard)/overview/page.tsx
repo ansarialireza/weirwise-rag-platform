@@ -1,50 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Assistant, KnowledgeSource, Project } from "@/types";
+import { Assistant, KnowledgeSource } from "@/types";
 import {
   Bot,
   Database,
-  Sliders,
-  Plus,
   ArrowRight,
-  CheckCircle2,
-  Sparkles,
-  UploadCloud,
-  Lock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-export default function ProjectOverviewPage() {
-  const params = useParams();
-  const workspaceId = params.workspaceId as string;
-  const projectId = params.projectId as string;
-
-  const [project, setProject] = useState<Project | null>(null);
+export default function OverviewPage() {
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (projectId && workspaceId) {
-      Promise.all([
-        api.getProject(projectId),
-        api.getAssistants(projectId),
-        api.getSources(projectId),
-      ])
-        .then(([p, aList, sList]) => {
-          setProject(p);
-          setAssistants(aList);
-          setSources(sList);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [projectId, workspaceId]);
+    Promise.all([
+      api.getAssistants(),
+      api.getSources(),
+    ])
+      .then(([aList, sList]) => {
+        setAssistants(aList);
+        setSources(sList);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   if (loading) {
     return (
@@ -54,19 +37,15 @@ export default function ProjectOverviewPage() {
     );
   }
 
-  const primaryAssistant = assistants[0] || null;
-  const hasSources = sources.length > 0;
-  const hasAssistants = assistants.length > 0;
-
   return (
     <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-150">
-      {/* Ruthlessly Clean Typographic Header - No duplicate action buttons */}
+      {/* Ruthlessly Clean Typographic Header */}
       <div className="space-y-1">
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
           Overview
         </h1>
         <p className="text-xs sm:text-sm text-muted-foreground">
-          Connect business documents, tune assistant personas, and verify answers with semantic citations.
+          Connect company documents, configure AI assistants, and verify answers with deterministic citations.
         </p>
       </div>
 
@@ -74,7 +53,7 @@ export default function ProjectOverviewPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Card 1: Knowledge Base */}
         <Link
-          href={`/workspaces/${workspaceId}/projects/${projectId}/sources`}
+          href="/sources"
           className="group rounded-3xl border border-border/40 bg-card/60 backdrop-blur-sm p-6 sm:p-8 flex flex-col justify-between hover:border-foreground/30 hover:bg-card/90 transition-all shadow-xs"
         >
           <div className="space-y-3">
@@ -101,7 +80,7 @@ export default function ProjectOverviewPage() {
 
         {/* Card 2: Assistants & Search */}
         <Link
-          href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`}
+          href="/assistants"
           className="group rounded-3xl border border-border/40 bg-card/60 backdrop-blur-sm p-6 sm:p-8 flex flex-col justify-between hover:border-foreground/30 hover:bg-card/90 transition-all shadow-xs"
         >
           <div className="space-y-3">
@@ -116,7 +95,7 @@ export default function ProjectOverviewPage() {
                 </span>
               </h2>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Configure Semantic Search (vector only) or AI Answer (RAG) engines and test in Playground.
+                Configure Semantic Search or AI Answer RAG engines and test in Playground.
               </p>
             </div>
           </div>

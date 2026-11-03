@@ -31,7 +31,7 @@ import { useStoryStage } from "@/lib/story-stage-context";
 
 export default function SourcesKnowledgePage() {
   const params = useParams();
-  const projectId = params.projectId as string;
+  
   const { toast } = useToast();
   const uploadWorkflow = useWorkflow("wf_upload_documents");
   const createSourceWorkflow = useWorkflow("wf_create_source");
@@ -63,7 +63,7 @@ export default function SourcesKnowledgePage() {
 
   const loadSources = useCallback(async () => {
     try {
-      const list = await api.getSources(projectId);
+      const list = await api.getSources();
       setSources(list);
       if (list.length > 0 && !selectedSource) {
         setSelectedSource(list[0]);
@@ -71,13 +71,13 @@ export default function SourcesKnowledgePage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, selectedSource]);
+  }, [selectedSource]);
 
   useEffect(() => {
-    if (projectId) {
+    if (true) {
       loadSources();
     }
-  }, [projectId, loadSources]);
+  }, [loadSources]);
 
   const loadDocuments = useCallback(async () => {
     if (selectedSource) {
@@ -134,7 +134,7 @@ export default function SourcesKnowledgePage() {
     setCreating(true);
 
     try {
-      const created = await api.createSource(projectId, {
+      const created = await api.createSource( {
         name: sourceName.trim(),
         source_type: sourceType,
         target_url: sourceType === "website_crawl" ? targetUrl.trim() : undefined,

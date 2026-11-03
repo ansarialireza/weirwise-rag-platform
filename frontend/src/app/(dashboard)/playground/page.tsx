@@ -56,8 +56,8 @@ export default function DedicatedPlaygroundPage() {
   useEffect(() => {
     if (projectId) {
       Promise.all([
-        api.getAssistants(projectId),
-        api.getSources(projectId),
+        api.getAssistants(),
+        api.getSources(),
       ])
         .then(([aList, sList]) => {
           setAssistants(aList);
@@ -116,8 +116,8 @@ export default function DedicatedPlaygroundPage() {
       const assistantMsg: ChatMessage = {
         id: resp.message_id,
         role: "assistant",
-        content: resp.content,
-        sources: resp.sources,
+        content: resp.answer,
+        sources: resp.citations,
         created_at: new Date().toISOString(),
       };
 
@@ -235,7 +235,7 @@ export default function DedicatedPlaygroundPage() {
                 </div>
 
                 {/* Single, Primary Centered Action Button with Solid Clean Styling */}
-                <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`} className="pt-1">
+                <Link href={`/dashboard/assistants`} className="pt-1">
                   <Button variant="primary" size="lg" className="rounded-2xl px-6 h-10 text-xs sm:text-sm font-semibold gap-2 shadow-xs">
                     <Plus className="h-4 w-4" /> Create Assistant
                   </Button>
@@ -498,7 +498,7 @@ export default function DedicatedPlaygroundPage() {
             </div>
 
             <div className="pt-2">
-              <Link href={`/workspaces/${workspaceId}/projects/${projectId}/assistants/${selectedAssistant.id}`}>
+              <Link href={`/dashboard/assistants/${selectedAssistant.id}`}>
                 <Button variant="outline" size="sm" className="w-full rounded-xl text-xs font-medium">
                   Full Configuration &rarr;
                 </Button>

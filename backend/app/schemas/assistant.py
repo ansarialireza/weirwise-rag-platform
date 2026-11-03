@@ -54,7 +54,7 @@ class AssistantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    project_id: uuid.UUID
+    user_id: uuid.UUID
     core_assistant_id: uuid.UUID | None
     name: str
     description: str | None

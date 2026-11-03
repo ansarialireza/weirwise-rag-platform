@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Assistant, KnowledgeSource, Project } from "@/types";
+import { Assistant, KnowledgeSource } from "@/types";
 import {
   Bot,
   Plus,
@@ -21,15 +21,11 @@ import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 
 export default function AssistantsListPage() {
-  const params = useParams();
   const router = useRouter();
-  const workspaceId = params.workspaceId as string;
-  const projectId = params.projectId as string;
   const { toast } = useToast();
   const createAssistantWf = useWorkflow("wf_create_assistant");
   const { trackAction, trackFriction } = useTelemetry();
 
-  const [project, setProject] = useState<Project | null>(null);
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,21 +45,17 @@ export default function AssistantsListPage() {
   const [drawerTranslateY, setDrawerTranslateY] = useState(0);
 
   const loadData = useCallback(async () => {
-    if (projectId) {
-      try {
-        const [p, aList, sList] = await Promise.all([
-          api.getProject(projectId),
-          api.getAssistants(projectId),
-          api.getSources(projectId),
-        ]);
-        setProject(p);
-        setAssistants(aList);
-        setSources(sList);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const [aList, sList] = await Promise.all([
+        api.getAssistants(),
+        api.getSources(),
+      ]);
+      setAssistants(aList);
+      setSources(sList);
+    } finally {
+      setLoading(false);
     }
-  }, [projectId]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -95,7 +87,7 @@ export default function AssistantsListPage() {
     setCreating(true);
 
     try {
-      const created = await api.createAssistant(projectId, {
+      const created = await api.createAssistant( {
         name: newAssistantName.trim(),
         system_instructions: newInstructions.trim() || "You are an intelligent business assistant.",
         model: newModel,
@@ -114,7 +106,7 @@ export default function AssistantsListPage() {
       });
 
       setShowCreate(false);
-      router.push(`/workspaces/${workspaceId}/projects/${projectId}/assistants/${created.id}`);
+      router.push(`/dashboard/assistants/${created.id}`);
     } catch (err: any) {
       createAssistantWf.stepFailed("API_ERROR", {
         status: err.status,
@@ -303,7 +295,7 @@ export default function AssistantsListPage() {
 
               <div className="mt-4 pt-3 border-t border-border/30 flex items-center gap-2">
                 <Link
-                  href={`/workspaces/${workspaceId}/projects/${projectId}/assistants/${a.id}`}
+                  href={`/dashboard/assistants/${a.id}`}
                   className="flex-1"
                 >
                   <Button variant="ghost" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">
@@ -311,7 +303,7 @@ export default function AssistantsListPage() {
                   </Button>
                 </Link>
                 <Link
-                  href={`/workspaces/${workspaceId}/projects/${projectId}/playground?assistantId=${a.id}`}
+                  href={`/dashboard/playground?assistantId=${a.id}`}
                   className="flex-1"
                 >
                   <Button variant="primary" size="sm" className="w-full rounded-xl h-8 px-2.5 text-xs font-semibold gap-1.5 shadow-xs">

@@ -46,12 +46,7 @@ export default function LoginPage() {
         }
       }
 
-      const workspaces = await api.getWorkspaces();
-      if (workspaces.length > 0) {
-        router.push(`/workspaces/${workspaces[0].id}`);
-      } else {
-        router.push("/");
-      }
+      router.push("/overview");
     } catch (err: any) {
       if (err.status === 403 && err.message?.toLowerCase().includes("not verified")) {
         setError("Your account is not verified yet. Redirecting to verification...");

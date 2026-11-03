@@ -57,7 +57,7 @@ export default function AssistantConfigurePage() {
     if (projectId && assistantId) {
       Promise.all([
         api.getAssistant(assistantId),
-        api.getSources(projectId),
+        api.getSources(),
       ])
         .then(([a, sList]) => {
           setAssistant(a);
@@ -151,7 +151,7 @@ export default function AssistantConfigurePage() {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border pb-6">
         <div className="flex items-center gap-3.5 min-w-0">
           <Link
-            href={`/workspaces/${workspaceId}/projects/${projectId}/assistants`}
+            href={`/dashboard/assistants`}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors shadow-xs shrink-0"
           >
             <ArrowLeft className="h-4.5 w-4.5" />
@@ -173,7 +173,7 @@ export default function AssistantConfigurePage() {
 
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Link
-            href={`/workspaces/${workspaceId}/projects/${projectId}/playground?assistantId=${assistantId}`}
+            href={`/dashboard/playground?assistantId=${assistantId}`}
             className="flex-1 sm:flex-initial"
           >
             <Button variant="outline" size="sm" className="w-full sm:w-auto h-9 px-3 text-xs font-semibold gap-1.5">

@@ -39,13 +39,7 @@ export function CommandPalette() {
   const [drawerTranslateY, setDrawerTranslateY] = useState(0);
 
   const router = useRouter();
-  const params = useParams();
   const { theme, setTheme } = useTheme();
-
-  const workspaceId = params.workspaceId as string | undefined;
-  const projectId = params.projectId as string | undefined;
-
-  const baseProj = workspaceId && projectId ? `/workspaces/${workspaceId}/projects/${projectId}` : "";
 
   // Keyboard shortcut listener: Cmd+K or Ctrl+K & Escape
   useEffect(() => {
@@ -81,63 +75,55 @@ export function CommandPalette() {
 
   const items: CommandItem[] = [
     // Navigation
-    ...(baseProj
-      ? [
-          {
-            id: "nav-overview",
-            title: "Go to Overview",
-            subtitle: "Operational metrics & progression",
-            icon: LayoutDashboard,
-            category: "Navigation" as const,
-            onSelect: () => router.push(`${baseProj}/overview`),
-          },
-          {
-            id: "nav-knowledge",
-            title: "Go to Knowledge Sources",
-            subtitle: "Manage vectorized document datasets",
-            icon: Database,
-            category: "Navigation" as const,
-            onSelect: () => router.push(`${baseProj}/sources`),
-          },
-          {
-            id: "nav-assistants",
-            title: "Go to Assistants",
-            subtitle: "View and configure grounded AI models",
-            icon: Bot,
-            category: "Navigation" as const,
-            onSelect: () => router.push(`${baseProj}/assistants`),
-          },
-          {
-            id: "nav-playground",
-            title: "Open Interactive Playground",
-            subtitle: "Test queries with real-time citations",
-            icon: Sliders,
-            category: "Navigation" as const,
-            onSelect: () => router.push(`${baseProj}/playground`),
-          },
-        ]
-      : []),
+    {
+      id: "nav-overview",
+      title: "Go to Overview",
+      subtitle: "Operational metrics & progression",
+      icon: LayoutDashboard,
+      category: "Navigation" as const,
+      onSelect: () => router.push(`/overview`),
+    },
+    {
+      id: "nav-knowledge",
+      title: "Go to Knowledge Sources",
+      subtitle: "Manage vectorized document datasets",
+      icon: Database,
+      category: "Navigation" as const,
+      onSelect: () => router.push(`/sources`),
+    },
+    {
+      id: "nav-assistants",
+      title: "Go to Assistants",
+      subtitle: "View and configure grounded AI models",
+      icon: Bot,
+      category: "Navigation" as const,
+      onSelect: () => router.push(`/assistants`),
+    },
+    {
+      id: "nav-playground",
+      title: "Open Interactive Playground",
+      subtitle: "Test queries with real-time citations",
+      icon: Sliders,
+      category: "Navigation" as const,
+      onSelect: () => router.push(`/playground`),
+    },
     // Actions
-    ...(baseProj
-      ? [
-          {
-            id: "act-new-assistant",
-            title: "Create New Assistant",
-            subtitle: "Define system prompt and attach knowledge",
-            icon: Plus,
-            category: "Actions" as const,
-            onSelect: () => router.push(`${baseProj}/assistants`),
-          },
-          {
-            id: "act-upload-knowledge",
-            title: "Upload Knowledge Document",
-            subtitle: "Ingest PDF, Markdown, or text documents",
-            icon: Database,
-            category: "Actions" as const,
-            onSelect: () => router.push(`${baseProj}/sources`),
-          },
-        ]
-      : []),
+    {
+      id: "act-new-assistant",
+      title: "Create New Assistant",
+      subtitle: "Define system prompt and attach knowledge",
+      icon: Plus,
+      category: "Actions" as const,
+      onSelect: () => router.push(`/assistants`),
+    },
+    {
+      id: "act-upload-knowledge",
+      title: "Upload Knowledge Document",
+      subtitle: "Ingest PDF, Markdown, or text documents",
+      icon: Database,
+      category: "Actions" as const,
+      onSelect: () => router.push(`/sources`),
+    },
     // Theme Preferences
     {
       id: "theme-system",

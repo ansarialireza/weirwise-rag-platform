@@ -203,7 +203,7 @@ async def test_live_platform_to_core_jina_integration():
 
         # 5. Create KnowledgeSource in Platform
         ks_res = platform_client.post(
-            f"/api/v1/projects/{proj_id}/sources",
+            f"/api/v1/sources",
             headers=headers,
             json={"name": "Architecture Spec", "source_type": "file_upload"},
         )
@@ -278,7 +278,7 @@ async def test_live_platform_to_core_jina_integration():
 
         # 11. Create Assistant, Publish, and Chat via Platform API
         ast_res = platform_client.post(
-            f"/api/v1/projects/{proj_id}/assistants",
+            f"/api/v1/assistants",
             headers=headers,
             json={
                 "name": "Live Spec Assistant",

@@ -1,5 +1,3 @@
-export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
-
 export interface User {
   id: string;
   email: string;
@@ -11,44 +9,12 @@ export interface User {
   updated_at: string;
 }
 
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  plan_tier: string;
-  settings: Record<string, any>;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Membership {
-  id: string;
-  workspace_id: string;
-  user_id: string;
-  role: WorkspaceRole;
-  user_email?: string;
-  user_name?: string;
-  created_at: string;
-}
-
-export interface Project {
-  id: string;
-  workspace_id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export type KnowledgeSourceType = "file_upload" | "website_crawl";
 export type SourceProcessingStatus = "pending" | "processing" | "ready" | "failed" | "deleting";
 
 export interface KnowledgeSource {
   id: string;
-  project_id: string;
+  user_id: string;
   core_kb_id?: string;
   name: string;
   source_type: KnowledgeSourceType;
@@ -80,7 +46,7 @@ export type EngineMode = "search_only" | "ai_answer";
 
 export interface Assistant {
   id: string;
-  project_id: string;
+  user_id: string;
   core_assistant_id?: string;
   name: string;
   description?: string;
@@ -131,7 +97,7 @@ export interface Deployment {
 
 export interface ApiCredential {
   id: string;
-  workspace_id: string;
+  user_id: string;
   name: string;
   key_prefix: string;
   scopes: string[];

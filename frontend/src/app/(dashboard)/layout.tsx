@@ -1,12 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { useTelemetry } from "@/lib/telemetry";
-import { Workspace, Project } from "@/types";
 import { Menu, Sliders } from "lucide-react";
 import Link from "next/link";
 
@@ -17,57 +14,16 @@ export default function DashboardLayout({
 }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const params = useParams();
 
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
-
-  const workspaceId = params.workspaceId as string | undefined;
-  const projectId = params.projectId as string | undefined;
-  const { client: telemetryClient } = useTelemetry();
-
-  useEffect(() => {
-    if (workspaceId) {
-      telemetryClient.setWorkspaceId(workspaceId);
-    }
-  }, [workspaceId, telemetryClient]);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
-      return;
     }
-
-    if (user) {
-      api.getWorkspaces().then(async (wsList) => {
-        setWorkspaces(wsList);
-
-        // Resolve workspace
-        const activeWs = wsList.find((w) => w.id === workspaceId) || wsList[0] || null;
-        setCurrentWorkspace(activeWs);
-
-        if (activeWs) {
-          const pList = await api.getProjects(activeWs.id);
-          setProjects(pList);
-
-          // Resolve project
-          const activeProj = pList.find((p) => p.id === projectId) || pList[0] || null;
-          setCurrentProject(activeProj);
-        }
-      }).catch(() => {
-        // Handle error
-      }).finally(() => {
-        setLoading(false);
-      });
-    }
-  }, [user, authLoading, workspaceId, projectId, router]);
+  }, [user, authLoading, router]);
 
   // Handle ESC key to dismiss mobile drawer & restore focus to trigger
   useEffect(() => {
@@ -99,7 +55,7 @@ export default function DashboardLayout({
     menuTriggerRef.current?.focus();
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -107,20 +63,11 @@ export default function DashboardLayout({
     );
   }
 
-  const baseProjUrl = currentWorkspace?.id && currentProject?.id
-    ? "/workspaces/" + currentWorkspace.id + "/projects/" + currentProject.id
-    : "";
-
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Desktop Sidebar (Persistent left rail) */}
       <div className="hidden md:flex shrink-0">
-        <Sidebar
-          currentWorkspace={currentWorkspace}
-          currentProject={currentProject}
-          workspaces={workspaces}
-          projects={projects}
-        />
+        <Sidebar />
       </div>
 
       {/* Mobile Drawer (Accessible Full-Viewport Modal Overlay) */}
@@ -146,10 +93,6 @@ export default function DashboardLayout({
             className="relative z-50 flex h-full w-[85vw] max-w-[300px] flex-col bg-card shadow-2xl outline-none animate-in slide-in-from-left duration-200 border-r border-border/40"
           >
             <Sidebar
-              currentWorkspace={currentWorkspace}
-              currentProject={currentProject}
-              workspaces={workspaces}
-              projects={projects}
               onItemClick={handleCloseDrawer}
               onClose={handleCloseDrawer}
               isMobileDrawer={true}
@@ -183,28 +126,22 @@ export default function DashboardLayout({
           <div className="flex items-center justify-center min-w-0 px-2 text-center">
             <span
               className="text-xs font-semibold tracking-tight text-foreground truncate"
-              title={currentWorkspace?.name || "Overview"}
+              title="Dashboard"
             >
-              {currentWorkspace?.name || "Overview"}
+              Weirwise Studio
             </span>
           </div>
 
           {/* Right Action / Playground Shortcut */}
           <div className="flex items-center justify-end">
-            {baseProjUrl ? (
-              <Link
-                href={baseProjUrl + "/playground"}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted hover:text-primary transition-colors focus:outline-none"
-                title="Open Playground"
-                aria-label="Open Playground"
-              >
-                <Sliders className="h-4 w-4" />
-              </Link>
-            ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-foreground">
-                {user?.full_name?.charAt(0) || "U"}
-              </div>
-            )}
+            <Link
+              href="/playground"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/50 text-foreground hover:bg-muted hover:text-primary transition-colors focus:outline-none"
+              title="Open Playground"
+              aria-label="Open Playground"
+            >
+              <Sliders className="h-4 w-4" />
+            </Link>
           </div>
         </header>
 

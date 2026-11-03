@@ -8,28 +8,14 @@ import { ArrowRight } from "lucide-react";
 
 export function HeroActions() {
   const { user, loading } = useAuth();
-  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!loading && user) {
-      api
-        .getWorkspaces()
-        .then((workspaces) => {
-          if (workspaces.length > 0) {
-            setDashboardUrl(`/workspaces/${workspaces[0].id}`);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user, loading]);
 
   return (
     <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md mx-auto">
       <Link
-        href={dashboardUrl || "/register"}
+        href={user ? "/overview" : "/register"}
         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white text-black px-6 py-2.5 text-sm font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all"
       >
-        <span>{dashboardUrl ? "Open Workspace" : "Start Free Trial"}</span>
+        <span>{user ? "Open Studio" : "Start Free Trial"}</span>
         <ArrowRight className="h-4 w-4" />
       </Link>
 

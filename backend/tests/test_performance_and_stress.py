@@ -75,7 +75,7 @@ def test_chat_query_latency_benchmark():
     p_res = client.post(f"/api/v1/workspaces/{ws_id}/projects", headers=headers, json={"name": "Chat Bench Project"})
     p_id = p_res.json()["id"]
 
-    a_res = client.post(f"/api/v1/projects/{p_id}/assistants", headers=headers, json={"name": "Bench Assistant"})
+    a_res = client.post(f"/api/v1/assistants", headers=headers, json={"name": "Bench Assistant"})
     assistant_id = a_res.json()["id"]
 
     rounds = 15
@@ -134,7 +134,7 @@ def test_large_file_upload_rejection():
     p_res = client.post(f"/api/v1/workspaces/{ws_id}/projects", headers=headers, json={"name": "Upload Project"})
     p_id = p_res.json()["id"]
 
-    s_res = client.post(f"/api/v1/projects/{p_id}/sources", headers=headers, json={"name": "Upload Source"})
+    s_res = client.post(f"/api/v1/sources", headers=headers, json={"name": "Upload Source"})
     source_id = s_res.json()["id"]
 
     # Attempt to upload 52 MB payload (limit is 50 MB)
@@ -164,7 +164,7 @@ def test_unsupported_file_extension_rejection():
     p_res = client.post(f"/api/v1/workspaces/{ws_id}/projects", headers=headers, json={"name": "Ext Project"})
     p_id = p_res.json()["id"]
 
-    s_res = client.post(f"/api/v1/projects/{p_id}/sources", headers=headers, json={"name": "Ext Source"})
+    s_res = client.post(f"/api/v1/sources", headers=headers, json={"name": "Ext Source"})
     source_id = s_res.json()["id"]
 
     files = [("files", ("malicious.exe", io.BytesIO(b"MZ..."), "application/x-msdownload"))]

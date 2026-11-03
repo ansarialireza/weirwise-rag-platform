@@ -1,4 +1,4 @@
-"""Project, KnowledgeSource, Document, and Processing Job database models."""
+"""KnowledgeSource, Document, and Processing Job database models."""
 
 import enum
 import uuid
@@ -6,14 +6,12 @@ import uuid
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from sqlalchemy import (
     BigInteger,
-    Boolean,
     Column,
     DateTime,
     ForeignKey,
     Integer,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -31,30 +29,11 @@ class SourceProcessingStatus(str, enum.Enum):
     DELETING = "deleting"
 
 
-class Project(Base):
-    __tablename__ = "projects"
-
-    id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    slug = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
-
-    workspace = relationship("Workspace", back_populates="projects")
-    knowledge_sources = relationship("KnowledgeSource", back_populates="project", cascade="all, delete-orphan")
-    assistants = relationship("Assistant", back_populates="project", cascade="all, delete-orphan")
-
-    __table_args__ = (UniqueConstraint("workspace_id", "slug", name="uq_workspace_project_slug"),)
-
-
 class KnowledgeSource(Base):
     __tablename__ = "knowledge_sources"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Knowledge Base UUID
     core_kb_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -66,7 +45,7 @@ class KnowledgeSource(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    project = relationship("Project", back_populates="knowledge_sources")
+    user = relationship("User", back_populates="knowledge_sources")
     documents = relationship("Document", back_populates="knowledge_source", cascade="all, delete-orphan")
     assistant_links = relationship(
         "AssistantKnowledgeSource", back_populates="knowledge_source", cascade="all, delete-orphan"

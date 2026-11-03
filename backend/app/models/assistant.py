@@ -30,7 +30,7 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -62,7 +62,7 @@ class Assistant(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    project = relationship("Project", back_populates="assistants")
+    user = relationship("User", back_populates="assistants")
     source_links = relationship("AssistantKnowledgeSource", back_populates="assistant", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="assistant", cascade="all, delete-orphan")
     deployments = relationship("Deployment", back_populates="assistant", cascade="all, delete-orphan")
@@ -99,10 +99,10 @@ class Conversation(Base):
 
     assistant = relationship("Assistant", back_populates="conversations")
     messages = relationship(
-        "Message", back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at"
+        "Message", back_populates="conversation", order_by="Message.created_at.asc()", cascade="all, delete-orphan"
     )
     feedback_records = relationship("AnswerFeedback", back_populates="conversation", cascade="all, delete-orphan")
-    handoff_requests = relationship("HumanHandoffRequest", back_populates="conversation", cascade="all, delete-orphan")
+    unanswered_queries = relationship("UnansweredQuery", back_populates="conversation", cascade="all, delete-orphan")
 
 
 class Message(Base):
@@ -110,11 +110,11 @@ class Message(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     conversation_id = Column(GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = Column(String(50), nullable=False)  # "user", "assistant", "system"
+    role = Column(String(50), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
     citations = Column(CompatibleJSON, default=list, nullable=False)
     latency_ms = Column(Integer, nullable=True)
-    token_usage = Column(CompatibleJSON, default=dict, nullable=False)
+    tokens_used = Column(Integer, default=0, nullable=False)
     is_grounded = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
@@ -122,33 +122,16 @@ class Message(Base):
     feedback = relationship("AnswerFeedback", back_populates="message", uselist=False, cascade="all, delete-orphan")
 
 
-class DeploymentType(str, enum.Enum):
-    WIDGET = "widget"
-    PUBLIC_API = "public_api"
-    SHAREABLE_LINK = "shareable_link"
-
-
 class Deployment(Base):
     __tablename__ = "deployments"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
-    deployment_type = Column(String(50), default=DeploymentType.WIDGET.value, nullable=False)
+    deployment_type = Column(String(50), default="widget", nullable=False)  # widget, public_api
     name = Column(String(255), nullable=False)
-    public_key = Column(String(64), unique=True, nullable=False, index=True)  # Safe for embed script
-    allowed_domains = Column(CompatibleJSON, default=list, nullable=False)
-    theme_config = Column(
-        CompatibleJSON,
-        default=lambda: {
-            "primary_color": "#2563EB",
-            "assistant_title": "AI Assistant",
-            "welcome_message": "Hello! How can I assist you with our business services today?",
-            "placeholder_text": "Ask us a question...",
-            "position": "bottom-right",
-            "show_branding": True,
-        },
-        nullable=False,
-    )
+    public_key = Column(String(64), unique=True, nullable=False, index=True)
+    allowed_domains = Column(CompatibleJSON, default=list, nullable=False)  # CORS domain whitelist
+    theme_config = Column(CompatibleJSON, default=dict, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
@@ -157,7 +140,7 @@ class Deployment(Base):
 
 
 class AnswerFeedback(Base):
-    """Customer satisfaction feedback on specific assistant answers."""
+    """User and operator feedback loop for attribution and answer quality."""
 
     __tablename__ = "answer_feedback"
 
@@ -165,9 +148,9 @@ class AnswerFeedback(Base):
     assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
     conversation_id = Column(GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
     message_id = Column(GUID, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True)
-    rating = Column(String(20), nullable=False)  # "positive", "negative"
-    reason = Column(String(100), nullable=True)  # "incorrect", "incomplete", "unhelpful", "hallucination", "other"
+    rating = Column(Integer, nullable=False)  # 1 for positive (+1), -1 for negative (-1)
     comment = Column(Text, nullable=True)
+    category = Column(String(50), nullable=True)  # incorrect, ungrounded, incomplete, tone, lag
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     assistant = relationship("Assistant", back_populates="feedback_records")
@@ -176,7 +159,7 @@ class AnswerFeedback(Base):
 
 
 class UnansweredQuery(Base):
-    """Tracks queries where assistant produced a fallback or lacked evidence."""
+    """Gap analysis: Questions where RAG score was below threshold or fallback triggered."""
 
     __tablename__ = "unanswered_queries"
 
@@ -184,68 +167,42 @@ class UnansweredQuery(Base):
     assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
     conversation_id = Column(GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
     query_text = Column(Text, nullable=False)
-    fallback_reason = Column(String(100), default="insufficient_grounding_evidence", nullable=False)
-    frequency_count = Column(Integer, default=1, nullable=False)
-    status = Column(String(50), default="unresolved", nullable=False)  # "unresolved", "resolved", "ignored"
+    highest_score = Column(Float, default=0.0, nullable=False)
+    status = Column(String(50), default="unresolved", nullable=False)  # unresolved, reviewed, resolved
+    resolution_notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
 
     assistant = relationship("Assistant", back_populates="unanswered_queries")
+    conversation = relationship("Conversation", back_populates="unanswered_queries")
 
 
 class EvaluationCase(Base):
-    """Grounded golden test cases for automated regression testing."""
+    """Pre-publish automated regression evaluation test suite."""
 
     __tablename__ = "evaluation_cases"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     assistant_id = Column(GUID, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    question = Column(Text, nullable=False)
-    expected_answer = Column(Text, nullable=False)
-    expected_facts = Column(CompatibleJSON, default=list, nullable=False)
-    last_run_score = Column(Float, nullable=True)
-    last_run_result = Column(CompatibleJSON, nullable=True)
+    query = Column(Text, nullable=False)
+    expected_answer_keywords = Column(CompatibleJSON, default=list, nullable=False)
+    expected_grounded = Column(Boolean, default=True, nullable=False)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
+    last_passed = Column(Boolean, nullable=True)
+    last_similarity_score = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     assistant = relationship("Assistant", back_populates="evaluations")
 
 
-class HumanHandoffRequest(Base):
-    """Escalation request when customer requests a human agent or sentiment deteriorates."""
+class ThirdPartyIntegration(Base):
+    """External CRM / Ticketing connectors (Zendesk, Salesforce, HubSpot, Slack)."""
 
-    __tablename__ = "human_handoff_requests"
-
-    id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    conversation_id = Column(GUID, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True)
-    customer_email = Column(String(255), nullable=True)
-    customer_name = Column(String(255), nullable=True)
-    reason = Column(Text, nullable=True)
-    status = Column(String(50), default="pending", nullable=False)  # "pending", "assigned", "resolved"
-    external_ticket_id = Column(String(255), nullable=True)  # e.g., Zendesk / Gorgias ticket ID
-    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-
-    conversation = relationship("Conversation", back_populates="handoff_requests")
-
-
-class IntegrationProvider(str, enum.Enum):
-    SHOPIFY = "shopify"
-    ZENDESK = "zendesk"
-    GORGIAS = "gorgias"
-    GOOGLE_DRIVE = "google_drive"
-    NOTION = "notion"
-
-
-class BusinessIntegration(Base):
-    """External commerce, support, and storage integrations."""
-
-    __tablename__ = "business_integrations"
+    __tablename__ = "third_party_integrations"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider = Column(String(50), nullable=False, index=True)  # shopify, zendesk, gorgias, google_drive, notion
-    display_name = Column(String(255), nullable=False)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(50), nullable=False)  # zendesk, salesforce, hubspot, slack
     is_active = Column(Boolean, default=True, nullable=False)
     encrypted_credentials = Column(Text, nullable=False)  # Fernet encrypted payload
     config = Column(CompatibleJSON, default=dict, nullable=False)
@@ -255,7 +212,7 @@ class BusinessIntegration(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider", name="uq_workspace_integration_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_integration_provider"),)
 
 
 class WebhookSubscription(Base):
@@ -264,7 +221,7 @@ class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     target_url = Column(String(1024), nullable=False)
     secret_key = Column(String(128), nullable=False)
     events = Column(CompatibleJSON, default=list, nullable=False)
@@ -297,14 +254,14 @@ class WebhookDelivery(Base):
     subscription = relationship("WebhookSubscription", back_populates="deliveries")
 
 
-class WorkspacePlanEntitlement(Base):
+class PlanEntitlement(Base):
     """Dynamic plan limits and commercial controls for Free, Starter, Pro tiers."""
 
-    __tablename__ = "workspace_plan_entitlements"
+    __tablename__ = "plan_entitlements"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    user_id = Column(
+        GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
     )
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
@@ -322,13 +279,13 @@ class WorkspacePlanEntitlement(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
 
-class WorkspaceBYOKCredential(Base):
-    """Enterprise Bring-Your-Own-Key per tenant."""
+class UserBYOKCredential(Base):
+    """Enterprise Bring-Your-Own-Key per user."""
 
-    __tablename__ = "workspace_byok_credentials"
+    __tablename__ = "user_byok_credentials"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider_name = Column(String(50), nullable=False)  # openai, anthropic, azure_openai
     api_endpoint = Column(String(512), nullable=True)
     deployment_id = Column(String(255), nullable=True)
@@ -339,4 +296,4 @@ class WorkspaceBYOKCredential(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider_name", name="uq_workspace_byok_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider_name", name="uq_user_byok_provider"),)

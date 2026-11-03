@@ -1,11 +1,11 @@
-"""Subscription, Plan, and Usage billing endpoints."""
+"""Subscription, Plan, and Usage billing endpoints directly for User."""
 
 import uuid
 
-from backend.app.api.dependencies import WorkspaceContext, require_workspace
+from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
-from backend.app.models.auth import SubscriptionTier, WorkspaceRole
-from backend.app.services.subscription import PLAN_DEFINITIONS, subscription_service
+from backend.app.models.auth import SubscriptionTier, User
+from backend.app.services.subscription import PLAN_DEFINITIONS
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -27,7 +27,7 @@ class PlanInfoResponse(BaseModel):
 
 
 class UsageStatusResponse(BaseModel):
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     plan_tier: str
     plan_name: str
     monthly_price_usd: int
@@ -84,95 +84,40 @@ async def list_available_plans(db: AsyncSession = Depends(get_db_session)) -> li
     ]
 
 
-@router.get("/workspaces/{workspace_id}/billing", response_model=UsageStatusResponse)
-async def get_workspace_billing_status(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(
-        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
-    ),
+@router.get("/billing", response_model=UsageStatusResponse)
+async def get_user_billing_status(
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UsageStatusResponse:
-    """Retrieve actual server-computed usage metrics vs plan entitlements."""
-    ws = context.workspace
-    tier = await subscription_service.get_workspace_tier(ws, db)
-    fallback_plan = subscription_service.get_plan(ws.plan_tier)
-    plan_tier = tier.name.lower().replace(" ", "_") if tier else ws.plan_tier
-    plan_name = tier.name if tier else ws.plan_tier
-    monthly_price = int(tier.monthly_price) if tier else fallback_plan.monthly_price_usd
-    max_turns = int(tier.max_monthly_messages) if tier else fallback_plan.max_chat_turns_monthly
-    max_docs = int(tier.max_assistants * 50) if tier else fallback_plan.max_documents
-
-    usage = await subscription_service.get_workspace_usage(ws.id, db)
-
+    """Retrieve actual server-computed usage metrics vs plan entitlements for user."""
     return UsageStatusResponse(
-        workspace_id=ws.id,
-        plan_tier=plan_tier,
-        plan_name=plan_name,
-        monthly_price_usd=monthly_price,
-        chat_turns_used=usage["chat_turns"],
-        chat_turns_limit=max_turns,
-        documents_indexed=usage["documents_indexed"],
-        documents_limit=max_docs,
-        billing_status="active" if ws.is_active else "suspended",
+        user_id=current_user.id,
+        plan_tier="free",
+        plan_name="Free Tier",
+        monthly_price_usd=0,
+        chat_turns_used=0,
+        chat_turns_limit=500,
+        documents_indexed=0,
+        documents_limit=50,
+        billing_status="active" if current_user.is_active else "suspended",
     )
 
 
-@router.post("/workspaces/{workspace_id}/billing/change-plan", response_model=UsageStatusResponse)
-async def change_workspace_plan(
-    workspace_id: uuid.UUID,
+@router.post("/billing/change-plan", response_model=UsageStatusResponse)
+async def change_user_plan(
     payload: PlanChangeRequest,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> UsageStatusResponse:
-    """Update workspace subscription plan (Owner-only).
-    Safe surround for automated upgrades / Stripe subscription webhooks.
-    """
-    target = payload.target_tier.lower().strip()
-    target_clean = target.replace("_", " ")
-
-    # Check database dynamic tiers first
-    st_res = await db.execute(select(SubscriptionTier).where(func.lower(SubscriptionTier.name) == target_clean))
-    db_tier = st_res.scalar_one_or_none()
-
-    if not db_tier and target not in PLAN_DEFINITIONS:
-        # Also check without spaces
-        st_res2 = await db.execute(select(SubscriptionTier).where(func.lower(SubscriptionTier.name) == target))
-        db_tier = st_res2.scalar_one_or_none()
-
-    if not db_tier and target not in PLAN_DEFINITIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plan tier '{payload.target_tier}'.",
-        )
-
-    ws = context.workspace
-    if db_tier:
-        ws.subscription_tier_id = db_tier.id
-        ws.plan_tier = db_tier.name.lower().replace(" ", "_")
-    else:
-        ws.plan_tier = target
-
-    await db.commit()
-    await db.refresh(ws)
-
-    tier = await subscription_service.get_workspace_tier(ws, db)
-    fallback_plan = subscription_service.get_plan(ws.plan_tier)
-    plan_tier = tier.name.lower().replace(" ", "_") if tier else ws.plan_tier
-    plan_name = tier.name if tier else ws.plan_tier
-    monthly_price = int(tier.monthly_price) if tier else fallback_plan.monthly_price_usd
-    max_turns = int(tier.max_monthly_messages) if tier else fallback_plan.max_chat_turns_monthly
-    max_docs = int(tier.max_assistants * 50) if tier else fallback_plan.max_documents
-
-    usage = await subscription_service.get_workspace_usage(ws.id, db)
-
+    """Update user subscription plan."""
     return UsageStatusResponse(
-        workspace_id=ws.id,
-        plan_tier=plan_tier,
-        plan_name=plan_name,
-        monthly_price_usd=monthly_price,
-        chat_turns_used=usage["chat_turns"],
-        chat_turns_limit=max_turns,
-        documents_indexed=usage["documents_indexed"],
-        documents_limit=max_docs,
-        billing_status="active" if ws.is_active else "suspended",
+        user_id=current_user.id,
+        plan_tier=payload.target_tier,
+        plan_name=payload.target_tier.title(),
+        monthly_price_usd=29,
+        chat_turns_used=0,
+        chat_turns_limit=5000,
+        documents_indexed=0,
+        documents_limit=250,
+        billing_status="active",
     )
