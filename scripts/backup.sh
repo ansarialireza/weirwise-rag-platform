@@ -34,7 +34,12 @@ if [[ "$ENV_TYPE" != "dev" && "$ENV_TYPE" != "prod" ]]; then
     exit 1
 fi
 
-BACKUP_DIR="/srv/weirwise/shared/backups"
+# Cold-Tier Vault Backup Destination (15TB Google Drive Network Mount)
+if [ -d "/mnt/gdrive/weirwise/backups" ]; then
+    BACKUP_DIR="/mnt/gdrive/weirwise/backups/${ENV_TYPE}"
+else
+    BACKUP_DIR="/srv/weirwise/shared/backups"
+fi
 MONITORING_DIR="/srv/weirwise/shared/monitoring"
 mkdir -p "$BACKUP_DIR" "$MONITORING_DIR"
 chmod 700 "$BACKUP_DIR"
@@ -131,9 +136,9 @@ if [ ${#BACKUP_FILES[@]} -gt 0 ]; then
     echo "Checksum manifest generated: ${CHECKSUM_FILE}"
 fi
 
-# 5. Retention Management: Remove backups older than 14 days
-echo "Applying 14-day retention policy..."
-find "${BACKUP_DIR}" -type f -name "weirwise_${ENV_TYPE}_*" -mtime +14 -delete || true
+# 5. Retention Management: Remove backups older than 30 days from Cold Vault
+echo "Applying 30-day Google Drive retention policy..."
+find "${BACKUP_DIR}" -type f -name "weirwise_${ENV_TYPE}_*" -mtime +30 -delete || true
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))

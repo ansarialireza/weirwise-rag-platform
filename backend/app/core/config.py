@@ -44,9 +44,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./platform_dev.db"
     DATABASE_ECHO: bool = False
 
-    # Object Storage & Uploads
+    # Object Storage & Tiered Storage Architecture
     STORAGE_BACKEND: str = "local"  # "local" or "s3"
-    STORAGE_LOCAL_DIR: str = "./uploads"
+    STORAGE_LOCAL_DIR: str = "/tmp/weirwise_uploads"
+    STORAGE_COLD_DIR: str = "/mnt/gdrive/weirwise/storage/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
     ALLOWED_EXTENSIONS: list[str] = [".pdf", ".docx", ".txt", ".md"]
     ALLOWED_MIME_TYPES: list[str] = [

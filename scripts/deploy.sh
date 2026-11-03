@@ -146,8 +146,8 @@ for i in {1..30}; do
     sleep 2
 done
 
-# Ensure volume permissions for non-root users (UID 10001) before running migrations
-docker run --rm -v "weirwise_${ENV_TYPE}_uploads:/uploads" alpine chown -R 10001:10001 /uploads 2>/dev/null || true
+# Ensure volume and cold vault permissions for non-root users (UID 10001) before running migrations
+mkdir -p /mnt/gdrive/weirwise/storage/documents 2>/dev/null || true
 docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 10001:10001 /storage 2>/dev/null || true
 
 # 9. Execute Database Schema Migrations
@@ -172,8 +172,8 @@ fi
 # 11. Start Application Containers
 echo "[Step 6/6] Launching application services (${ENV_TYPE}-core, ${ENV_TYPE}-backend, ${ENV_TYPE}-frontend)..."
 
-# Ensure volume permissions for non-root users (UID 10001)
-docker run --rm -v "weirwise_${ENV_TYPE}_uploads:/uploads" alpine chown -R 10001:10001 /uploads 2>/dev/null || true
+# Ensure volume and cold vault permissions for non-root users (UID 10001)
+mkdir -p /mnt/gdrive/weirwise/storage/documents 2>/dev/null || true
 docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 10001:10001 /storage 2>/dev/null || true
 
 docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
@@ -216,6 +216,13 @@ if [ "$HEALTH_SUCCESS" = true ]; then
     # Record deployment state
     echo "${PREV_SHA}" > "${STATE_DIR}/${ENV_TYPE}_previous_sha"
     echo "${CURRENT_SHA}" > "${STATE_DIR}/${ENV_TYPE}_current_sha"
+
+    # Post-Deployment Automated Garbage Collection
+    echo "Running post-deployment garbage collection..."
+    docker system prune -a -f
+    docker builder prune -a -f
+    echo "Post-deployment garbage collection complete."
+
     exit 0
 else
     echo "=================================================="

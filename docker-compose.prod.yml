@@ -162,7 +162,7 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - prod_uploads:/app/uploads
+      - /mnt/gdrive/weirwise/storage:/mnt/gdrive/weirwise/storage
     depends_on:
       prod-db:
         condition: service_healthy

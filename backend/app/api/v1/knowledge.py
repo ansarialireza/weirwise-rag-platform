@@ -25,6 +25,7 @@ from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from backend.app.tasks.ingestion import process_document_ingestion
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -383,5 +384,51 @@ async def delete_document(
         min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
     )
 
+    # Delete physical file from storage (both hot or cold vault)
+    storage_service.delete_file(doc.storage_path)
+
     await db.delete(doc)
     await db.commit()
+
+
+@router.get("/documents/{document_id}/download")
+async def download_document_stream(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """Streamed Network Retrieval:
+    Stream document from cold tier (15TB Google Drive mount) using chunked async streaming.
+    Never loads massive files entirely into RAM.
+    """
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
+
+    try:
+        stream_gen = storage_service.stream_file_chunks(doc.storage_path)
+    except FileNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Physical document file not found in storage.")
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{doc.filename}"',
+        "Content-Length": str(doc.file_size_bytes) if doc.file_size_bytes else "",
+    }
+    return StreamingResponse(
+        stream_gen,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers=headers,
+    )

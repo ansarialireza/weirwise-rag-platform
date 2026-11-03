@@ -1,5 +1,6 @@
 """FastAPI Main Application Entrypoint for Weirwise Platform."""
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -20,20 +21,40 @@ from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging, logger
 from backend.app.db.base import Base
 from backend.app.db.session import engine
+from backend.app.services.storage import storage_service
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 configure_logging()
 
 
+async def _ephemeral_storage_reaper_loop():
+    """Background Reaper: Periodically scans local /tmp hot upload directory
+    and forcefully deletes any orphaned files older than 1 hour.
+    """
+    logger.info("Starting ephemeral storage reaper background loop (hourly interval)...")
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Run every hour
+            reaped = storage_service.reap_orphaned_temp_files(max_age_seconds=3600)
+            if reaped > 0:
+                logger.info(f"Storage Reaper purged {reaped} orphaned files from hot tier /tmp.")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Storage Reaper encountered an error: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan event handler initializing database tables and resources."""
+    """Lifespan event handler initializing database tables, resources, and storage reaper."""
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    reaper_task = asyncio.create_task(_ephemeral_storage_reaper_loop())
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
+    reaper_task.cancel()
     await engine.dispose()
 
 

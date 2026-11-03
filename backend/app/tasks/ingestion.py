@@ -1,5 +1,6 @@
-"""Background task processor for document indexing and Core synchronization."""
+"""Background task processor for document indexing, Core synchronization, and tiered storage migration."""
 
+import os
 import uuid
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
@@ -15,9 +16,13 @@ from sqlalchemy import select
 
 
 async def process_document_ingestion(document_id: uuid.UUID) -> None:
-    """Asynchronous worker task: Ingest document into Core RAG engine.
-    Transitions Document through PENDING -> PROCESSING -> READY / FAILED.
+    """Enterprise Tiered Storage & Zero-Blocking Async Ingestion Pipeline:
+    - Step 1: Upload was spooled to volatile local /tmp (hot tier) and HTTP 202 returned instantly.
+    - Step 2: Background worker reads local temp file, extracts/indexes vectors in local pgvector DB.
+    - Step 3: Cold Transfer moves the raw file to /mnt/gdrive vault (the permanent cold tier).
+    - Step 4: Failsafe Deletion strictly ensures local temp file is deleted in a finally block.
     """
+    initial_temp_path = None
     async with async_session_factory() as db:
         # Load document with knowledge source
         doc_stmt = select(Document).where(Document.id == document_id)
@@ -36,6 +41,8 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             logger.error(f"Ingestion job failed: KnowledgeSource for doc {document_id} not found.")
             return
 
+        initial_temp_path = document.storage_path
+
         # Mark document as processing
         document.status = SourceProcessingStatus.PROCESSING.value
         source.status = SourceProcessingStatus.PROCESSING.value
@@ -53,10 +60,10 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
                 source.core_kb_id = uuid.UUID(kb_resp["id"])
                 await db.commit()
 
-            # 2. Read stored file bytes
+            # 2. Local Compute: Read stored temporary file bytes from fast local SSD hot tier
             file_bytes = storage_service.read_file_bytes(document.storage_path)
 
-            # 3. Post to Core ingestion API
+            # 3. Post to Core ingestion API (indexes vectors into Core pgvector DB)
             upload_resp = await core_client.upload_document(
                 kb_id=source.core_kb_id,
                 filename=document.filename,
@@ -64,12 +71,16 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
                 mime_type=document.mime_type,
             )
 
-            # 4. Save Core document ID (Core returns {"document": {"id": ...}, "job_id": ...})
+            # 4. Save Core document ID
             doc_data = upload_resp.get("document", upload_resp)
             core_doc_id = uuid.UUID(str(doc_data["id"]))
             document.core_doc_id = core_doc_id
 
-            # In v1.0.0, if Core responds with status completed or pending:
+            # 5. Cold Transfer: Asynchronously move raw document to Cold Tier (/mnt/gdrive vault)
+            if os.path.exists(document.storage_path):
+                cold_path = storage_service.move_to_cold_storage(document.storage_path)
+                document.storage_path = cold_path
+
             core_status = doc_data.get("status", "completed")
             if core_status in ("completed", "ready"):
                 document.status = SourceProcessingStatus.READY.value
@@ -80,7 +91,9 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
 
             document.error_message = None
             await db.commit()
-            logger.info(f"Document {document.id} successfully ingested into Core (doc_id={core_doc_id}).")
+            logger.info(
+                f"Document {document.id} successfully ingested into Core and moved to cold tier vault ({document.storage_path})."
+            )
 
         except CoreApiException as e:
             logger.error(f"Core API error while ingesting doc {document.id}: {e!s}")
@@ -97,3 +110,12 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             source.status = SourceProcessingStatus.FAILED.value
             source.error_message = document.error_message
             await db.commit()
+
+        finally:
+            # Step 4: Failsafe Deletion — Strictly guarantee local temp file is removed from local SSD
+            if initial_temp_path and os.path.exists(initial_temp_path):
+                try:
+                    os.remove(initial_temp_path)
+                    logger.info(f"Failsafe deletion: purged volatile local temp file {initial_temp_path}")
+                except Exception as del_err:
+                    logger.warning(f"Failsafe deletion failed for {initial_temp_path}: {del_err}")
