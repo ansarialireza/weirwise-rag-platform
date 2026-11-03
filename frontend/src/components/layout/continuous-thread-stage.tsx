@@ -299,7 +299,7 @@ export function ContinuousThreadStage() {
       {/* Subdued Minimalist Stage Indicator */}
       <div className="absolute bottom-3 right-4 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/30 pointer-events-none tracking-widest uppercase">
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full"
+          className="inline-block w-1.5 h-1.5 rounded-none"
           style={{
             backgroundColor: stage === "clarity" ? "#46C7D6" : stage === "tuning" ? "#2563FF" : "#46C7D6",
           }}
