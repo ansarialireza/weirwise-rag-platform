@@ -3,72 +3,20 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { HeroActions } from "@/components/landing/hero-actions";
-import {
-  ArrowRight,
-  Shield,
-  Layers,
-  Sparkles,
-  Bot,
-  FileCheck,
-  Code2,
-  Sliders,
-  CheckCircle2,
-  ChevronRight,
-  Gift,
-} from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Weirwise",
   description:
-    "Build, test, and publish autonomous AI assistants grounded in your company knowledge. Zero hallucinations, verified inline citations, and effortless web embedding.",
+    "Autonomous AI assistants grounded in verified company knowledge with deterministic citations.",
   alternates: {
     canonical: "https://dev.weirwise.com/",
   },
 };
 
 export default function RootPage() {
-  const steps = [
-    {
-      step: "01",
-      title: "Add Business Knowledge",
-      desc: "Upload PDFs, manuals, policies, or point to your website documentation. Files are chunked and indexed into isolated pgvector stores.",
-      icon: FileCheck,
-    },
-    {
-      step: "02",
-      title: "Configure & Test",
-      desc: "Customize prompts, test responses with inline citations, and verify that the assistant stays strictly anchored to approved company data.",
-      icon: Sliders,
-    },
-    {
-      step: "03",
-      title: "Publish Everywhere",
-      desc: "Embed an interactive chat bubble on your website with one script tag, or trigger via standard REST APIs into your existing stack.",
-      icon: Code2,
-    },
-  ];
-
-  const highlights = [
-    {
-      title: "Deterministic Grounding",
-      desc: "Assistants answer strictly from your uploaded knowledge. If evidence is lacking, the assistant responds honestly rather than inventing facts.",
-      icon: Shield,
-    },
-    {
-      title: "Simple by Default, Powerful by Design",
-      desc: "No engineering jargon for business owners. Advanced vector controls, BYOK keys, and FinOps metrics unfold progressively when needed.",
-      icon: Layers,
-    },
-    {
-      title: "Intelligent Model Routing",
-      desc: "Intelligent routing automatically selects the optimal engine for every prompt—balancing lightning-fast responses, cost efficiency, and deep analytical reasoning with zero technical complexity.",
-      icon: Bot,
-    },
-  ];
-
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
-  // Structured Data Schema for Organization & SoftwareApplication
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
@@ -76,9 +24,7 @@ export default function RootPage() {
     url: baseUrl,
     logo: `${baseUrl}/weirwise-horizontal.svg`,
     description: "Enterprise Autonomous RAG Platform and AI Assistant Studio.",
-    sameAs: [
-      "https://github.com/ansarialireza/weirwise-rag-platform"
-    ],
+    sameAs: ["https://github.com/ansarialireza/weirwise-rag-platform"],
   };
 
   const softwareApplicationSchema = {
@@ -93,12 +39,12 @@ export default function RootPage() {
       priceCurrency: "USD",
     },
     description:
-      "Autonomous AI assistant studio for business with zero-hallucination citation grounding, isolated vector stores, and intelligent model routing.",
+      "Autonomous AI assistant studio for business with zero-hallucination citation grounding and isolated vector stores.",
     url: baseUrl,
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-primary selection:text-primary-foreground font-sans transition-colors">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between selection:bg-[#46C7D6] selection:text-black font-sans">
       {/* Structured Data (JSON-LD) */}
       <script
         type="application/ld+json"
@@ -109,72 +55,66 @@ export default function RootPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
       />
 
-      {/* 1. Unified Site Header */}
+      {/* 1. Header */}
       <SiteHeader />
 
-      {/* 2. Main Hero & Intelligent Product Experience */}
+      {/* 2. Brutalist-Tech Main Experience */}
       <main className="flex-1 flex flex-col items-center justify-center w-full">
         {/* Hero Section */}
-        <section className="w-full px-4 sm:px-6 pt-16 sm:pt-24 md:pt-32 pb-24 sm:pb-32 max-w-5xl mx-auto text-center">
-          {/* Core Headline (LCP text element rendered on server) */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground leading-[1.1]">
-            Custom AI Assistants <br />
-            <span className="text-muted-foreground font-medium">
-              Powered by Your Business Data.
-            </span>
+        <section className="w-full px-4 sm:px-6 pt-16 sm:pt-24 md:pt-32 pb-20 max-w-4xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-sm border border-zinc-800 bg-zinc-950/40 text-xs font-mono text-zinc-400 mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#46C7D6]" />
+            <span>DETERMINISTIC RAG ENGINE</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-semibold tracking-tight text-white leading-[1.05]">
+            Chaos to structure. <br />
+            <span className="text-zinc-500 font-normal">Data to insight.</span>
           </h1>
 
-          {/* Subtitle */}
-          <p className="mt-5 text-base sm:text-lg md:text-xl text-muted-foreground font-normal leading-relaxed max-w-2xl mx-auto">
-            Build, test, and publish autonomous AI assistants grounded in your company knowledge. Zero hallucinations, verified inline citations, and effortless web embedding.
+          <p className="mt-5 text-sm sm:text-base text-zinc-400 font-normal leading-relaxed max-w-xl mx-auto">
+            Autonomous AI assistants grounded in verified company knowledge. Zero hallucinations. Isolated vector stores. Direct deployment.
           </p>
 
           {/* Interactive CTAs */}
           <HeroActions />
 
-          {/* Micro-guarantee */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" /> No credit card required</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" /> Setup in under 3 minutes</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" /> Strict data isolation</span>
-          </div>
-
-          {/* Interactive Assistant Preview Simulation Card */}
-          <div className="mt-14 sm:mt-18 rounded-lg border border-zinc-800 bg-zinc-950/20 p-5 sm:p-7 md:p-8 text-left max-w-3xl mx-auto relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-md border border-zinc-800 bg-zinc-900/40 flex items-center justify-center">
-                  <Bot className="h-4.5 w-4.5 text-foreground" />
+          {/* Live System Preview */}
+          <div className="mt-14 rounded-md border border-zinc-800 bg-zinc-950/40 p-5 sm:p-7 text-left max-w-2xl mx-auto">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3 mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-sm border border-zinc-800 bg-zinc-900/40 flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-medium text-foreground">Customer Care Assistant</h3>
-                  <span className="text-[11px] text-muted-foreground">Grounded on Verified Company Knowledge</span>
+                  <h3 className="text-xs font-medium text-white">Customer Assistant</h3>
+                  <span className="text-[10px] text-zinc-500 font-mono">STRICT GROUNDING</span>
                 </div>
               </div>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-zinc-400">
-                Grounded RAG
+              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-[#46C7D6]">
+                ACTIVE
               </span>
             </div>
 
-            <div className="space-y-4 text-xs sm:text-sm">
+            <div className="space-y-3.5 text-xs">
               <div className="flex justify-end">
-                <div className="bg-white text-black font-medium px-3.5 py-2 rounded-md max-w-sm">
-                  What is your refund timeframe and standard delivery speed?
+                <div className="bg-white text-black font-medium px-3.5 py-1.5 rounded-md max-w-xs">
+                  What is our policy on API rate limits?
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="rounded-md border border-zinc-800 bg-zinc-900/40 flex items-center justify-center shrink-0 mt-0.5 p-1.5">
-                  <WeirwiseSymbol className="h-4 w-auto" />
+              <div className="flex items-start gap-2.5">
+                <div className="rounded-sm border border-zinc-800 bg-zinc-900/40 flex items-center justify-center shrink-0 mt-0.5 p-1">
+                  <WeirwiseSymbol className="h-3.5 w-auto" />
                 </div>
-                <div className="border border-zinc-800/80 bg-zinc-900/20 text-foreground p-4 rounded-md max-w-lg space-y-2.5">
+                <div className="border border-zinc-800/80 bg-zinc-900/20 text-zinc-200 p-3.5 rounded-md max-w-md space-y-2">
                   <p className="leading-relaxed text-zinc-300">
-                    Based on our company policy: Standard shipping takes <strong>2 to 3 business days</strong> nationwide. Full refunds are granted within <strong>30 days</strong> of delivery with the original receipt.
+                    Standard tier rate limits allow <strong>120 requests/minute</strong> with burst capacity up to 200. Enterprise tiers provide dedicated quota pools.
                   </p>
-                  <div className="pt-2 border-t border-zinc-800/60 flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
-                    <span className="text-emerald-500 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Verified by Company Knowledge
+                  <div className="pt-2 border-t border-zinc-800/60 flex items-center gap-2 text-[10px] font-mono text-zinc-500">
+                    <span className="text-[#46C7D6] flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      DOC: API_DOCS_V2.PDF [P. 14]
                     </span>
                   </div>
                 </div>
@@ -183,110 +123,66 @@ export default function RootPage() {
           </div>
         </section>
 
-        {/* 3-Step Simple Journey */}
-        <section className="w-full py-24 sm:py-32 px-4 sm:px-6 border-t border-zinc-800/60">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center max-w-xl mx-auto mb-12 sm:mb-16">
-              <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">How It Works</span>
-              <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-foreground mt-2">
-                From documents to production in three steps.
-              </h2>
+        {/* High-Impact Minimalist Feature Row */}
+        <section className="w-full py-16 px-4 sm:px-6 max-w-4xl mx-auto border-t border-zinc-800/60">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-5">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">01 / INGESTION</span>
+              <h3 className="text-sm font-medium text-white mt-2 mb-1">Rigid Matrix Chunking</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Documents are mapped into isolated pgvector stores with 1536-dim embeddings.
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-              {steps.map((s, idx) => {
-                const Icon = s.icon;
-                return (
-                  <div
-                    key={idx}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/20 p-6 sm:p-7 flex flex-col justify-between hover:border-zinc-700 hover:bg-zinc-900/30 transition-all"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-5">
-                        <div className="h-9 w-9 rounded-md border border-zinc-800 bg-zinc-900/40 flex items-center justify-center">
-                          <Icon className="h-4.5 w-4.5 text-foreground" />
-                        </div>
-                        <span className="text-xs font-mono font-medium text-muted-foreground">{s.step}</span>
-                      </div>
-                      <h3 className="text-base font-medium text-foreground mb-2">{s.title}</h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-5">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">02 / TUNING</span>
+              <h3 className="text-sm font-medium text-white mt-2 mb-1">Vector Connectivity</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Deterministic prompt templates and citation thresholds anchor every response.
+              </p>
+            </div>
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-5">
+              <span className="text-[10px] font-mono text-[#46C7D6] uppercase">03 / INSIGHT</span>
+              <h3 className="text-sm font-medium text-white mt-2 mb-1">Total Clarity</h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Zero hallucination output streamed with verified inline source references.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Product Highlights */}
-        <section className="w-full py-24 sm:py-32 px-4 sm:px-6 max-w-5xl mx-auto border-t border-zinc-800/60">
-          <div className="text-center max-w-xl mx-auto mb-12 sm:mb-16">
-            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Core Guarantees</span>
-            <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-foreground mt-2">
-              Engineered for accuracy and business peace of mind.
+        {/* Minimalist Bottom CTA */}
+        <section className="w-full border-t border-zinc-800/80 py-16 px-4 sm:px-6 text-center">
+          <div className="max-w-2xl mx-auto space-y-4">
+            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
+              Deploy your assistant in minutes.
             </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-            {highlights.map((h, idx) => {
-              const Icon = h.icon;
-              return (
-                <div key={idx} className="rounded-lg border border-zinc-800 bg-zinc-950/20 p-6 sm:p-7 hover:border-zinc-700 hover:bg-zinc-900/30 transition-all">
-                  <div className="h-9 w-9 rounded-md border border-zinc-800 bg-zinc-900/40 flex items-center justify-center mb-5">
-                    <Icon className="h-4.5 w-4.5 text-foreground" />
-                  </div>
-                  <h3 className="text-base font-medium text-foreground mb-2">{h.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{h.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Bottom Conversion CTA */}
-        <section className="w-full border-t border-zinc-800/80 py-24 sm:py-32 px-4 sm:px-6 text-center">
-          <div className="max-w-3xl mx-auto space-y-6">
-            <h2 className="text-2xl sm:text-4xl font-semibold tracking-tight text-foreground">
-              Ready to give your business an intelligent assistant?
-            </h2>
-            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed">
-              Create an account now to start building truthful AI copilots. Ingest documentation, test in the studio, and embed on your site in minutes.
-            </p>
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-sm mx-auto">
+            <div className="flex items-center justify-center gap-3">
               <Link
                 href="/register"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white text-black px-6 py-2.5 text-sm font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-white text-black px-5 py-2 text-xs sm:text-sm font-medium hover:bg-zinc-200 transition-all"
               >
-                <span>Start Free Trial</span>
-                <ArrowRight className="h-4 w-4" />
+                <span>Get Started</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
         </section>
       </main>
 
-      {/* 3. Footer */}
-      <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* 3. Minimal Footer */}
+      <footer className="w-full border-t border-zinc-800/80 py-5 px-4 sm:px-6 text-xs text-zinc-500">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-5 w-auto" />
-            <span className="font-semibold text-foreground text-xs">Weirwise</span>
-            <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
+            <WeirwiseSymbol className="h-4 w-auto" />
+            <span className="font-semibold text-white text-xs">Weirwise</span>
+            <span>&copy; 2026 Weirwise Inc.</span>
           </div>
 
-          <div className="flex items-center gap-6 text-xs font-medium">
-            <Link href="/pricing" className="hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="/blog" className="hover:text-foreground transition-colors">
-              Blog
-            </Link>
-            <Link href="/login" className="hover:text-foreground transition-colors">
-              Sign In
-            </Link>
-            <Link href="/register" className="hover:text-foreground transition-colors">
-              Register
-            </Link>
+          <div className="flex items-center gap-5 text-xs font-mono">
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="/blog" className="hover:text-white transition-colors">Blog</Link>
+            <Link href="/login" className="hover:text-white transition-colors">Sign In</Link>
+            <Link href="/register" className="hover:text-white transition-colors">Register</Link>
           </div>
         </div>
       </footer>

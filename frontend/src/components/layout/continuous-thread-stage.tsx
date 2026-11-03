@@ -8,35 +8,61 @@ import { useStoryStage } from "@/lib/story-stage-context";
  * The persistent architectural background canvas that morphs horizontally
  * across route transitions without unmounting, perfectly tracking RAG stages:
  *
- * 1. Landing: Abstract & fluid waves morphing into geometric peaks
- * 2. Auth: Frozen encrypted biometric grid locking out chaos
- * 3. Knowledge Base: 8px rigid matrix with data chunks falling into slots
- * 4. Assistant Tuning: Vector connectivity with faint dynamic relational lines
- * 5. Playground/Chat: Absolute silent darkness, zero visual noise
+ * 1. Landing: Abstract & fluid waves flowing left-to-right, snapping to geometric
+ *    grids at the center, reacting dynamically with magnetic physics to the cursor.
+ * 2. Auth: Frozen encrypted biometric grid locking out chaos.
+ * 3. Knowledge Base: 8px rigid matrix with exactly N data blocks falling on document upload.
+ * 4. Assistant Tuning: Vector connectivity with faint dynamic relational lines (synapses).
+ * 5. Playground/Chat: Absolute silent darkness, zero visual noise.
  *
  * Constraint: Brutalist-Tech watermark ambient opacity (max 10-15%).
  */
 export function ContinuousThreadStage() {
-  const { stage, chunkDropTrigger, isSilentDarkness } = useStoryStage();
+  const { stage, chunkDropCount, isSilentDarkness } = useStoryStage();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [fallingBlocks, setFallingBlocks] = useState<
     Array<{ id: number; col: number; startY: number; targetY: number; progress: number; size: number }>
   >([]);
 
-  // Trigger falling blocks micro-interaction on chunkDropTrigger
+  // Mouse cursor coordinate tracking for magnetic physics
+  const mouseRef = useRef<{ x: number; y: number; active: boolean }>({
+    x: -1000,
+    y: -1000,
+    active: false,
+  });
+
   useEffect(() => {
-    if (chunkDropTrigger > 0 && stage === "knowledge") {
-      const newBlocks = Array.from({ length: 7 }).map((_, i) => ({
-        id: Date.now() + i,
-        col: Math.floor(Math.random() * 20) + 2,
-        startY: -20 - Math.random() * 100,
-        targetY: 120 + (i * 32) + Math.floor(Math.random() * 8) * 8,
+    const onMouseMove = (e: MouseEvent) => {
+      mouseRef.current.x = e.clientX;
+      mouseRef.current.y = e.clientY;
+      mouseRef.current.active = true;
+    };
+    const onMouseLeave = () => {
+      mouseRef.current.active = false;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseleave", onMouseLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseleave", onMouseLeave);
+    };
+  }, []);
+
+  // Trigger exactly N falling blocks micro-interaction on chunkDropCount
+  useEffect(() => {
+    if (chunkDropCount > 0 && stage === "knowledge") {
+      const count = Math.min(chunkDropCount, 24); // Cap max spawned blocks
+      const newBlocks = Array.from({ length: count }).map((_, i) => ({
+        id: Date.now() + i + Math.random(),
+        col: Math.floor(Math.random() * 24) + 2,
+        startY: -20 - (i * 15),
+        targetY: 100 + (i * 24) + Math.floor(Math.random() * 8) * 8,
         progress: 0,
         size: 16 + (i % 2) * 8,
       }));
       setFallingBlocks((prev) => [...prev, ...newBlocks]);
     }
-  }, [chunkDropTrigger, stage]);
+  }, [chunkDropCount, stage]);
 
   // Clean up completed blocks
   useEffect(() => {
@@ -44,14 +70,14 @@ export function ContinuousThreadStage() {
     const interval = setInterval(() => {
       setFallingBlocks((prev) =>
         prev
-          .map((b) => ({ ...b, progress: Math.min(1, b.progress + 0.08) }))
+          .map((b) => ({ ...b, progress: Math.min(1, b.progress + 0.07) }))
           .filter((b) => b.progress < 1)
       );
-    }, 30);
+    }, 25);
     return () => clearInterval(interval);
   }, [fallingBlocks]);
 
-  // Dynamic canvas for Stage 4 (Vector Synapses) and Stage 1 (Fluid Waves)
+  // Dynamic canvas for Stage 1 (Magnetic Fluid Waves -> Sharp Grid) and Stage 4 (Vector Synapses)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -69,56 +95,85 @@ export function ContinuousThreadStage() {
     };
     window.addEventListener("resize", handleResize);
 
-    // Node definitions for Assistant Tuning (Stage 4)
+    // Vector nodes for Stage 4 (Assistant Tuning)
     const nodes: Array<{ x: number; y: number; vx: number; vy: number; radius: number; color: string }> = [];
-    const nodeCount = 28;
+    const nodeCount = 26;
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.4,
-        radius: Math.random() > 0.7 ? 3 : 2,
-        color: i % 3 === 0 ? "#CCFF00" : "#2563FF",
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        radius: Math.random() > 0.7 ? 2.5 : 1.8,
+        color: i % 2 === 0 ? "#46C7D6" : "#2563FF",
       });
     }
 
     let time = 0;
 
     const render = () => {
-      time += 0.015;
+      time += 0.012;
       ctx.clearRect(0, 0, width, height);
 
       // STAGE 5: Chat / Output -> Absolute Silent Darkness
       if (stage === "clarity") {
-        return; // Complete pure darkness
+        return;
       }
 
-      // STAGE 1: Landing -> Chaotic waves morphing to structural peaks
+      // STAGE 1: Landing -> Chaotic waves on left snapping to geometric grid on right + magnetic cursor pull
       if (stage === "landing") {
         ctx.save();
         ctx.lineWidth = 1;
-        // Draw 3 layered horizontal wave streams
-        for (let j = 0; j < 3; j++) {
+
+        const waveStreams = [
+          { stroke: "rgba(70, 199, 214, 0.12)", yBase: 0.35, freq: 0.003, speed: 1.0 },
+          { stroke: "rgba(37, 99, 255, 0.10)", yBase: 0.50, freq: 0.004, speed: 0.8 },
+          { stroke: "rgba(70, 199, 214, 0.09)", yBase: 0.65, freq: 0.0025, speed: 1.2 },
+        ];
+
+        waveStreams.forEach((stream) => {
           ctx.beginPath();
-          ctx.strokeStyle = j === 0 ? "rgba(204, 255, 0, 0.09)" : "rgba(37, 99, 255, 0.08)";
-          for (let x = 0; x <= width; x += 20) {
-            const yOffset =
-              Math.sin(x * 0.003 + time * (1 + j * 0.3)) * 45 +
-              Math.cos(x * 0.007 - time * 0.8) * 25 +
-              height * (0.35 + j * 0.18);
-            if (x === 0) ctx.moveTo(x, yOffset);
-            else ctx.lineTo(x, yOffset);
+          ctx.strokeStyle = stream.stroke;
+
+          for (let x = 0; x <= width; x += 16) {
+            // Organic chaotic wave offset on the left half
+            let rawY =
+              Math.sin(x * stream.freq + time * stream.speed) * 40 +
+              Math.cos(x * 0.006 - time * 0.7) * 20 +
+              height * stream.yBase;
+
+            // Across the center (x > width * 0.45), progressively snap into rigid grid coordinates
+            const snapRatio = Math.max(0, Math.min(1, (x - width * 0.45) / (width * 0.3)));
+            const rigidY = Math.round(rawY / 32) * 32;
+            let targetY = rawY * (1 - snapRatio) + rigidY * snapRatio;
+
+            // Magnetic physics: cursor exerts structuring attraction when hovering near
+            if (mouseRef.current.active) {
+              const dx = x - mouseRef.current.x;
+              const dy = targetY - mouseRef.current.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const magneticRadius = 160;
+
+              if (dist < magneticRadius) {
+                const force = (1 - dist / magneticRadius) * 28;
+                // Cursor aligns the point into strict horizontal tension
+                const alignedY = mouseRef.current.y;
+                targetY = targetY * (1 - force / 28) + alignedY * (force / 28);
+              }
+            }
+
+            if (x === 0) ctx.moveTo(x, targetY);
+            else ctx.lineTo(x, targetY);
           }
           ctx.stroke();
-        }
+        });
+
         ctx.restore();
       }
 
-      // STAGE 4: Assistant Configuration -> Vector Connectivity Lines
+      // STAGE 4: Assistant Configuration -> Vector Synaptic Graph
       if (stage === "tuning") {
         ctx.save();
-        // Update and draw vector nodes
         for (let i = 0; i < nodes.length; i++) {
           const n = nodes[i];
           n.x += n.vx;
@@ -127,13 +182,13 @@ export function ContinuousThreadStage() {
           if (n.x < 0 || n.x > width) n.vx *= -1;
           if (n.y < 0 || n.y > height) n.vy *= -1;
 
-          // Subtle watermark node dots
-          ctx.fillStyle = n.color === "#CCFF00" ? "rgba(204, 255, 0, 0.25)" : "rgba(37, 99, 255, 0.25)";
+          // Watermark node dot
+          ctx.fillStyle = n.color === "#46C7D6" ? "rgba(70, 199, 214, 0.22)" : "rgba(37, 99, 255, 0.22)";
           ctx.beginPath();
           ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
           ctx.fill();
 
-          // Connect nearby vector nodes with faint synaptic lines
+          // Relational synapses
           for (let k = i + 1; k < nodes.length; k++) {
             const n2 = nodes[k];
             const dx = n.x - n2.x;
@@ -141,11 +196,8 @@ export function ContinuousThreadStage() {
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < 180) {
-              const alpha = (1 - dist / 180) * 0.12; // Max 12% opacity watermark
-              ctx.strokeStyle =
-                n.color === "#CCFF00" || n2.color === "#CCFF00"
-                  ? `rgba(204, 255, 0, ${alpha})`
-                  : `rgba(37, 99, 255, ${alpha})`;
+              const alpha = (1 - dist / 180) * 0.12; // Max 12% opacity
+              ctx.strokeStyle = `rgba(70, 199, 214, ${alpha})`;
               ctx.lineWidth = 0.8;
               ctx.beginPath();
               ctx.moveTo(n.x, n.y);
@@ -182,28 +234,26 @@ export function ContinuousThreadStage() {
       {/* STAGE 2: Auth / Login -> Frozen Strict Biometric Grid */}
       {stage === "auth" && (
         <div className="absolute inset-0 transition-opacity duration-500 ease-out animate-in fade-in">
-          {/* Strict mathematical coordinate lattice */}
           <div
-            className="absolute inset-0 opacity-[0.09] dark:opacity-[0.12]"
+            className="absolute inset-0 opacity-[0.09] dark:opacity-[0.11]"
             style={{
               backgroundImage: `
-                linear-gradient(to right, rgba(204, 255, 0, 0.3) 1px, transparent 1px),
+                linear-gradient(to right, rgba(70, 199, 214, 0.3) 1px, transparent 1px),
                 linear-gradient(to bottom, rgba(37, 99, 255, 0.3) 1px, transparent 1px)
               `,
               backgroundSize: "32px 32px",
             }}
           />
-          {/* Encrypted crosshair watermark anchors */}
-          <div className="absolute top-12 left-12 w-4 h-4 border-t border-l border-[#CCFF00]/40 font-mono text-[9px] text-[#CCFF00]/50 pt-1 pl-1">
+          <div className="absolute top-10 left-10 w-4 h-4 border-t border-l border-[#46C7D6]/40 font-mono text-[9px] text-[#46C7D6]/50 pt-1 pl-1">
             01.GATE
           </div>
-          <div className="absolute top-12 right-12 w-4 h-4 border-t border-r border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pt-1 pr-1 text-right">
+          <div className="absolute top-10 right-10 w-4 h-4 border-t border-r border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pt-1 pr-1 text-right">
             AUTH.256
           </div>
-          <div className="absolute bottom-12 left-12 w-4 h-4 border-b border-l border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pb-1 pl-1">
+          <div className="absolute bottom-10 left-10 w-4 h-4 border-b border-l border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pb-1 pl-1">
             SEC.STABLE
           </div>
-          <div className="absolute bottom-12 right-12 w-4 h-4 border-b border-r border-[#CCFF00]/40 font-mono text-[9px] text-[#CCFF00]/50 pb-1 pr-1 text-right">
+          <div className="absolute bottom-10 right-10 w-4 h-4 border-b border-r border-[#46C7D6]/40 font-mono text-[9px] text-[#46C7D6]/50 pb-1 pr-1 text-right">
             GRID.LOCK
           </div>
         </div>
@@ -212,9 +262,8 @@ export function ContinuousThreadStage() {
       {/* STAGE 3: Knowledge Base Page -> 8px Rigid Grid & Falling Ingestion Blocks */}
       {stage === "knowledge" && (
         <div className="absolute inset-0 transition-opacity duration-500 ease-out animate-in fade-in">
-          {/* Subtle 8px rigid grid representing matrixized chunk space */}
           <div
-            className="absolute inset-0 opacity-[0.08] dark:opacity-[0.11]"
+            className="absolute inset-0 opacity-[0.08] dark:opacity-[0.10]"
             style={{
               backgroundImage: `
                 linear-gradient(to right, currentColor 1px, transparent 1px),
@@ -225,46 +274,37 @@ export function ContinuousThreadStage() {
             }}
           />
 
-          {/* Micro-interaction: Animated chunks/embeddings snapping into matrix slots */}
+          {/* Micro-interaction: Exact N animated chunks/embeddings falling into matrix slots */}
           {fallingBlocks.map((b) => {
             const currentY = b.startY + (b.targetY - b.startY) * b.progress;
             return (
               <div
                 key={b.id}
-                className="absolute border border-[#CCFF00]/60 bg-[#CCFF00]/20 rounded-xs transition-transform duration-75 shadow-[0_0_8px_rgba(204,255,0,0.3)]"
+                className="absolute border border-[#46C7D6]/70 bg-[#46C7D6]/15 rounded-xs transition-transform duration-75 shadow-[0_0_8px_rgba(70,199,214,0.3)]"
                 style={{
                   left: `${(b.col * 8 * 4) % (typeof window !== "undefined" ? window.innerWidth - 60 : 800)}px`,
                   top: `${currentY}px`,
                   width: `${b.size}px`,
                   height: `${b.size}px`,
-                  opacity: 1 - b.progress * 0.3,
+                  opacity: 1 - b.progress * 0.25,
                 }}
               >
-                <div className="w-1.5 h-1.5 bg-[#CCFF00] absolute top-0.5 left-0.5" />
+                <div className="w-1.5 h-1.5 bg-[#46C7D6] absolute top-0.5 left-0.5" />
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Horizontal Story Tracker: Subtle Watermark Status (Top-Right or Bottom-Right) */}
-      <div className="absolute bottom-3 right-4 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/40 pointer-events-none tracking-widest uppercase">
+      {/* Subdued Minimalist Stage Indicator */}
+      <div className="absolute bottom-3 right-4 flex items-center gap-2 font-mono text-[10px] text-muted-foreground/30 pointer-events-none tracking-widest uppercase">
         <span
           className="inline-block w-1.5 h-1.5 rounded-full"
           style={{
-            backgroundColor:
-              stage === "clarity"
-                ? "#46C7D6"
-                : stage === "tuning"
-                ? "#2563FF"
-                : stage === "knowledge"
-                ? "#CCFF00"
-                : stage === "auth"
-                ? "#2563FF"
-                : "#CCFF00",
+            backgroundColor: stage === "clarity" ? "#46C7D6" : stage === "tuning" ? "#2563FF" : "#46C7D6",
           }}
         />
-        <span>RAG STAGE: {stage}</span>
+        <span>{stage}</span>
       </div>
     </div>
   );

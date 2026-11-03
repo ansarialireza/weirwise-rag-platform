@@ -4,9 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useMemo } from "
 import { usePathname } from "next/navigation";
 
 export type StoryStage = 
-  | "landing"    // The Promise: Vertical Story (Chaotic waves -> Structural peaks)
+  | "landing"    // The Promise: Chaos to structure with cursor magnetic attraction
   | "auth"       // The Gateway: Frozen strict biometric / mathematical grid
-  | "knowledge"  // The Weir / Ingestion: Chunking, 8px rigid matrixization & falling blocks
+  | "knowledge"  // The Weir / Ingestion: Chunking, 8px rigid matrixization & exact falling blocks
   | "tuning"     // The Tuning / Engine Room: Vector connectivity & dynamic neural relational lines
   | "clarity";   // The Wise / Total Clarity: Crystalline Peak, silent darkness, glowing crystal cursor
 
@@ -19,8 +19,8 @@ interface StoryStageContextValue {
   matrixActive: boolean;
   vectorLinesActive: boolean;
   isSilentDarkness: boolean;
-  triggerChunkDrop: () => void;
-  chunkDropTrigger: number;
+  triggerChunkDrop: (count?: number) => void;
+  chunkDropCount: number;
 }
 
 const StoryStageContext = createContext<StoryStageContextValue | null>(null);
@@ -61,25 +61,20 @@ export function getStoryStageFromPath(pathname: string): StoryStage {
     return "clarity";
   }
 
-  // Default dashboard fallback
-  if (pathname.startsWith("/workspaces") || pathname.startsWith("/admin")) {
-    return "knowledge";
-  }
-
-  return "landing";
+  return "knowledge";
 }
 
 export function StoryStageProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [stageOverride, setStageOverride] = useState<StoryStage | null>(null);
-  const [chunkDropTrigger, setChunkDropTrigger] = useState(0);
+  const [chunkDropCount, setChunkDropCount] = useState(0);
 
   const stage = useMemo(() => {
     return stageOverride || getStoryStageFromPath(pathname || "/");
   }, [stageOverride, pathname]);
 
-  const triggerChunkDrop = () => {
-    setChunkDropTrigger((prev) => prev + 1);
+  const triggerChunkDrop = (count: number = 3) => {
+    setChunkDropCount(count);
   };
 
   const metadata = useMemo(() => {
@@ -139,7 +134,7 @@ export function StoryStageProvider({ children }: { children: React.ReactNode }) 
         setStageOverride,
         ...metadata,
         triggerChunkDrop,
-        chunkDropTrigger,
+        chunkDropCount,
       }}
     >
       {children}

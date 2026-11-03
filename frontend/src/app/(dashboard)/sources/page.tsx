@@ -170,7 +170,7 @@ export default function SourcesKnowledgePage() {
 
     setUploading(true);
     setUploadError(null);
-    triggerChunkDrop();
+    triggerChunkDrop(fileCount);
 
     try {
       await api.uploadDocuments(selectedSource.id, files);

@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { CrystallineCursor } from "@/components/chat/crystalline-cursor";
+import { ScrambleText } from "@/components/chat/scramble-text";
 
 export default function DedicatedPlaygroundPage() {
   const params = useParams();
@@ -171,7 +172,7 @@ export default function DedicatedPlaygroundPage() {
                   }))}
                 />
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground uppercase hidden sm:inline">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-zinc-400 uppercase hidden sm:inline">
                 {selectedAssistant?.engine_mode === "search_only" ? "Search Only" : "AI Answer"}
               </span>
             </div>
@@ -263,17 +264,17 @@ export default function DedicatedPlaygroundPage() {
                       key={prompt}
                       type="button"
                       onClick={() => handleSendMessage(prompt)}
-                      className="group rounded-full bg-muted/40 hover:bg-muted active:scale-98 px-4 py-2.5 text-xs text-foreground/80 hover:text-foreground transition-all duration-150 border border-border/40 hover:border-border text-left sm:text-center shadow-2xs flex items-center justify-between sm:justify-center gap-2 cursor-pointer"
+                      className="group rounded-md bg-zinc-900/40 hover:bg-zinc-900 hover:border-zinc-700 active:scale-98 px-3.5 py-2 text-xs text-zinc-300 hover:text-white transition-all duration-150 border border-zinc-800 text-left sm:text-center flex items-center justify-between sm:justify-center gap-2 cursor-pointer"
                     >
                       <span>{prompt}</span>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                      <ArrowRight className="h-3 w-3 text-zinc-500 group-hover:text-[#46C7D6] transition-colors shrink-0" />
                     </button>
                   ))}
                 </div>
               </div>
             ) : (
               /* Case 3: Message Flow */
-              messages.map((msg) => {
+              messages.map((msg, idx) => {
                 const isSearchOnly = selectedAssistant?.engine_mode === "search_only";
 
                 return (
@@ -286,10 +287,10 @@ export default function DedicatedPlaygroundPage() {
                     <div
                       className={`max-w-2xl text-sm leading-relaxed ${
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground font-medium rounded-3xl rounded-br-sm px-5 py-3 shadow-xs"
+                          ? "bg-white text-black font-medium rounded-md px-4 py-2.5"
                           : isSearchOnly
-                          ? "bg-card border border-border/40 text-foreground rounded-3xl rounded-bl-sm p-5 shadow-xs w-full"
-                          : "bg-muted/40 text-foreground rounded-3xl rounded-bl-sm px-5 py-4"
+                          ? "bg-zinc-950/40 border border-zinc-800 text-zinc-200 rounded-md p-4 w-full"
+                          : "bg-zinc-900/30 border border-zinc-800/80 text-zinc-200 rounded-md px-4 py-3"
                       }`}
                     >
                       {/* For Search Only mode, display prominent search summary header */}
@@ -299,7 +300,7 @@ export default function DedicatedPlaygroundPage() {
                             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                               <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Vector Similarity Results
                             </span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-zinc-400">
                               {msg.sources?.length || 0} Chunks Matched
                             </span>
                           </div>
@@ -344,7 +345,13 @@ export default function DedicatedPlaygroundPage() {
                       ) : (
                         /* Standard AI Answer mode */
                         <>
-                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                          <div className="whitespace-pre-wrap leading-relaxed">
+                            {idx === messages.length - 1 ? (
+                              <ScrambleText text={msg.content} />
+                            ) : (
+                              msg.content
+                            )}
+                          </div>
 
                           {/* Citations Box (Minimalist cards) */}
                           {msg.sources && msg.sources.length > 0 && (
@@ -412,8 +419,8 @@ export default function DedicatedPlaygroundPage() {
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className={`max-w-3xl mx-auto flex items-center bg-card/90 backdrop-blur-xl border border-border/60 rounded-full shadow-lg p-1.5 transition-all ${
-                !hasAssistants ? "opacity-50 cursor-not-allowed" : "focus-within:ring-2 focus-within:ring-primary/20"
+              className={`max-w-3xl mx-auto flex items-center bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-md shadow-lg p-1.5 transition-all ${
+                !hasAssistants ? "opacity-50 cursor-not-allowed" : "focus-within:border-zinc-700"
               }`}
             >
               <input
@@ -434,7 +441,7 @@ export default function DedicatedPlaygroundPage() {
                 <button
                   type="submit"
                   disabled={!inputQuery.trim() || chatting}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-30 disabled:pointer-events-none hover:opacity-90 active:scale-95 transition-all shrink-0 mr-1"
+                  className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-black disabled:opacity-30 disabled:pointer-events-none hover:bg-zinc-200 active:scale-95 transition-all shrink-0 mr-1"
                   aria-label="Send message"
                 >
                   <ArrowUp className="h-4 w-4" />
