@@ -2,7 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { Shield, Sparkles, CheckCircle2, Lock, ArrowUpRight } from "lucide-react";
+import { Shield, Sparkles } from "lucide-react";
 
 export default function AuthLayout({
   children,
@@ -10,121 +10,84 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen w-full flex bg-background text-foreground selection:bg-primary selection:text-primary-foreground transition-colors overflow-hidden">
-      {/* LEFT/RIGHT BRANDING PANEL (Desktop only: hidden lg:flex) */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 xl:p-16 bg-card border-r border-border select-none overflow-hidden">
-        {/* Subtle Ambient Background Gradients */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-brand-secondary/10 rounded-full blur-3xl pointer-events-none" />
-        
-        {/* Geometric Background Grid Pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
-          style={{
-            backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
-            backgroundSize: "24px 24px"
-          }} 
-        />
-
-        {/* Top Header: Logo & Product Tag */}
+    <div className="min-h-screen w-full flex bg-background text-foreground selection:bg-[#46C7D6] selection:text-black font-sans transition-colors overflow-hidden">
+      {/* Desktop Branding Panel */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 xl:p-16 border-r border-zinc-800 bg-zinc-950/20 select-none overflow-hidden">
+        {/* Top Header: Logo */}
         <div className="relative z-10 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center transition-transform group-hover:scale-[1.02]">
-            <WeirwiseWordmark className="w-40" priority />
+          <Link href="/" className="inline-flex items-center">
+            <WeirwiseWordmark className="w-36" priority />
           </Link>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs font-mono text-muted-foreground backdrop-blur-xs">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span>AI Assistant Studio</span>
+          <div className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-zinc-900/40 px-2.5 py-1 text-xs font-mono text-zinc-400">
+            <Sparkles className="h-3.5 w-3.5 text-[#46C7D6]" />
+            <span>STUDIO</span>
           </div>
         </div>
 
-        {/* Centerpiece Showcase: Value Proposition & Visual Elements */}
-        <div className="relative z-10 max-w-lg space-y-8 my-auto py-10">
-          <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-semibold text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-ping" />
-              Enterprise Grounded RAG Platform
-            </div>
-            <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-foreground leading-[1.15]">
-              Autonomous AI Assistants Grounded in Truth.
-            </h2>
-            <p className="text-sm xl:text-base text-muted-foreground leading-relaxed">
-              Synthesize fragmented corporate manuals, policy documentation, and customer databases into precise, attributed answers with strict zero-data-leakage architecture.
-            </p>
+        {/* Centerpiece Showcase */}
+        <div className="relative z-10 max-w-md space-y-6 my-auto py-10">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#46C7D6]" />
+            <span>STRICT GROUNDING ARCHITECTURE</span>
           </div>
 
-          {/* Feature Highlights Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="p-4 rounded-xl border border-border/80 bg-background/50 backdrop-blur-xs space-y-1.5">
-              <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-                <CheckCircle2 className="h-4 w-4" />
-                <span>Deterministic Recall</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-normal">
-                1536-dimensional vector indexing eliminates hallucinations with exact citation backing.
-              </p>
-            </div>
+          <h2 className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-tight">
+            Autonomous assistants. <br />
+            <span className="text-zinc-500 font-normal">Grounded in verified data.</span>
+          </h2>
 
-            <div className="p-4 rounded-xl border border-border/80 bg-background/50 backdrop-blur-xs space-y-1.5">
-              <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-                <Lock className="h-4 w-4" />
-                <span>Tenant Isolation</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-normal">
-                Multi-tenant cryptographic data segregation, audit logging, and row-level authorization.
-              </p>
-            </div>
-          </div>
+          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+            Synthesize corporate documentation into precise, attributed answers with zero hallucination and strict cryptographic isolation.
+          </p>
 
-          {/* Testimonial / Social Proof Snippet */}
-          <div className="p-4 rounded-xl border border-border/60 bg-secondary/30 backdrop-blur-xs">
-            <p className="text-xs italic text-foreground/90">
-              &ldquo;Weirwise transformed our 800-page internal standard operating procedure into an instant, verified conversational copilot in under ten minutes.&rdquo;
-            </p>
-            <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-              <span>Enterprise Knowledge Lead</span>
-              <span className="font-mono text-primary flex items-center gap-0.5">
-                SOC-2 Type II Ready <ArrowUpRight className="h-3 w-3" />
-              </span>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="p-3.5 rounded-md border border-zinc-800 bg-zinc-900/20">
+              <span className="text-[10px] font-mono text-zinc-500 uppercase">INDEXING</span>
+              <p className="text-xs font-medium text-white mt-1">1536-dim vector recall</p>
+            </div>
+            <div className="p-3.5 rounded-md border border-zinc-800 bg-zinc-900/20">
+              <span className="text-[10px] font-mono text-[#46C7D6] uppercase">SECURITY</span>
+              <p className="text-xs font-medium text-white mt-1">Row-level isolation</p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Compliance & Security Bar */}
-        <div className="relative z-10 flex items-center justify-between pt-6 border-t border-border/80 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 font-medium">
-            <Shield className="h-4 w-4 text-primary shrink-0" />
-            <span>End-to-End Encrypted &bull; ISO 27001 Aligned</span>
+        {/* Bottom Compliance Bar */}
+        <div className="relative z-10 flex items-center justify-between pt-6 border-t border-zinc-800 text-xs text-zinc-500 font-mono">
+          <div className="flex items-center gap-2">
+            <Shield className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+            <span>End-to-end encrypted</span>
           </div>
-          <span className="font-mono text-[11px]">v0.1.0-prod</span>
+          <span>v0.1.0</span>
         </div>
       </div>
 
-      {/* FORM PANEL (Centrally aligned container for desktop & full screen on mobile) */}
+      {/* Form Panel */}
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 relative overflow-y-auto">
         {/* Mobile Header: Logo & Theme Switcher */}
-        <div className="flex items-center justify-between w-full max-w-md mx-auto mb-6">
+        <div className="flex items-center justify-between w-full max-w-sm mx-auto mb-6">
           <Link href="/" className="lg:hidden inline-flex items-center">
-            <WeirwiseWordmark className="w-32" priority />
+            <WeirwiseWordmark className="w-28" priority />
           </Link>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto">
             <ThemeSwitcher />
           </div>
         </div>
 
         {/* Centered Auth Card Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-4">
+        <div className="w-full max-w-sm mx-auto my-auto py-4">
           {children}
         </div>
 
-        {/* Mobile & Desktop Bottom Legal Notice */}
-        <div className="w-full max-w-md mx-auto pt-6 text-center text-xs text-muted-foreground">
+        {/* Legal Notice */}
+        <div className="w-full max-w-sm mx-auto pt-6 text-center text-xs text-zinc-500">
           <p>
             By continuing, you agree to our{" "}
-            <Link href="/" className="hover:text-foreground underline underline-offset-4 transition-colors">
-              Terms of Service
+            <Link href="/" className="text-zinc-400 hover:text-white underline underline-offset-4 transition-colors">
+              Terms
             </Link>{" "}
             and{" "}
-            <Link href="/" className="hover:text-foreground underline underline-offset-4 transition-colors">
+            <Link href="/" className="text-zinc-400 hover:text-white underline underline-offset-4 transition-colors">
               Privacy Policy
             </Link>
             .

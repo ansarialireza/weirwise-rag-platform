@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowRight, Lock, Mail, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -49,12 +48,12 @@ export default function LoginPage() {
       router.push("/overview");
     } catch (err: any) {
       if (err.status === 403 && err.message?.toLowerCase().includes("not verified")) {
-        setError("Your account is not verified yet. Redirecting to verification...");
+        setError("Account not verified. Redirecting...");
         setTimeout(() => {
           router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
         }, 1500);
       } else {
-        setError(err.message || "Invalid email or password. Please verify your credentials.");
+        setError(err.message || "Invalid email or password.");
       }
     } finally {
       setLoading(false);
@@ -62,17 +61,14 @@ export default function LoginPage() {
   };
 
   return (
-    <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-1.5 pb-4">
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
-          Welcome back
+    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
+      <CardHeader className="pb-3 border-b border-zinc-800/80">
+        <CardTitle className="text-xl font-semibold tracking-tight text-white">
+          Sign In
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
-          Sign in to manage your grounded AI assistants, documents, and testing playground.
-        </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-2">
+      <CardContent className="space-y-4 pt-5">
         {error && (
           <Alert
             type="destructive"
@@ -94,14 +90,14 @@ export default function LoginPage() {
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-medium text-foreground">
+              <label className="block text-xs font-medium text-zinc-300">
                 Password
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                className="text-xs text-zinc-500 hover:text-white transition-colors"
               >
-                Forgot password?
+                Forgot?
               </Link>
             </div>
             <Input
@@ -117,7 +113,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full mt-2 inline-flex items-center justify-center font-medium text-sm rounded-md h-9 px-4 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin text-current mr-2" />
@@ -127,11 +123,11 @@ export default function LoginPage() {
         </form>
       </CardContent>
 
-      <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-5 border-t border-border/50 text-xs text-muted-foreground">
-        <span>Don&apos;t have an account yet?</span>
+      <CardFooter className="flex items-center justify-between pt-3 pb-4 border-t border-zinc-800/80 text-xs text-zinc-500 font-mono">
+        <span>No account?</span>
         <Link
           href="/register"
-          className="font-semibold text-foreground hover:underline underline-offset-4 transition-colors"
+          className="text-white hover:underline transition-colors font-medium"
         >
           Create account
         </Link>

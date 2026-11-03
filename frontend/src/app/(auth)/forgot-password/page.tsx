@@ -34,17 +34,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Card className="border border-border/80 shadow-lg bg-card/95 backdrop-blur-sm rounded-2xl overflow-hidden transition-all animate-in fade-in duration-300">
-      <CardHeader className="space-y-1.5 pb-4">
-        <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+    <Card className="border border-zinc-800 bg-zinc-950/40 rounded-md overflow-hidden transition-all">
+      <CardHeader className="space-y-1 pb-3 border-b border-zinc-800/80">
+        <CardTitle className="text-xl font-semibold tracking-tight text-white">
           Reset password
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm text-muted-foreground">
-          Enter your registered work email and we&apos;ll send you a single-use verification code to choose a new password.
+        <CardDescription className="text-xs text-zinc-400">
+          Enter your email to receive recovery instructions.
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-2">
+      <CardContent className="space-y-4 pt-5">
         {error && (
           <Alert
             type="destructive"
@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
         )}
 
         {success && (
-          <div className="space-y-3 rounded-xl border border-border/60 bg-muted/40 p-4 text-xs text-foreground animate-in fade-in">
+          <div className="space-y-3 rounded-md border border-zinc-800 bg-zinc-900/30 p-4 text-xs text-zinc-300 animate-in fade-in">
             <div className="flex items-start gap-2.5">
               <CheckCircle2 className="h-4 w-4 text-foreground shrink-0 mt-0.5" />
               <p className="leading-relaxed font-medium">{success}</p>
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 inline-flex items-center justify-center font-semibold text-sm rounded-xl h-11 px-6 bg-foreground text-background hover:opacity-90 active:scale-[0.98] shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full mt-2 inline-flex items-center justify-center font-medium text-sm rounded-md h-9 px-4 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin text-current mr-2" />
@@ -92,19 +92,19 @@ export default function ForgotPasswordPage() {
         </form>
       </CardContent>
 
-      <CardFooter className="flex items-center justify-between pt-3 pb-5 border-t border-border/50 text-xs text-muted-foreground">
+      <CardFooter className="flex items-center justify-between pt-3 pb-4 border-t border-zinc-800/80 text-xs text-zinc-500 font-mono">
         <Link
           href={`/reset-password?email=${encodeURIComponent(email.trim())}`}
-          className="text-foreground hover:underline transition-colors underline underline-offset-2"
+          className="text-zinc-400 hover:text-white transition-colors"
         >
-          Already have a code?
+          Have code?
         </Link>
 
         <Link
           href="/login"
-          className="font-semibold text-foreground hover:underline underline-offset-4 inline-flex items-center gap-1 transition-colors"
+          className="text-white hover:underline inline-flex items-center gap-1 transition-colors font-medium"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+          <ArrowLeft className="h-3.5 w-3.5" /> Sign in
         </Link>
       </CardFooter>
     </Card>

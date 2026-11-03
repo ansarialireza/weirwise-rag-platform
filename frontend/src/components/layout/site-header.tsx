@@ -108,8 +108,18 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           </div>
         </nav>
 
-        {/* Mobile Header Controls: ONLY Hamburger Menu Button */}
-        <div className="flex md:hidden items-center">
+        {/* Mobile Header Controls: Clean Sign In link + Hamburger Menu Button */}
+        <div className="flex md:hidden items-center gap-3">
+          <Link
+            href={authOrDashboardLink.href}
+            className={cn(
+              "text-xs sm:text-sm font-medium transition-colors px-2 py-1 rounded-sm text-zinc-300 hover:text-white active:scale-98",
+              authOrDashboardLink.active && "text-white font-semibold"
+            )}
+          >
+            {authOrDashboardLink.label}
+          </Link>
+
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -125,18 +135,18 @@ export function SiteHeader({ className }: SiteHeaderProps) {
       {/* Mobile Drawer / Dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-zinc-800 bg-zinc-950/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-xl">
-          <div ref={menuRef} className="px-4 py-4 space-y-4 max-w-sm mx-auto">
-            <div className="space-y-1">
+          <div ref={menuRef} className="px-5 py-6 space-y-6 max-w-sm mx-auto">
+            <div className="space-y-1.5">
               {primaryLinks.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                    "flex items-center justify-between px-3.5 py-3 rounded-md text-base sm:text-lg font-semibold tracking-tight transition-colors",
                     link.active
-                      ? "bg-zinc-900 text-white font-semibold"
-                      : "text-zinc-400 hover:bg-zinc-900/60 hover:text-white"
+                      ? "bg-zinc-900/80 text-white font-bold"
+                      : "text-zinc-300 hover:bg-zinc-900/50 hover:text-white"
                   )}
                 >
                   <span>{link.label}</span>
@@ -148,10 +158,10 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 href={authOrDashboardLink.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={cn(
-                  "flex items-center justify-between px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                  "flex items-center justify-between px-3.5 py-3 rounded-md text-base sm:text-lg font-semibold tracking-tight transition-colors",
                   authOrDashboardLink.active
-                    ? "bg-zinc-900 text-white font-semibold"
-                    : "text-zinc-400 hover:bg-zinc-900/60 hover:text-white"
+                    ? "bg-zinc-900/80 text-white font-bold"
+                    : "text-zinc-300 hover:bg-zinc-900/50 hover:text-white"
                 )}
               >
                 <span>{authOrDashboardLink.label}</span>
@@ -159,9 +169,11 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               </Link>
             </div>
 
-            {/* Theme Toggle placed INSIDE the open hamburger menu */}
-            <div className="pt-3 border-t border-zinc-800 flex items-center justify-between px-3 text-xs text-zinc-400 font-mono">
-              <span>Theme</span>
+            {/* Polished Theme Toggle Section: Dedicated subtle container */}
+            <div className="p-3 rounded-md border border-zinc-800/80 bg-zinc-900/40 flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+                Interface Theme
+              </span>
               <ThemeSwitcher />
             </div>
           </div>
