@@ -60,14 +60,16 @@ PLATFORM_CONTAINER="weirwise-${ENV_TYPE}-db"
 PLATFORM_USER="weirwise_${ENV_TYPE}"
 PLATFORM_DB="weirwise_${ENV_TYPE}_db"
 PLATFORM_BACKUP="${BACKUP_DIR}/weirwise_${ENV_TYPE}_platform_db_${TIMESTAMP}.sql.gz"
+PLATFORM_TMP="/tmp/weirwise_${ENV_TYPE}_platform_db_${TIMESTAMP}.sql.gz"
 
 if docker ps -q -f name="^${PLATFORM_CONTAINER}$" | grep -q .; then
     echo "[1/3] Dumping Platform database (${PLATFORM_CONTAINER})..."
-    docker exec "${PLATFORM_CONTAINER}" pg_dump -U "${PLATFORM_USER}" -d "${PLATFORM_DB}" --no-owner --clean --if-exists | gzip > "${PLATFORM_BACKUP}"
+    docker exec "${PLATFORM_CONTAINER}" pg_dump -U "${PLATFORM_USER}" -d "${PLATFORM_DB}" --no-owner --clean --if-exists | gzip > "${PLATFORM_TMP}"
     
-    # Verify gzip integrity
-    gzip -t "${PLATFORM_BACKUP}"
-    chmod 600 "${PLATFORM_BACKUP}"
+    # Verify gzip integrity before moving to Cold Vault
+    gzip -t "${PLATFORM_TMP}"
+    chmod 600 "${PLATFORM_TMP}"
+    mv "${PLATFORM_TMP}" "${PLATFORM_BACKUP}"
     BACKUP_FILES+=("${PLATFORM_BACKUP}")
     echo "  Platform DB backup complete: ${PLATFORM_BACKUP} ($(du -h "${PLATFORM_BACKUP}" | cut -f1))"
 else
@@ -82,14 +84,16 @@ CORE_CONTAINER="weirwise-${ENV_TYPE}-core-db"
 CORE_USER="weirwise_core_${ENV_TYPE}"
 CORE_DB="weirwise_core_${ENV_TYPE}_db"
 CORE_BACKUP="${BACKUP_DIR}/weirwise_${ENV_TYPE}_core_db_${TIMESTAMP}.sql.gz"
+CORE_TMP="/tmp/weirwise_${ENV_TYPE}_core_db_${TIMESTAMP}.sql.gz"
 
 if docker ps -q -f name="^${CORE_CONTAINER}$" | grep -q .; then
     echo "[2/3] Dumping Core pgvector database (${CORE_CONTAINER})..."
-    docker exec "${CORE_CONTAINER}" pg_dump -U "${CORE_USER}" -d "${CORE_DB}" --no-owner --clean --if-exists | gzip > "${CORE_BACKUP}"
+    docker exec "${CORE_CONTAINER}" pg_dump -U "${CORE_USER}" -d "${CORE_DB}" --no-owner --clean --if-exists | gzip > "${CORE_TMP}"
     
-    # Verify gzip integrity
-    gzip -t "${CORE_BACKUP}"
-    chmod 600 "${CORE_BACKUP}"
+    # Verify gzip integrity before moving to Cold Vault
+    gzip -t "${CORE_TMP}"
+    chmod 600 "${CORE_TMP}"
+    mv "${CORE_TMP}" "${CORE_BACKUP}"
     BACKUP_FILES+=("${CORE_BACKUP}")
     echo "  Core DB backup complete: ${CORE_BACKUP} ($(du -h "${CORE_BACKUP}" | cut -f1))"
 else
