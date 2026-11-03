@@ -18,6 +18,7 @@ from backend.app.services.behavioral_stream import (
     DLQ_STREAM_KEY,
     STREAM_KEY,
 )
+from sqlalchemy import case, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 logger = logging.getLogger(__name__)
@@ -190,37 +191,27 @@ class BehavioralStreamConsumer:
             logger.warning(f"Error executing xautoclaim: {e!s}")
 
     async def _process_messages(self, redis, messages: List[Any], is_retry: bool = False):
-        """Processes message batch, executes idempotent DB transactions, and ACKs."""
+        """Processes message batch, executes idempotent DB transactions per message savepoint, and ACKs."""
         successful_message_ids = []
         dlq_messages = []
 
         async with async_session_factory() as db:
-            for msg_id, data in messages:
-                raw_payload = data.get("data")
-                if not raw_payload:
-                    successful_message_ids.append(msg_id)
-                    continue
+            async with db.begin():
+                for msg_id, data in messages:
+                    raw_payload = data.get("data")
+                    if not raw_payload:
+                        successful_message_ids.append(msg_id)
+                        continue
 
-                try:
-                    envelope = json.loads(raw_payload)
-                    await self._persist_event_envelope(db, envelope)
-                    successful_message_ids.append(msg_id)
-                except Exception as e:
-                    logger.error(f"Failed to process message {msg_id}: {e!s}")
-                    # Check retry count from PEL if retrying
-                    if is_retry:
+                    try:
+                        async with db.begin_nested():
+                            envelope = json.loads(raw_payload)
+                            await self._persist_event_envelope(db, envelope)
+                        successful_message_ids.append(msg_id)
+                    except Exception as e:
+                        logger.error(f"Failed to process message {msg_id}: {e!s}")
+                        # Route failed message to DLQ if retrying or terminal violation
                         dlq_messages.append((msg_id, raw_payload, str(e)))
-                    else:
-                        # Will be retried by xautoclaim
-                        pass
-
-            # Commit all database writes atomically
-            try:
-                await db.commit()
-            except Exception as e:
-                logger.error(f"Database commit failed for batch: {e!s}")
-                await db.rollback()
-                return
 
         # Acknowledge successfully persisted messages
         if successful_message_ids:
@@ -229,7 +220,7 @@ class BehavioralStreamConsumer:
             except Exception as e:
                 logger.error(f"Failed to XACK messages: {e!s}")
 
-        # Route persistent failures to Dead-Letter Queue
+        # Route failures to Dead-Letter Queue and ACK from incoming stream
         for msg_id, payload_str, err_msg in dlq_messages:
             try:
                 await redis.xadd(
@@ -237,18 +228,36 @@ class BehavioralStreamConsumer:
                     {"original_id": msg_id, "payload": payload_str, "error": err_msg},
                 )
                 await redis.xack(STREAM_KEY, CONSUMER_GROUP, msg_id)
-                logger.warning(f"Routed poison message {msg_id} to DLQ {DLQ_STREAM_KEY}.")
+                logger.warning(f"Routed poison message {msg_id} to DLQ {DLQ_STREAM_KEY}: {err_msg}")
             except Exception as e:
                 logger.error(f"Failed to route message {msg_id} to DLQ: {e!s}")
 
     async def _persist_event_envelope(self, db, envelope: Dict[str, Any]):
-        """Persists session context and event using idempotent upsert/insert."""
+        """Persists session context and event using idempotent upsert/insert with strict ownership validation."""
         session_id = envelope["session_id"]
         user_id = uuid.UUID(envelope["user_id"]) if envelope.get("user_id") else None
         workspace_id = uuid.UUID(envelope["workspace_id"]) if envelope.get("workspace_id") else None
         device_ctx = envelope.get("device_context") or {}
         geo_ctx = envelope.get("geo_context") or {}
         ev = envelope["event"]
+
+        # 0. Strict Ownership Invariant Check:
+        # Check if session already exists and is owned by a different user
+        existing_sess = (
+            await db.execute(select(UserBehavioralSession).where(UserBehavioralSession.session_id == session_id))
+        ).scalar_one_or_none()
+
+        if existing_sess is not None:
+            # Case D: If session is already bound to User A, User B must never write to it
+            if existing_sess.user_id is not None and user_id is not None and existing_sess.user_id != user_id:
+                raise ValueError(
+                    f"Session ownership violation: session '{session_id}' is owned by user "
+                    f"'{existing_sess.user_id}', cannot be reassigned or appended to by user '{user_id}'."
+                )
+            # Case E: An anonymous event submitted against an already authenticated session
+            # Inherits the authenticated user_id so ownership is not broken or obscured
+            if existing_sess.user_id is not None and user_id is None:
+                user_id = existing_sess.user_id
 
         # 1. Upsert UserBehavioralSession
         now = datetime.now(UTC)
@@ -298,8 +307,15 @@ class BehavioralStreamConsumer:
                     "last_seen_at": event_time,
                     "event_count": UserBehavioralSession.event_count + 1,
                     "exit_route": ev.get("route"),
-                    "user_id": user_id if user_id else UserBehavioralSession.user_id,
-                    "workspace_id": workspace_id if workspace_id else UserBehavioralSession.workspace_id,
+                    # Immutable ownership: Only bind user_id if session is currently anonymous
+                    "user_id": case(
+                        (UserBehavioralSession.user_id.is_(None), user_id),
+                        else_=UserBehavioralSession.user_id,
+                    ),
+                    "workspace_id": case(
+                        (UserBehavioralSession.workspace_id.is_(None), workspace_id),
+                        else_=UserBehavioralSession.workspace_id,
+                    ),
                 },
             )
         )
