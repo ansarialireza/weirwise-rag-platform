@@ -188,6 +188,9 @@ jobs:
             git fetch origin develop
             git checkout -q "${{ github.sha }}"
             bash ./scripts/deploy.sh --env dev --sha "${{ github.sha }}"
+            echo "Executing automated post-deployment garbage collection..."
+            docker system prune -a -f
+            docker builder prune -a -f
 
   deploy-prod:
     name: Deploy to Production
@@ -214,3 +217,6 @@ jobs:
             git fetch origin main
             git checkout -q "${{ github.sha }}"
             bash ./scripts/deploy.sh --env prod --sha "${{ github.sha }}"
+            echo "Executing automated post-deployment garbage collection..."
+            docker system prune -a -f
+            docker builder prune -a -f
