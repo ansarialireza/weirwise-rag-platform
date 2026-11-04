@@ -377,7 +377,7 @@ async def publish_assistant(
 
     # Ensure a default widget deployment exists
     dep_stmt = select(Deployment).where(Deployment.assistant_id == assistant.id)
-    deployment = (await db.execute(dep_stmt)).scalar_one_or_none()
+    deployment = (await db.execute(dep_stmt)).scalars().first()
     if not deployment:
         raw_key, _ = generate_secure_token("wwp_pub_")
         deployment = Deployment(
