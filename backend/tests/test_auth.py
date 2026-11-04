@@ -65,7 +65,10 @@ def test_auth_registration_and_login_flow():
     refresh_token = tokens["refresh_token"]
 
     # Verify 30-day persistent cookies in response
-    set_cookie_headers = login_resp.headers.get_list("set-cookie") if hasattr(login_resp.headers, "get_list") else [login_resp.headers.get("set-cookie", "")]
+    if hasattr(login_resp.headers, "get_list"):
+        set_cookie_headers = login_resp.headers.get_list("set-cookie")
+    else:
+        set_cookie_headers = [login_resp.headers.get("set-cookie", "")]
     combined_cookies = " ".join(set_cookie_headers)
     assert "access_token=" in combined_cookies
     assert "refresh_token=" in combined_cookies
