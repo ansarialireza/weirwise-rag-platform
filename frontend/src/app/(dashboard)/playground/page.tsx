@@ -129,7 +129,7 @@ function PlaygroundPage() {
           setSelectedAssistant(found || aList[0]);
         }
       })
-      .catch((err: any) => setLoadError(err.message || "Could not load the playground."))
+      .catch((err: any) => setLoadError(err.message || "We couldn't open the test assistant. Please try again."))
       .finally(() => setLoading(false));
   }, [preselectedAssistantId]);
 
@@ -280,7 +280,7 @@ function PlaygroundPage() {
             message.id === assistantId && !message.content.trim()
               ? {
                   ...message,
-                  content: "I couldn't reach the knowledge base just now. Please try again.",
+                  content: "I couldn't reach your knowledge just now. Please try again.",
                 }
               : message
           )
@@ -351,8 +351,8 @@ function PlaygroundPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Playground"
-        description="Try the same assistant your customers will use — with the knowledge you attached."
+        title="Test assistant"
+        description="Ask the same questions your customers will — and see the answer and its source."
         actions={
           hasAssistants ? (
             <>
@@ -388,7 +388,7 @@ function PlaygroundPage() {
           </div>
           <h2 className="mt-4 text-lg font-semibold text-foreground">No assistant to test yet</h2>
           <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
-            Create an assistant and attach knowledge, then come back to try real questions.
+            Create an assistant, choose its knowledge, then come back to try real questions.
           </p>
           <Link
             href="/assistants"
@@ -484,19 +484,25 @@ function PlaygroundPage() {
                       : "Answers come only from your knowledge, with the source beside them."}
                   </p>
 
-                  <div className="mt-6 flex w-full max-w-lg flex-col gap-2">
-                    {promptSuggestions.map((prompt) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        onClick={() => handleSendMessage(prompt)}
-                        className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5 text-start text-[13px] text-foreground transition-colors hover:border-muted-foreground/30 hover:bg-card"
-                      >
-                        <span>{prompt}</span>
-                        <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-muted-foreground transition-colors group-hover:text-accent" />
-                      </button>
-                    ))}
-                  </div>
+                  {attachedSources.length > 0 ? (
+                    <div className="mt-6 flex w-full max-w-lg flex-col gap-2">
+                      {promptSuggestions.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => handleSendMessage(prompt)}
+                          className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5 text-start text-[13px] text-foreground transition-colors hover:border-muted-foreground/30 hover:bg-card"
+                        >
+                          <span>{prompt}</span>
+                          <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-muted-foreground transition-colors group-hover:text-accent" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-6 text-[13px] leading-relaxed text-muted-foreground">
+                      Add files on the Knowledge page, then come back and ask a real question.
+                    </p>
+                  )}
                 </div>
               ) : (
                 messages.map((message) => {
@@ -810,7 +816,7 @@ function PlaygroundPage() {
                 </div>
                 {!isSearchMode && (
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Model</span>
+                    <span className="text-muted-foreground">Answer style</span>
                     <span className="font-medium text-foreground">{selectedAssistant.model}</span>
                   </div>
                 )}

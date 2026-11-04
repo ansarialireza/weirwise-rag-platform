@@ -9,6 +9,7 @@ import {
   Deployment,
   ApiCredential,
 } from "@/types";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 const WORKSPACE_STORAGE_KEY = "wwp_workspace_id";
 const PROJECT_STORAGE_KEY = "wwp_project_id";
@@ -18,11 +19,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 class ApiError extends Error {
   status: number;
   data: any;
+  technicalDetail?: string;
 
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: any, technicalDetail?: string) {
     super(message);
     this.status = status;
     this.data = data;
+    this.technicalDetail = technicalDetail;
   }
 }
 
@@ -197,7 +200,13 @@ class ApiClient {
       } catch {
         errorData = { detail: response.statusText };
       }
-      throw new ApiError(errorData.detail || "An error occurred", response.status, errorData);
+      const rawDetail = errorData?.detail;
+      throw new ApiError(
+        friendlyErrorMessage(rawDetail, response.status),
+        response.status,
+        errorData,
+        typeof rawDetail === "string" ? rawDetail : undefined
+      );
     }
 
     if (response.status === 204) {
@@ -446,13 +455,15 @@ class ApiClient {
 
     if (!response.ok) {
       let detail = "The assistant couldn't respond just now.";
+      let rawDetail: string | undefined;
       try {
         const data = await response.json();
-        detail = data.detail || detail;
+        rawDetail = typeof data.detail === "string" ? data.detail : undefined;
+        detail = friendlyErrorMessage(data.detail, response.status, detail);
       } catch {
         // Ignore non-JSON error bodies
       }
-      throw new ApiError(detail, response.status);
+      throw new ApiError(detail, response.status, undefined, rawDetail);
     }
     if (!response.body) {
       throw new ApiError("Streaming is not supported in this browser.", 500);
@@ -807,14 +818,16 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      let detail = "Could not generate speech.";
+      let detail = "Could not read that answer aloud. Please try again.";
+      let rawDetail: string | undefined;
       try {
         const data = await response.json();
-        detail = data.detail || detail;
+        rawDetail = typeof data.detail === "string" ? data.detail : undefined;
+        detail = friendlyErrorMessage(data.detail, response.status, detail);
       } catch {
         // Ignore non-JSON error bodies
       }
-      throw new ApiError(detail, response.status);
+      throw new ApiError(detail, response.status, undefined, rawDetail);
     }
 
     return response.blob();

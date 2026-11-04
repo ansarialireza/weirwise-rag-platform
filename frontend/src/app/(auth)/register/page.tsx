@@ -33,7 +33,7 @@ export default function RegisterPage() {
       await api.register({ full_name: fullName.trim(), email: email.trim(), password });
       router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
     } catch (err: any) {
-      setError(err.message || "Failed to create account. Please check your details.");
+      setError(err.message || "We couldn't create your account. Please check your details and try again.");
     } finally {
       setLoading(false);
     }

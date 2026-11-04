@@ -42,7 +42,7 @@ function VerifyEmailForm() {
         router.push(`/login?email=${encodeURIComponent(email.trim())}`);
       }, 1500);
     } catch (err: any) {
-      setError(err.message || "Invalid or expired verification code.");
+      setError(err.message || "That code isn't valid anymore. Please ask for a new one.");
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ function VerifyEmailForm() {
       const res = await api.resendVerification({ email: email.trim() });
       toast({ message: res.message || "A new verification code was sent.", type: "info" });
     } catch (err: any) {
-      setError(err.message || "Failed to resend code.");
+      setError(err.message || "We couldn't send a new code. Please try again.");
     } finally {
       setResending(false);
     }

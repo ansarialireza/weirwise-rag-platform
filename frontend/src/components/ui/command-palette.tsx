@@ -65,7 +65,7 @@ export function CommandPalette() {
     { id: "overview", title: "Overview", subtitle: "Your workspace at a glance", icon: LayoutDashboard, category: "Go to", onSelect: () => go("/overview") },
     { id: "knowledge", title: "Knowledge", subtitle: "Files and websites your assistants can use", icon: Database, category: "Go to", onSelect: () => go("/sources") },
     { id: "assistants", title: "Assistants", subtitle: "Create and manage assistants", icon: Bot, category: "Go to", onSelect: () => go("/assistants") },
-    { id: "playground", title: "Playground", subtitle: "Try a question and see sources", icon: MessageSquare, category: "Go to", onSelect: () => go("/playground") },
+    { id: "playground", title: "Test assistant", subtitle: "Ask a real question and check the answer", icon: MessageSquare, category: "Go to", onSelect: () => go("/playground") },
     { id: "new-assistant", title: "Create an assistant", subtitle: "Start with a name and your knowledge", icon: Plus, category: "Create", onSelect: () => go("/assistants") },
     { id: "add-knowledge", title: "Add knowledge", subtitle: "Upload files or crawl a website", icon: Plus, category: "Create", onSelect: () => go("/sources") },
     { id: "theme-light", title: "Light appearance", subtitle: "Calm canvas", icon: Sun, category: "Appearance", onSelect: () => setTheme("light") },

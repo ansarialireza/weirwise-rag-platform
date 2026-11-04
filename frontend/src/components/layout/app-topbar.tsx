@@ -17,7 +17,7 @@ function getPageLabel(pathname: string) {
   if (pathname.startsWith("/assistants/")) return "Assistant";
   if (pathname.startsWith("/assistants")) return "Assistants";
   if (pathname.startsWith("/sources")) return "Knowledge";
-  if (pathname.startsWith("/playground")) return "Playground";
+  if (pathname.startsWith("/playground")) return "Test assistant";
   return "Overview";
 }
 

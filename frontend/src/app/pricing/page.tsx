@@ -10,27 +10,20 @@ import {
   Gift,
   ArrowRight,
   Database,
-  Cpu,
   Lock,
   Globe2,
   Terminal,
 } from "lucide-react";
 
 export default function PricingPage() {
-  const modelRates = [
-    { model: "GPT-4o Mini / Gemini Flash", input: "$0.15", output: "$0.60", unit: "1M tokens" },
-    { model: "Claude 3.5 Sonnet / GPT-4o", input: "$3.00", output: "$15.00", unit: "1M tokens" },
-    { model: "Dense Vector Ingestion", input: "$0.02", output: "—", unit: "1M characters" },
-  ];
-
   const valueFeatures = [
-    "Full access to all platform capabilities & inference runtime",
-    "Unlimited knowledge bases, documents, and web crawlers",
-    "Embeddable public & private widget snippets with domain lockdown",
-    "Semantic RAG retrieval with verified inline citations",
-    "Enterprise AI Vault with automatic failover and BYOK support",
-    "Real-time FinOps ledger accounting down to micro-cents ($0.000001)",
-    "Full REST API access and outgoing webhook subscriptions",
+    "Every feature from day one",
+    "Unlimited knowledge collections and files",
+    "Share your assistant as a link or on your website",
+    "Answers with the exact source beside them",
+    "Encrypted storage with automatic backups",
+    "Clear usage and cost tracking",
+    "Connect other tools with the API and webhooks",
   ];
 
   return (
@@ -43,16 +36,16 @@ export default function PricingPage() {
         {/* Hero Section */}
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary mb-5 shadow-xs">
-            <Gift className="h-4 w-4 text-primary" /> Free Trial Included with Every New Account
+            <Gift className="h-4 w-4 text-primary" /> Free trial with every new account
           </div>
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-foreground leading-[1.12]">
-            Dynamic Quotas. <br />
+            Simple pricing. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary to-accent">
-              Predictable Scale.
+              Room to grow.
             </span>
           </h1>
           <p className="mt-4 text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            Choose a subscription tier that adapts to your team&apos;s growth. Enjoy automated black-box AI model routing, dynamic quotas, and zero maintenance overhead.
+            Start free, then upgrade when your team needs more messages and space. No setup work, no hidden fees, no surprises.
           </p>
         </div>
 
@@ -67,10 +60,10 @@ export default function PricingPage() {
               <div className="flex items-center justify-between gap-4 mb-6">
                 <div className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-1 text-xs font-semibold text-foreground">
                   <Zap className="h-3.5 w-3.5 text-primary" />
-                  Starter Plan
+                  Free plan
                 </div>
                 <span className="text-xs font-mono font-medium text-muted-foreground uppercase tracking-wider">
-                  Tier: Free Trial
+                  No card needed
                 </span>
               </div>
 
@@ -80,13 +73,13 @@ export default function PricingPage() {
                   <span className="text-base sm:text-lg font-bold text-primary uppercase tracking-wide">/ month</span>
                 </div>
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                  Provisioned immediately upon account registration. Includes up to 100 monthly chat turns, 3 AI assistants, and 100 MB of vector knowledge base storage.
+                  Ready the moment you sign up. Includes 100 messages a month, 3 assistants, and 100 MB of space for your knowledge.
                 </p>
               </div>
 
               <div className="border-t border-border/80 pt-6 mb-8">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
-                  Included In Free Trial
+                  What&apos;s included
                 </h2>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-muted-foreground">
                   {valueFeatures.map((feat, idx) => (
@@ -104,11 +97,11 @@ export default function PricingPage() {
                 href="/register"
                 className="w-full py-3.5 rounded-xl text-sm font-semibold text-center inline-flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-90 active:scale-[0.99] transition-all shadow-xs"
               >
-                <span>Start Free Trial</span>
+                <span>Start free</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <p className="text-[11px] text-center text-muted-foreground">
-                No credit card required. Upgrade anytime to Pro for expanded limits and prioritized throughput.
+                No credit card needed. Upgrade anytime for more messages and space.
               </p>
             </div>
           </div>
@@ -119,7 +112,7 @@ export default function PricingPage() {
               <div className="flex items-center gap-2 mb-4">
                 <Terminal className="h-4 w-4 text-primary" />
                 <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-                  Pro Subscription
+                  Pro
                 </h2>
               </div>
               <div className="flex items-baseline gap-2 mb-4">
@@ -127,41 +120,41 @@ export default function PricingPage() {
                 <span className="text-xs font-semibold text-muted-foreground uppercase">/ month</span>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                Designed for high-growth production operations with expanded assistant capacity and storage.
+                For teams that use their assistants every day.
               </p>
 
               <div className="space-y-3 text-xs">
                 <div className="p-3 rounded-xl border border-border/70 bg-secondary/30 flex items-center justify-between">
-                  <span className="text-muted-foreground">Monthly Messages</span>
-                  <strong className="text-foreground font-mono">10,000 / mo</strong>
+                  <span className="text-muted-foreground">Messages each month</span>
+                  <strong className="text-foreground font-mono">10,000</strong>
                 </div>
                 <div className="p-3 rounded-xl border border-border/70 bg-secondary/30 flex items-center justify-between">
                   <span className="text-muted-foreground">Assistants</span>
-                  <strong className="text-foreground font-mono">Up to 25 Active</strong>
+                  <strong className="text-foreground font-mono">Up to 25</strong>
                 </div>
                 <div className="p-3 rounded-xl border border-border/70 bg-secondary/30 flex items-center justify-between">
-                  <span className="text-muted-foreground">Storage Allocation</span>
-                  <strong className="text-foreground font-mono">5,000 MB (5 GB)</strong>
+                  <span className="text-muted-foreground">Storage</span>
+                  <strong className="text-foreground font-mono">5 GB</strong>
                 </div>
               </div>
 
               <div className="mt-6 p-4 rounded-xl border border-border/60 bg-secondary/20 space-y-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2 text-foreground font-semibold">
                   <Database className="h-4 w-4 text-accent" />
-                  <span>Bring Your Own Keys (BYOK)</span>
+                  <span>Use your own AI keys</span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Prefer direct provider billing? Plug in your existing OpenAI, Anthropic, or OpenRouter keys in Settings. Platform routing and RAG retrieval remain 100% free.
+                  Already pay a provider directly? Add your own OpenAI, Anthropic, or OpenRouter key in Settings. We don&apos;t add a fee for answering questions or finding sources.
                 </p>
               </div>
             </div>
 
             <div className="pt-6 border-t border-border/60 mt-6 flex items-center justify-between text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-primary" /> SOC2 Compliant Vault
+                <Lock className="h-3.5 w-3.5 text-primary" /> Data encrypted at rest
               </span>
               <span className="flex items-center gap-1.5">
-                <Globe2 className="h-3.5 w-3.5 text-primary" /> 99.9% Uptime SLA
+                <Globe2 className="h-3.5 w-3.5 text-primary" /> 99.9% uptime promise
               </span>
             </div>
           </div>
@@ -170,9 +163,9 @@ export default function PricingPage() {
         {/* Grounding & Data Guarantee */}
         <div className="rounded-2xl border border-border/80 bg-card/60 p-6 sm:p-8 text-center max-w-3xl mx-auto shadow-xs">
           <Shield className="h-8 w-8 text-primary mx-auto mb-3" />
-          <h2 className="text-base font-bold text-foreground">Uncompromising Fact-Grounding & Privacy</h2>
+          <h2 className="text-base font-bold text-foreground">Answers you can check. Data you control.</h2>
           <p className="text-xs sm:text-sm text-muted-foreground mt-2 leading-relaxed max-w-xl mx-auto">
-            Your business documentation is never used to train global public AI models. Assistants strictly adhere to verified knowledge chunks and reject ungrounded hallucinations with transparent fallback notifications.
+            Your documents are never used to train public AI models. Assistants answer only from the knowledge you give them, and say so plainly when the answer isn&apos;t there.
           </p>
         </div>
       </main>

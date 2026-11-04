@@ -4,7 +4,7 @@ import { LandingExperience } from "@/components/home/landing-experience";
 export const metadata: Metadata = {
   title: "Weirwise",
   description:
-    "Autonomous AI assistants grounded in verified company knowledge with deterministic citations.",
+    "AI assistants that answer from your own documents, with the exact source beside every answer.",
   alternates: {
     canonical: "https://dev.weirwise.com/",
   },
@@ -19,7 +19,7 @@ export default function RootPage() {
     name: "Weirwise Inc.",
     url: baseUrl,
     logo: `${baseUrl}/weirwise-horizontal.svg`,
-    description: "Enterprise Autonomous RAG Platform and AI Assistant Studio.",
+    description: "AI answers from your own documents, with sources you can check.",
     sameAs: ["https://github.com/ansarialireza/weirwise-rag-platform"],
   };
 
@@ -35,7 +35,7 @@ export default function RootPage() {
       priceCurrency: "USD",
     },
     description:
-      "Autonomous AI assistant studio for business with zero-hallucination citation grounding and isolated vector stores.",
+      "Create an AI assistant from your own documents and share answers with the exact source attached.",
     url: baseUrl,
   };
 

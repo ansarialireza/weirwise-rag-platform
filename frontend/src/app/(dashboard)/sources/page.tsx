@@ -89,7 +89,7 @@ export default function SourcesKnowledgePage() {
         return list.find((s) => s.id === prev.id) || list[0] || null;
       });
     } catch (err: any) {
-      setPageError(err.message || "Could not load your knowledge sources.");
+      setPageError(err.message || "We couldn't load your knowledge. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -110,7 +110,7 @@ export default function SourcesKnowledgePage() {
       const docs = await api.getDocuments(selectedSource.id);
       setDocuments(docs);
     } catch (err: any) {
-      setPageError(err.message || "Could not load documents for this source.");
+      setPageError(err.message || "We couldn't load these files. Please try again.");
     } finally {
       setLoadingDocs(false);
       setRefreshing(false);
@@ -161,7 +161,7 @@ export default function SourcesKnowledgePage() {
       toast({ type: "success", message: `“${created.name}” is ready for documents.` });
     } catch (err: any) {
       createSourceWorkflow.stepFailed("CREATE_SOURCE_ERROR", { status: err.status });
-      toast({ type: "error", message: err.message || "Failed to create knowledge source" });
+      toast({ type: "error", message: err.message || "We couldn't create this collection. Please try again." });
     } finally {
       setCreating(false);
     }
@@ -262,7 +262,7 @@ export default function SourcesKnowledgePage() {
       toast({ type: "success", message: `Deleted ${docToDelete.filename}` });
       setDocToDelete(null);
     } catch (err: any) {
-      toast({ type: "error", message: err.message || "Failed to delete document" });
+      toast({ type: "error", message: err.message || "We couldn't delete that file. Please try again." });
     } finally {
       setIsDeleting(false);
       setDeletingDocId(null);
@@ -276,7 +276,7 @@ export default function SourcesKnowledgePage() {
       await loadDocuments();
       toast({ type: "success", message: "Document queued for processing again." });
     } catch (err: any) {
-      toast({ type: "error", message: err.message || "Failed to retry document" });
+      toast({ type: "error", message: err.message || "We couldn't retry that file. Please try again." });
     } finally {
       setRetryingDocId(null);
     }
@@ -293,7 +293,7 @@ export default function SourcesKnowledgePage() {
       toast({ type: "success", message: `Deleted ${sourceToDelete.name}` });
       setSourceToDelete(null);
     } catch (err: any) {
-      toast({ type: "error", message: err.message || "Failed to delete knowledge source" });
+      toast({ type: "error", message: err.message || "We couldn't delete that collection. Please try again." });
     } finally {
       setIsDeletingSource(false);
     }
@@ -333,7 +333,7 @@ export default function SourcesKnowledgePage() {
           hasSources ? (
             <Button onClick={() => setShowModal(true)} className="gap-2">
               <Plus className="h-4 w-4" />
-              Add source
+              Add knowledge
             </Button>
           ) : undefined
         }
@@ -345,8 +345,8 @@ export default function SourcesKnowledgePage() {
         <EmptyState
           icon={Database}
           title="Bring in your first documents"
-          description="Create a source for a topic — like “Product docs” or “Policies” — then upload the files inside it."
-          actionLabel="Create a source"
+          description="Create a collection for a topic — like “Product docs” or “Policies” — then add files to it."
+          actionLabel="Create a collection"
           onAction={() => setShowModal(true)}
         />
       ) : (
@@ -355,7 +355,7 @@ export default function SourcesKnowledgePage() {
           <aside className="lg:col-span-4">
             <div className="mb-2 flex items-center justify-between px-1">
               <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Sources
+                Collections
               </h2>
               <span className="text-xs tabular-nums text-muted-foreground">{sources.length}</span>
             </div>
@@ -401,7 +401,10 @@ export default function SourcesKnowledgePage() {
                         </span>
                       </span>
                     </span>
-                    <StatusPill status={source.status} />
+                    <StatusPill
+                      status={source.document_count ? source.status : "draft"}
+                      label={source.document_count ? undefined : "Empty"}
+                    />
                   </button>
                 );
               })}
@@ -413,7 +416,7 @@ export default function SourcesKnowledgePage() {
               className="mt-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:border-muted-foreground/30 hover:text-foreground"
             >
               <Plus className="h-4 w-4" />
-              Add another source
+              New collection
             </button>
           </aside>
 
@@ -428,10 +431,13 @@ export default function SourcesKnowledgePage() {
                         <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
                           {selectedSource.name}
                         </h2>
-                        <StatusPill status={selectedSource.status} />
+                        <StatusPill
+                          status={selectedSource.document_count ? selectedSource.status : "draft"}
+                          label={selectedSource.document_count ? undefined : "Empty"}
+                        />
                       </div>
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>{selectedSource.source_type === "file_upload" ? "File upload" : "Website"}</span>
+                        <span>{selectedSource.source_type === "file_upload" ? "Files" : "Website"}</span>
                         {selectedSource.target_url && (
                           <>
                             <span aria-hidden="true">·</span>
@@ -643,7 +649,7 @@ export default function SourcesKnowledgePage() {
               </div>
             ) : (
               <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
-                Select a source to view its documents.
+                Select a collection to view its documents.
               </div>
             )}
           </section>
@@ -675,7 +681,7 @@ export default function SourcesKnowledgePage() {
           if (!isDeletingSource) setSourceToDelete(null);
         }}
         onConfirm={handleDeleteSource}
-        title="Delete source"
+        title="Delete collection"
         description={
           <>
             <span className="font-medium text-foreground">{sourceToDelete?.name}</span> and every
@@ -683,7 +689,7 @@ export default function SourcesKnowledgePage() {
             undone.
           </>
         }
-        confirmText="Delete source"
+        confirmText="Delete collection"
         cancelText="Cancel"
         isLoading={isDeletingSource}
         variant="destructive"
@@ -692,13 +698,13 @@ export default function SourcesKnowledgePage() {
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title="Add a knowledge source"
-        description="A source groups related documents, like a topic or a team."
+        title="New collection"
+        description="A collection keeps related documents together — like a topic or a team."
         maxWidth="lg"
       >
         <form onSubmit={handleCreateSource} className="space-y-5">
           <Input
-            label="Name"
+            label="Collection name"
             type="text"
             required
             autoFocus
@@ -747,7 +753,7 @@ export default function SourcesKnowledgePage() {
               isLoading={creating}
               disabled={!sourceName.trim() || (sourceType === "website_crawl" && !targetUrl.trim())}
             >
-              Create source
+              Create collection
             </Button>
           </div>
         </form>

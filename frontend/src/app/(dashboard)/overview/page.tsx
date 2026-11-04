@@ -33,7 +33,7 @@ export default function OverviewPage() {
         setAssistants(aList);
         setSources(sList);
       })
-      .catch((err: any) => setError(err.message || "Could not load your workspace right now."))
+      .catch((err: any) => setError(err.message || "We couldn't load your workspace right now. Please try again."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -124,7 +124,7 @@ export default function OverviewPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           {
-            label: "Knowledge sources",
+            label: "Collections",
             value: sources.length,
             hint: `${documentCount} document${documentCount === 1 ? "" : "s"}`,
             icon: Database,
@@ -140,7 +140,7 @@ export default function OverviewPage() {
           {
             label: "Needs attention",
             value: attention,
-            hint: attention === 0 ? "Everything looks healthy" : "Failed to process",
+            hint: attention === 0 ? "Everything looks healthy" : "Needs attention",
             icon: attention > 0 ? AlertCircle : CheckCircle2,
             href: "/sources",
             tone: attention > 0 ? "warning" : "default",
@@ -286,7 +286,10 @@ export default function OverviewPage() {
                         {(source.document_count ?? 0) === 1 ? "" : "s"}
                       </div>
                     </div>
-                    <StatusPill status={source.status} />
+                    <StatusPill
+                      status={source.document_count ? source.status : "draft"}
+                      label={source.document_count ? undefined : "Empty"}
+                    />
                   </Link>
                 </li>
               ))}

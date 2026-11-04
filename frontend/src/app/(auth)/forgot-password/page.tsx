@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
       setSuccess(res.message || "We sent a reset code to your email.");
       toast({ message: "Reset code sent. Check your inbox.", type: "info" });
     } catch (err: any) {
-      setError(err.message || "Failed to submit password reset request.");
+      setError(err.message || "We couldn't send the reset email. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
 
-      {error && <Alert type="destructive" title="Request failed" message={error} />}
+      {error && <Alert type="destructive" title="We couldn't send that" message={error} />}
 
       {success && (
         <div className="space-y-3 rounded-xl border border-success/25 bg-success/10 p-4 text-[13px]">

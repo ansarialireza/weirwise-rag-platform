@@ -78,13 +78,13 @@ export default function AdminLayout({
       ? [{ name: "AI Providers", href: "/admin/providers", icon: Cpu }]
       : []),
     ...(adminRole === "super_admin"
-      ? [{ name: "Operations", href: "/admin/operations", icon: SlidersHorizontal }]
+      ? [{ name: "Platform settings", href: "/admin/operations", icon: SlidersHorizontal }]
       : []),
     ...(["super_admin", "platform_admin", "finance_admin"].includes(adminRole)
-      ? [{ name: "FinOps & Billing", href: "/admin/finops", icon: CreditCard }]
+      ? [{ name: "Billing & usage", href: "/admin/finops", icon: CreditCard }]
       : []),
     {
-      name: "Audit Trail",
+      name: "Activity log",
       href: "/admin/audit",
       icon: History,
     },

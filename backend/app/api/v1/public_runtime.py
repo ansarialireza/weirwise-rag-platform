@@ -101,7 +101,7 @@ async def resolve_public_deployment(
     if assistant.status != AssistantStatus.PUBLISHED.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Assistant is not published. Live runtime access requires published status.",
+            detail="This assistant isn't live yet.",
         )
 
     # If widget key is provided, validate deployment
@@ -123,7 +123,7 @@ async def resolve_public_deployment(
             if not origin_is_allowed(request_origin, deployment.allowed_domains):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Origin domain is not permitted by this assistant deployment policy.",
+                    detail="This website isn't allowed to use this assistant.",
                 )
 
     return assistant, deployment
@@ -208,7 +208,7 @@ async def public_chat(
         if conv and conv.session_token and incoming_token != conv.session_token:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Conversation session token is missing or invalid.",
+                detail="Your conversation expired. Please refresh and try again.",
             )
 
     session_token = incoming_token
@@ -366,7 +366,7 @@ async def submit_answer_feedback(
     if conv.session_token and _session_token(request) != conv.session_token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conversation session token is missing or invalid.",
+            detail="Your conversation expired. Please refresh and try again.",
         )
 
     # Check existing feedback
@@ -409,7 +409,7 @@ async def request_human_handoff(
     if conv.session_token and _session_token(request) != conv.session_token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conversation session token is missing or invalid.",
+            detail="Your conversation expired. Please refresh and try again.",
         )
 
     conv.is_escalated = True

@@ -53,7 +53,7 @@ export default function AssistantsListPage() {
       setAssistants(aList);
       setSources(sList);
     } catch (err: any) {
-      setPageError(err.message || "Could not load your assistants.");
+      setPageError(err.message || "We couldn't load your assistants. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export default function AssistantsListPage() {
       router.push(`/assistants/${created.id}`);
     } catch (err: any) {
       createAssistantWf.stepFailed("API_ERROR", { status: err.status });
-      toast({ type: "error", message: err.message || "Failed to create assistant" });
+      toast({ type: "error", message: err.message || "We couldn't create the assistant. Please try again." });
     } finally {
       setCreating(false);
     }
@@ -234,7 +234,7 @@ export default function AssistantsListPage() {
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1">
                   <Database className="h-3 w-3" />
-                  {assistant.knowledge_source_ids?.length || 0} source
+                  {assistant.knowledge_source_ids?.length || 0} collection
                   {(assistant.knowledge_source_ids?.length || 0) === 1 ? "" : "s"}
                 </span>
               </div>
@@ -245,7 +245,7 @@ export default function AssistantsListPage() {
                   className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted/70"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
-                  Configure
+                  Settings
                 </Link>
                 <Link
                   href={`/playground?assistantId=${assistant.id}`}
@@ -328,7 +328,7 @@ export default function AssistantsListPage() {
           {sources.length > 0 && (
             <fieldset className="space-y-1.5">
               <legend className="mb-1.5 block text-[13px] font-medium text-foreground">
-                Knowledge sources
+                Knowledge
                 <span className="ms-1 font-normal text-muted-foreground">(optional)</span>
               </legend>
               <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border bg-background/60 p-1.5">
@@ -372,12 +372,12 @@ export default function AssistantsListPage() {
           <details className="group rounded-xl border border-border bg-background/60 px-3.5 py-3">
             <summary className="cursor-pointer list-none text-[13px] font-medium text-foreground">
               Advanced options
-              <span className="ms-1 font-normal text-muted-foreground">— model and personality</span>
+              <span className="ms-1 font-normal text-muted-foreground">— answer style and personality</span>
             </summary>
             <div className="mt-3 space-y-4 border-t border-border/60 pt-3">
               {newEngineMode === "ai_answer" && (
                 <CustomSelect
-                  label="Model"
+                  label="Answer style"
                   value={newModel}
                   onChange={setNewModel}
                   options={[

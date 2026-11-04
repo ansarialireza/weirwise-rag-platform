@@ -16,10 +16,10 @@ export default function NotFound() {
             404 — PAGE NOT FOUND
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-            Resource Out of Bounds
+            We couldn&apos;t find that page
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            The workspace, assistant, or endpoint you requested does not exist or has been relocated within the ecosystem.
+            The page may have moved or been deleted. Check the address, or head back to your workspace.
           </p>
         </div>
 

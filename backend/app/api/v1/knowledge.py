@@ -1,5 +1,6 @@
 """Website Crawler, Sitemap Discovery, Page Selection, and Automatic Knowledge Ingestion."""
 
+import logging
 import os
 import uuid
 
@@ -33,6 +34,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Knowledge Sources, Crawler & Ingestion"])
+logger = logging.getLogger(__name__)
 
 
 class CrawlDiscoveryRequest(BaseModel):
@@ -391,9 +393,10 @@ async def delete_document(
         try:
             await CoreApiClient().delete_document(doc.core_doc_id)
         except CoreApiException as e:
+            logger.warning(f"Core delete failed for document {doc.id}: {e!s}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Could not remove the document from the search index: {e!s}",
+                detail="We couldn't delete that file just now. Please try again.",
             ) from e
 
     # Delete physical file from storage (both hot or cold vault)
@@ -468,9 +471,10 @@ async def delete_knowledge_source(
         try:
             await CoreApiClient().delete_knowledge_base(source.core_kb_id)
         except CoreApiException as e:
+            logger.warning(f"Core delete failed for knowledge source {source.id}: {e!s}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Could not remove the knowledge base from the search index: {e!s}",
+                detail="We couldn't delete that collection just now. Please try again.",
             ) from e
 
     docs_res = await db.execute(select(Document).where(Document.knowledge_source_id == source.id))

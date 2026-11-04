@@ -325,7 +325,7 @@ async def login(
                 enforce_limit(decision)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password.",
+            detail="That email or password doesn't match. Please try again.",
         )
 
     await AuthRateLimiter.reset("login_account_failure", account_key)

@@ -79,7 +79,7 @@ export default function AssistantConfigurePage() {
         setWidgetKey(deployments.find((d) => d.is_active)?.public_key || null);
       })
       .catch((err: any) => {
-        setErrorMessage(err.message || "Failed to load assistant configuration.");
+        setErrorMessage(err.message || "We couldn't load this assistant. Please try again.");
       })
       .finally(() => setLoading(false));
   }, [assistantId]);
@@ -124,7 +124,7 @@ export default function AssistantConfigurePage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to save assistant changes.");
+      setErrorMessage(err.message || "We couldn't save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -374,9 +374,9 @@ export default function AssistantConfigurePage() {
             {sources.length === 0 ? (
               <div className="mt-4 rounded-xl border border-dashed border-border bg-background/60 p-8 text-center">
                 <FileText className="mx-auto h-5 w-5 text-muted-foreground/70" />
-                <p className="mt-2 text-sm font-medium text-foreground">No sources yet</p>
+                <p className="mt-2 text-sm font-medium text-foreground">No knowledge yet</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Add documents first, then attach them here.
+                  Add documents first, then choose them here.
                 </p>
                 <Link
                   href="/sources"
@@ -440,7 +440,7 @@ export default function AssistantConfigurePage() {
             <div className="mt-4 space-y-5">
               {engineMode === "ai_answer" && (
                 <CustomSelect
-                  label="Model"
+                  label="Answer style"
                   value={model}
                   onChange={setModel}
                   options={[
@@ -548,8 +548,8 @@ export default function AssistantConfigurePage() {
                   <h2 className="text-sm font-semibold text-foreground">Publish and share</h2>
                 </div>
                 <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-muted-foreground">
-                  Publishing freezes the current setup into a live version. You can keep editing
-                  afterwards and publish again when you&apos;re ready.
+                  Publishing creates a live version from your current setup. You can keep editing and
+                  publish again whenever you&apos;re ready.
                 </p>
               </div>
               {assistant?.status === "published" && (
@@ -583,7 +583,7 @@ export default function AssistantConfigurePage() {
                   )}
                   {!checkingReadiness && readiness?.ready && (
                     <p className="mt-1 text-[12px] text-muted-foreground">
-                      Name, knowledge, and indexing look good.
+                      Name, knowledge, and sharing look good.
                     </p>
                   )}
                 </div>
@@ -666,7 +666,7 @@ export default function AssistantConfigurePage() {
               <Share2 className="mx-auto h-5 w-5 text-muted-foreground/70" />
               <p className="mt-2 text-sm font-medium text-foreground">Nothing shared yet</p>
               <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-                Publish this assistant to get a link and an embeddable snippet.
+                Publish this assistant to get a link you can share or add to your website.
               </p>
             </div>
           )}

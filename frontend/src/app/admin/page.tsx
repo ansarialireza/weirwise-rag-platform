@@ -55,7 +55,7 @@ export default function AdminOverviewPage() {
       setStats(statsData);
       setActivity(activityData);
     } catch (err: any) {
-      setError(err.message || "Failed to load command center data.");
+      setError(err.message || "We couldn't load platform data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function AdminOverviewPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Global platform telemetry, storage consumption, inference throughput, and audit streams.
+            A live view of usage, storage, and recent actions across the platform.
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export default function AdminOverviewPage() {
             href="/admin/operations"
             className="inline-flex items-center justify-center h-8 px-3 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
           >
-            Operations Policy
+            Platform settings
           </Link>
         </div>
       </div>
@@ -137,14 +137,14 @@ export default function AdminOverviewPage() {
         {/* Vectorized Documents */}
         <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Indexed Documents</span>
+            <span>Documents</span>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
             {loading ? "..." : totalDocs.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Vector knowledge embeddings
+            Ready to answer questions
           </p>
         </div>
 
@@ -158,7 +158,7 @@ export default function AdminOverviewPage() {
             {loading ? "..." : formatBytes(storageBytes)}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Document chunks & binaries
+            Files and their contents
           </p>
         </div>
 
@@ -172,7 +172,7 @@ export default function AdminOverviewPage() {
             {loading ? "..." : totalQueries.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground font-mono">
-            {totalTokens.toLocaleString()} tokens burned
+            {totalTokens.toLocaleString()} tokens used
           </p>
         </div>
       </div>

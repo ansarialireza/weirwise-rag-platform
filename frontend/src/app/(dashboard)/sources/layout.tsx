@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Sources",
+  title: "Knowledge",
 };
 
 export default function Layout({

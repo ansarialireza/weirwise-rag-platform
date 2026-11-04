@@ -19,6 +19,11 @@ const statusConfig: Record<
     className: "border-success/20 bg-success/10 text-success",
     icon: Check,
   },
+  completed: {
+    label: "Ready",
+    className: "border-success/20 bg-success/10 text-success",
+    icon: Check,
+  },
   published: {
     label: "Published",
     className: "border-success/20 bg-success/10 text-success",
@@ -34,6 +39,11 @@ const statusConfig: Record<
     className: "border-border bg-muted text-muted-foreground",
     icon: Clock3,
   },
+  queued: {
+    label: "Queued",
+    className: "border-border bg-muted text-muted-foreground",
+    icon: Clock3,
+  },
   draft: {
     label: "Draft",
     className: "border-border bg-muted text-muted-foreground",
@@ -45,6 +55,11 @@ const statusConfig: Record<
     icon: Circle,
   },
   failed: {
+    label: "Needs attention",
+    className: "border-destructive/25 bg-destructive/10 text-destructive",
+    icon: AlertTriangle,
+  },
+  error: {
     label: "Needs attention",
     className: "border-destructive/25 bg-destructive/10 text-destructive",
     icon: AlertTriangle,

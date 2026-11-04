@@ -186,7 +186,7 @@ async def create_assistant(
             if not ks_res.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"KnowledgeSource {sid} does not belong to this project.",
+                    detail="That knowledge selection isn't available in this workspace.",
                 )
             link = AssistantKnowledgeSource(assistant_id=assistant.id, knowledge_source_id=sid)
             db.add(link)
@@ -317,7 +317,7 @@ async def check_publish_readiness(
 
     issues: list[str] = []
     if not sources:
-        issues.append("No knowledge sources are attached to this assistant.")
+        issues.append("This assistant has no knowledge yet. Add files or pages first.")
 
     docs_count_stmt = (
         select(func.count(Document.id))
@@ -328,7 +328,7 @@ async def check_publish_readiness(
     ready_docs = (await db.execute(docs_count_stmt)).scalar() or 0
 
     if ready_docs == 0:
-        issues.append("No processed documents or website pages are ready in attached knowledge sources.")
+        issues.append("Your files and pages are still being prepared. Wait a moment, then try again.")
 
     return PublishValidationResponse(
         is_ready=len(issues) == 0,
@@ -357,7 +357,7 @@ async def publish_assistant(
     if not readiness.is_ready:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot publish assistant: {'; '.join(readiness.issues)}",
+            detail=f"This assistant isn't ready to share yet: {' '.join(readiness.issues)}",
         )
 
     assistant.status = AssistantStatus.PUBLISHED.value

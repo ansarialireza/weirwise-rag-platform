@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Send, Bot, User, AlertCircle, FileText } from "lucide-react";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { friendlyErrorMessage } from "@/lib/errors";
 
 interface WidgetConfig {
   name?: string;
@@ -43,7 +44,9 @@ export default function AssistantWidgetPage() {
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "This assistant is not available.");
+          throw new Error(
+            friendlyErrorMessage(data.detail, res.status, "This assistant isn't available right now.")
+          );
         }
         return res.json();
       })
@@ -52,12 +55,12 @@ export default function AssistantWidgetPage() {
         setMessages([
           {
             role: "assistant",
-            content: data.welcome_message || "Hello! How can I assist you today?",
+            content: data.welcome_message || "Hello! How can I help you today?",
           },
         ]);
       })
       .catch((err: any) => {
-        setError(err.message || "This assistant is not available.");
+        setError(err.message || "This assistant isn't available right now.");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantId, widgetKey]);
@@ -90,7 +93,7 @@ export default function AssistantWidgetPage() {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(
-          typeof errData.detail === "string" ? errData.detail : `Request failed with status ${res.status}`
+          friendlyErrorMessage(errData.detail, res.status, "I couldn't answer that just now. Please try again.")
         );
       }
 
@@ -110,12 +113,12 @@ export default function AssistantWidgetPage() {
         },
       ]);
     } catch (err: any) {
-      setError(err.message || "Failed to deliver message.");
+      setError(err.message || "I couldn't answer that just now. Please try again.");
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, I encountered an issue connecting to the assistant service.",
+          content: "Sorry, I couldn't answer that just now. Please try again.",
         },
       ]);
     } finally {
@@ -191,7 +194,7 @@ export default function AssistantWidgetPage() {
         {loading && (
           <div className="flex gap-2 items-center text-xs text-muted-foreground italic pl-8">
             <div className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
-            <span>Looking through the knowledge base...</span>
+            <span>Looking through your documents…</span>
           </div>
         )}
 
