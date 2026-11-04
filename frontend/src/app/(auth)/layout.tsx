@@ -24,7 +24,7 @@ export default function AuthLayout({
             href="/"
             className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <WeirwiseSymbol className="h-7 w-auto" surface="dark" priority />
+            <WeirwiseSymbol className="h-7 w-auto" priority />
             <span className="text-[15px] font-semibold tracking-tight text-foreground">
               {dict.common.brand}
             </span>
@@ -49,7 +49,7 @@ export default function AuthLayout({
         </p>
       </div>
 
-      <aside className="relative hidden overflow-hidden bg-onyx lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+      <aside className="on-onyx relative hidden overflow-hidden bg-onyx lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 dot-grid opacity-[0.15]"
@@ -89,7 +89,7 @@ export default function AuthLayout({
           <SignalFlow className="mt-12 max-w-sm opacity-60" variant="compact" />
         </div>
 
-        <div className="relative flex items-center gap-2 text-xs text-white/45">
+        <div className="relative flex items-center gap-2 text-xs text-white/60">
           <span className="h-1.5 w-1.5 rounded-full bg-signal" />
           Private workspaces · Your data stays yours
         </div>

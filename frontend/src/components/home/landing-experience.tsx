@@ -300,7 +300,7 @@ export function LandingExperience() {
         {/* Closing CTA */}
         <section className="border-t border-border/60">
           <div className="mx-auto w-full max-w-content px-4 py-16 sm:px-6 lg:px-10">
-            <div className="relative overflow-hidden rounded-2xl bg-onyx px-6 py-12 text-center sm:px-12 sm:py-16">
+            <div className="on-onyx relative overflow-hidden rounded-2xl bg-onyx px-6 py-12 text-center sm:px-12 sm:py-16">
               <SignalFlow
                 className="pointer-events-none absolute inset-x-0 top-1/2 mx-auto max-w-2xl -translate-y-1/2 opacity-40"
                 variant="wide"
