@@ -5,79 +5,77 @@
 @layer base {
   /*
    * Weirwise design tokens.
-   * Signal = Electric Lime, interactive = Electric Blue, depth = Onyx,
-   * and a calm canvas as the default surface.
+   * Silver/charcoal neutral scale with a single Signal Cyan accent sampled
+   * from the logo. Dark and Light are both first-class themes.
+   * `primary`, `accent`, and `signal` intentionally resolve to the same cyan:
+   * primary actions, interactive emphasis, and brand signal are one system.
    */
   :root,
   .light {
-    --background: 220 14% 96%;        /* #F3F4F6 Light Canvas */
-    --foreground: 225 20% 5%;         /* #0A0B0D Onyx */
+    color-scheme: light;
+    --background: 210 10% 96%;        /* #F4F5F6 Soft White */
+    --foreground: 225 11% 7%;         /* #101114 Deep Onyx */
     --card: 0 0% 100%;
-    --card-foreground: 225 20% 5%;
+    --card-foreground: 225 11% 7%;
     --popover: 0 0% 100%;
-    --popover-foreground: 225 20% 5%;
-    --primary: 225 22% 6%;            /* Onyx action */
+    --popover-foreground: 225 11% 7%;
+    --primary: 186 81% 29%;           /* #0E7A86 Deep Cyan */
     --primary-foreground: 0 0% 100%;
-    --signal: 72 100% 50%;            /* #CCFF00 Electric Lime */
-    --signal-foreground: 72 100% 5%;
-    --accent: 223 100% 57%;           /* #2563FF Electric Blue */
+    --signal: 186 81% 29%;
+    --signal-foreground: 0 0% 100%;
+    --accent: 186 81% 29%;
     --accent-foreground: 0 0% 100%;
-    --accent-soft: 223 100% 96%;
-    --secondary: 220 16% 93%;
-    --secondary-foreground: 225 20% 8%;
-    --muted: 220 16% 94%;
-    --muted-foreground: 220 9% 38%;   /* #5B6170, AA on canvas */
-    --destructive: 0 72% 50%;
+    --accent-soft: 186 54% 92%;       /* #DFF4F6 */
+    --secondary: 216 12% 92%;
+    --secondary-foreground: 225 11% 7%;
+    --muted: 210 12% 93%;
+    --muted-foreground: 212 7% 38%;   /* #5B6168, AA on canvas */
+    --destructive: 356 72% 47%;       /* #CF222E */
     --destructive-foreground: 0 0% 100%;
-    --success: 152 58% 33%;
-    --warning: 36 92% 38%;
-    --info: 223 100% 52%;
-    --border: 220 14% 88%;
+    --success: 137 66% 30%;           /* #1A7F37 */
+    --warning: 39 100% 27%;           /* #8A5A00 */
+    --info: 186 81% 29%;
+    --border: 213 12% 85%;
+    --border-strong: 214 7% 52%;
     --input: 0 0% 100%;
-    --ring: 223 100% 57%;
-    --brand-secondary: 223 100% 57%;
-    --brand-secondary-foreground: 0 0% 100%;
+    --ring: 186 81% 29%;
     --radius: 0.75rem;
-    --brand-glow: rgba(37, 99, 255, 0.12);
-    --brand-glow-secondary: rgba(204, 255, 0, 0.22);
-    --shadow-soft: 0 1px 2px rgba(10, 11, 13, 0.04), 0 8px 24px -18px rgba(10, 11, 13, 0.28);
-    --shadow-lift: 0 2px 4px rgba(10, 11, 13, 0.05), 0 18px 44px -22px rgba(10, 11, 13, 0.34);
-    --grid-line: rgba(10, 11, 13, 0.055);
+    --shadow-soft: 0 1px 2px rgba(16, 17, 20, 0.04), 0 8px 24px -18px rgba(16, 17, 20, 0.28);
+    --shadow-lift: 0 2px 4px rgba(16, 17, 20, 0.05), 0 18px 44px -22px rgba(16, 17, 20, 0.34);
+    --grid-line: rgba(16, 17, 20, 0.055);
   }
 
   .dark {
-    --background: 228 14% 4%;         /* #090A0C Onyx */
-    --foreground: 210 20% 96%;
-    --card: 226 14% 7%;
-    --card-foreground: 210 20% 96%;
-    --popover: 226 14% 8%;
-    --popover-foreground: 210 20% 96%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 228 14% 4%;
-    --signal: 72 100% 50%;
-    --signal-foreground: 72 100% 5%;
-    --accent: 223 100% 66%;
-    --accent-foreground: 0 0% 100%;
-    --accent-soft: 223 45% 16%;
-    --secondary: 225 12% 12%;
-    --secondary-foreground: 210 18% 92%;
-    --muted: 225 12% 10%;
-    --muted-foreground: 220 10% 66%;
-    --destructive: 0 78% 62%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 55% 52%;
-    --warning: 38 92% 58%;
-    --info: 223 100% 70%;
-    --border: 225 12% 18%;
-    --input: 226 14% 9%;
-    --ring: 223 100% 70%;
-    --brand-secondary: 223 100% 70%;
-    --brand-secondary-foreground: 0 0% 100%;
-    --brand-glow: rgba(37, 99, 255, 0.24);
-    --brand-glow-secondary: rgba(204, 255, 0, 0.16);
+    color-scheme: dark;
+    --background: 225 11% 7%;         /* #101114 Deep Onyx */
+    --foreground: 210 10% 96%;        /* #F4F5F6 Soft White */
+    --card: 220 12% 10%;              /* #1A1B1F */
+    --card-foreground: 210 10% 96%;
+    --popover: 225 6% 13%;            /* #202124 Charcoal */
+    --popover-foreground: 210 10% 96%;
+    --primary: 184 68% 55%;           /* #3FD0DA Signal Cyan */
+    --primary-foreground: 225 11% 7%;
+    --signal: 184 68% 55%;
+    --signal-foreground: 225 11% 7%;
+    --accent: 184 68% 55%;
+    --accent-foreground: 225 11% 7%;
+    --accent-soft: 186 38% 15%;
+    --secondary: 213 11% 17%;
+    --secondary-foreground: 210 10% 94%;
+    --muted: 220 10% 12%;
+    --muted-foreground: 213 7% 67%;   /* #A5AAB0 */
+    --destructive: 3 93% 63%;         /* #F85149 */
+    --destructive-foreground: 225 11% 7%;
+    --success: 131 55% 40%;           /* #2EA043 */
+    --warning: 41 72% 48%;            /* #D29922 */
+    --info: 184 68% 55%;
+    --border: 220 5% 22%;
+    --border-strong: 217 6% 45%;
+    --input: 225 6% 13%;
+    --ring: 184 68% 55%;
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -20px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.34), 0 24px 56px -24px rgba(0, 0, 0, 0.8);
-    --grid-line: rgba(255, 255, 255, 0.05);
+    --grid-line: rgba(244, 245, 246, 0.05);
   }
 
   * {
@@ -105,8 +103,8 @@
   }
 
   ::selection {
-    background: #ccff00;
-    color: #0a0b0d;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
   }
 
   h1,

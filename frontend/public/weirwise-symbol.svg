@@ -1,11 +1,29 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 350 170" role="img" aria-labelledby="title description">
-  <!-- Weirwise standalone symbol, official geometry preserved. -->
-  <title id="title">Weirwise - Standalone Symbol - Official Two-Tone</title>
-  <desc id="description">Geometric W monogram in silver and electric lime on a transparent background.</desc>
-  <g transform="translate(10, 10)">
-    <path id="shared-path" fill="#C5CED6" d="M 10.5,15.75 H 135.25 C 138,15.75 139.5,17 141.75,20.5 L 198,111.75 Q 200.5,115.75 203.5,111.75 L 229.5,70 Q 231.5,67 234.5,67 H 282.5 Q 285.75,67 283.75,70.75 L 247.75,130 Q 244,136.5 237.25,136.5 H 162.75 Q 155.25,136.5 151.75,130.25 L 105,53.5 Q 103.75,51.5 101.25,51.5 H 36.75 Q 31.75,51.5 28.75,46.5 Z"/>
-    <path id="upper-path" fill="#CCFF00" d="M 316.75,15.75 H 216.5 Q 211,15.75 207.5,21.25 L 184,59.25 Q 182.75,61.25 184,63.25 L 200,88.75 L 222.5,53.5 Q 223.75,51.5 226.5,51.5 H 292.5 Q 297.25,51.5 300,46.75 Z"/>
-    <path id="lower-path" fill="#CCFF00" d="M 46.5,67 H 94.25 Q 98.75,67 101,70.75 L 125.5,110.75 Q 128.25,114.75 125.5,119.5 L 117.5,132.25 Q 115,136.5 110,136.5 H 90.5 Q 84.25,136.5 80.75,130.75 L 44.25,70.5 Q 42,67 46.5,67 Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560" role="img" aria-labelledby="title desc">
+  <title id="title">Weirwise symbol</title>
+  <desc id="desc">Flowing W monogram built from three parallel silver ribbons and blades with a restrained cyan accent.</desc>
+  <defs>
+    <linearGradient id="darkSilver" x1="60" y1="60" x2="780" y2="540" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F8F9"/>
+      <stop offset="0.5" stop-color="#E2E5E8"/>
+      <stop offset="1" stop-color="#C5C9CE"/>
+    </linearGradient>
+    <linearGradient id="darkBlade" x1="500" y1="60" x2="860" y2="548" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#E2E5E8"/>
+      <stop offset="1" stop-color="#B9BEC4"/>
+    </linearGradient>
+    <clipPath id="darkPeak">
+      <path d="M 0 0 H 470 L 520 342 V 560 H 0 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#darkPeak)" fill="none" stroke="url(#darkSilver)" stroke-width="58" stroke-linecap="butt">
+    <path d="M 40 110 H 110 C 210 110 225 310 310 330 C 390 350 440 190 500 70"/>
+    <path d="M 40 205 H 110 C 210 205 225 405 310 425 C 390 445 435 285 495 175"/>
+    <path d="M 40 300 H 110 C 210 300 225 500 310 520 C 390 540 430 380 490 280"/>
   </g>
+  <path fill="#2A2C30" d="M 505 342 L 545 300 L 592 548 L 505 548 Z"/>
+  <path fill="url(#darkBlade)" d="M 500 548 L 630 120 L 700 120 L 605 548 Z"/>
+  <path fill="url(#darkBlade)" d="M 655 548 L 740 55 L 800 108 L 720 548 Z"/>
+  <path d="M 470 54 L 520 342" fill="none" stroke="#3FD0DA" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 742 60 L 658 548" fill="none" stroke="#3FD0DA" stroke-width="12" stroke-linecap="round"/>
 </svg>

@@ -162,7 +162,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     cfg = cfg_resp.json()
     assert cfg["name"] == "E-Commerce Support Bot"
     assert cfg["tone"] == "friendly"
-    assert cfg["primary_color"] == "#2563EB"
+    assert cfg["primary_color"] == "#3FD0DA"
 
     # 7. Execute Public Chat Turn (Widget communication)
     chat_resp = client.post(

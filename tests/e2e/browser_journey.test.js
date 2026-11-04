@@ -123,31 +123,31 @@ async function runAuditSuite() {
     await page.setViewportSize({ width: 1280, height: 800 });
 
     // --------------------------------------------------------------------------
-    // Test 1C: Theme Switcher & Persistence Verification (Dark / Colorful / Light)
+    // Test 1C: Theme Switcher & Persistence Verification (Dark / Light)
     // --------------------------------------------------------------------------
     console.log("\n[Test 1C] Testing Theme Switcher & Persistence Across Page Reloads...");
     
-    // Switch to Colorful Theme via ThemeSwitcher or evaluate
+    // Switch to Dark Theme via ThemeSwitcher or evaluate
     await page.evaluate(() => {
-      window.localStorage.setItem("wwp_theme", "colorful");
+      window.localStorage.setItem("wwp_theme", "dark");
       document.documentElement.classList.remove("dark", "light");
-      document.documentElement.classList.add("colorful");
+      document.documentElement.classList.add("dark");
     });
-    let isColorful = await page.evaluate(() => document.documentElement.classList.contains("colorful"));
-    if (!isColorful) throw new Error("Failed to activate colorful theme!");
-    console.log("  ✓ Switched to Colorful Theme (active classes: colorful).");
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01b_homepage_colorful.png") });
+    let isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+    if (!isDark) throw new Error("Failed to activate dark theme!");
+    console.log("  ✓ Switched to Dark Theme (active classes: dark).");
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01b_homepage_dark.png") });
 
     // Reload page to verify persistence without flash
     await page.reload({ waitUntil: "networkidle" });
-    isColorful = await page.evaluate(() => document.documentElement.classList.contains("colorful"));
-    if (!isColorful) throw new Error("Colorful theme did not persist across page reload!");
-    console.log("  ✓ Colorful Theme successfully persisted in localStorage across reload.");
+    isDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+    if (!isDark) throw new Error("Dark theme did not persist across page reload!");
+    console.log("  ✓ Dark Theme successfully persisted in localStorage across reload.");
 
     // Switch to Light Theme
     await page.evaluate(() => {
       window.localStorage.setItem("wwp_theme", "light");
-      document.documentElement.classList.remove("colorful", "dark");
+      document.documentElement.classList.remove("dark", "light");
       document.documentElement.classList.add("light");
     });
     const isLight = await page.evaluate(() => document.documentElement.classList.contains("light"));
@@ -155,13 +155,13 @@ async function runAuditSuite() {
     console.log("  ✓ Switched to Light Theme (active classes: light).");
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01c_homepage_light.png") });
 
-    // Revert back to Colorful Theme for remaining journey
+    // Revert back to Dark Theme for remaining journey
     await page.evaluate(() => {
-      window.localStorage.setItem("wwp_theme", "colorful");
+      window.localStorage.setItem("wwp_theme", "dark");
       document.documentElement.classList.remove("dark", "light");
-      document.documentElement.classList.add("colorful");
+      document.documentElement.classList.add("dark");
     });
-    console.log("  ✓ Active theme set to Colorful for journey testing.");
+    console.log("  ✓ Active theme set to Dark for journey testing.");
 
     // --------------------------------------------------------------------------
     // Test 1D: Pricing Page Layout & Responsiveness

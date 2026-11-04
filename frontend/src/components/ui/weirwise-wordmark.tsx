@@ -12,7 +12,7 @@ export function WeirwiseWordmark({ className, priority = false }: WeirwiseWordma
       <Image
         src="/weirwise-horizontal.svg"
         alt="Weirwise"
-        width={1060}
+        width={980}
         height={200}
         priority={priority}
         className="hidden h-auto w-full dark:block"
@@ -20,7 +20,7 @@ export function WeirwiseWordmark({ className, priority = false }: WeirwiseWordma
       <Image
         src="/weirwise-horizontal-light.svg"
         alt="Weirwise"
-        width={1060}
+        width={980}
         height={200}
         priority={priority}
         className="block h-auto w-full dark:hidden"

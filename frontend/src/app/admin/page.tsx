@@ -81,8 +81,8 @@ export default function AdminOverviewPage() {
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               Overview
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-success/10 text-success border border-success/20 font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
               Operational
             </span>
           </div>

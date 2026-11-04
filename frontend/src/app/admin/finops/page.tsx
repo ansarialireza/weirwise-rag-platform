@@ -100,7 +100,7 @@ export default function AdminFinOpsPage() {
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
               FinOps & Token Economics
             </h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20 font-medium">
               Live Billing
             </span>
           </div>
@@ -162,7 +162,7 @@ export default function AdminFinOpsPage() {
             <span>Inference Costs</span>
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-rose-400">
+          <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-destructive">
             {loading ? "..." : `$${cost.toFixed(4)}`}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -176,7 +176,7 @@ export default function AdminFinOpsPage() {
             <span>Gross Margin</span>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className={`mt-2 text-2xl font-semibold tracking-tight font-mono ${margin >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <div className={`mt-2 text-2xl font-semibold tracking-tight font-mono ${margin >= 0 ? "text-success" : "text-destructive"}`}>
             {loading ? "..." : `${margin.toFixed(1)}%`}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -190,7 +190,7 @@ export default function AdminFinOpsPage() {
             <span>Net AI Margin</span>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className={`mt-2 text-2xl font-semibold tracking-tight font-mono ${profit >= 0 ? "text-foreground" : "text-rose-400"}`}>
+          <div className={`mt-2 text-2xl font-semibold tracking-tight font-mono ${profit >= 0 ? "text-foreground" : "text-destructive"}`}>
             {loading ? "..." : `$${profit.toFixed(2)}`}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">

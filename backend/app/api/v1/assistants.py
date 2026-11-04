@@ -387,7 +387,7 @@ async def publish_assistant(
             public_key=raw_key,
             allowed_domains=["*"],
             theme_config={
-                "primary_color": "#2563EB",
+                "primary_color": "#3FD0DA",
                 "assistant_title": assistant.name,
                 "welcome_message": f"Hello! I am your {assistant.name}. How can I assist you today?",
                 "placeholder_text": "Ask us a question...",

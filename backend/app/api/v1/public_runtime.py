@@ -163,7 +163,7 @@ async def get_public_runtime_config(
         tone=assistant.tone or "professional",
         welcome_message=theme.get("welcome_message", "Hello! How can I assist you with our services today?"),
         placeholder_text=theme.get("placeholder_text", "Ask us a question..."),
-        primary_color=theme.get("primary_color", "#2563EB"),
+        primary_color=theme.get("primary_color", "#3FD0DA"),
         position=theme.get("position", "bottom-right"),
         show_branding=theme.get("show_branding", True),
         allowed_domains=deployment.allowed_domains if deployment else [],

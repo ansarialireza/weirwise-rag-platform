@@ -13,7 +13,10 @@ import { ContinuousThreadStage } from "@/components/layout/continuous-thread-sta
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F4F5F6" },
+    { media: "(prefers-color-scheme: dark)", color: "#101114" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -54,10 +57,10 @@ export const metadata: Metadata = {
       "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
     images: [
       {
-        url: "/weirwise-horizontal.svg",
+        url: "/weirwise-og.png",
         width: 1200,
         height: 630,
-        alt: "Weirwise Platform Logo",
+        alt: "Weirwise — Simple by default. Powerful by design.",
       },
     ],
   },
@@ -66,19 +69,21 @@ export const metadata: Metadata = {
     title: "Weirwise",
     description:
       "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
-    images: ["/weirwise-horizontal.svg"],
+    images: ["/weirwise-og.png"],
   },
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/weirwise-app-icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
-    apple: [{ url: "/weirwise-app-icon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Weirwise",
   },
 };
@@ -93,7 +98,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var storedTheme=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light","colorful");if(storedTheme==="light"){root.classList.add("light");}else if(storedTheme==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}var storedLocale=localStorage.getItem("wwp_locale");if(!storedLocale){var match=document.cookie.match(/(^|;\\s*)wwp_locale=([^;]*)/);if(match)storedLocale=match[2];}if(!storedLocale&&navigator.language&&navigator.language.toLowerCase().startsWith("fa")){storedLocale="fa";}if(storedLocale==="fa"){root.lang="fa";root.dir="rtl";}else{root.lang="en";root.dir="ltr";}}catch(e){}})();`,
+            __html: `(function(){try{var storedTheme=localStorage.getItem("wwp_theme");var root=document.documentElement;root.classList.remove("dark","light");if(storedTheme==="light"){root.classList.add("light");}else if(storedTheme==="dark"){root.classList.add("dark");}else{var isDark=window.matchMedia("(prefers-color-scheme: dark)").matches;root.classList.add(isDark?"dark":"light");}var storedLocale=localStorage.getItem("wwp_locale");if(!storedLocale){var match=document.cookie.match(/(^|;\\s*)wwp_locale=([^;]*)/);if(match)storedLocale=match[2];}if(!storedLocale&&navigator.language&&navigator.language.toLowerCase().startsWith("fa")){storedLocale="fa";}if(storedLocale==="fa"){root.lang="fa";root.dir="rtl";}else{root.lang="en";root.dir="ltr";}}catch(e){}})();`,
           }}
         />
       </head>

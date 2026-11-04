@@ -59,7 +59,7 @@ export default function AdminLayout({
 
   if (authLoading || accessLoading || !user || !adminRole) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-[#0d1117]">
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
         <BrutalistLoader label="AUTHENTICATING ADMIN" />
       </div>
     );

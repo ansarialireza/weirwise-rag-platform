@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Weirwise app icon</title>
+  <desc id="desc">The Weirwise symbol on a deep onyx field.</desc>
+  <rect width="512" height="512" rx="0" fill="#101114"/>
+  <g transform="translate(112.14 130.12) scale(0.4496)">
+  <defs>
+    <linearGradient id="darkSilver" x1="60" y1="60" x2="780" y2="540" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F8F9"/>
+      <stop offset="0.5" stop-color="#E2E5E8"/>
+      <stop offset="1" stop-color="#C5C9CE"/>
+    </linearGradient>
+    <linearGradient id="darkBlade" x1="500" y1="60" x2="860" y2="548" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#E2E5E8"/>
+      <stop offset="1" stop-color="#B9BEC4"/>
+    </linearGradient>
+    <clipPath id="darkPeak">
+      <path d="M 0 0 H 470 L 520 342 V 560 H 0 Z"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#darkPeak)" fill="none" stroke="url(#darkSilver)" stroke-width="58" stroke-linecap="butt">
+    <path d="M 40 110 H 110 C 210 110 225 310 310 330 C 390 350 440 190 500 70"/>
+    <path d="M 40 205 H 110 C 210 205 225 405 310 425 C 390 445 435 285 495 175"/>
+    <path d="M 40 300 H 110 C 210 300 225 500 310 520 C 390 540 430 380 490 280"/>
+  </g>
+  <path fill="#2A2C30" d="M 505 342 L 545 300 L 592 548 L 505 548 Z"/>
+  <path fill="url(#darkBlade)" d="M 500 548 L 630 120 L 700 120 L 605 548 Z"/>
+  <path fill="url(#darkBlade)" d="M 655 548 L 740 55 L 800 108 L 720 548 Z"/>
+  <path d="M 470 54 L 520 342" fill="none" stroke="#3FD0DA" stroke-width="12" stroke-linecap="round"/>
+  <path d="M 742 60 L 658 548" fill="none" stroke="#3FD0DA" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

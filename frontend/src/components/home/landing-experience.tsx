@@ -309,7 +309,7 @@ export function LandingExperience() {
                 <h2 className="mx-auto max-w-xl text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                   {dict.landing.ctaHeadline}
                 </h2>
-                <p className="mx-auto mt-3 max-w-md text-sm text-zinc-400">
+                <p className="mx-auto mt-3 max-w-md text-sm text-white/60">
                   {dict.landing.ctaSubtitle}
                 </p>
                 <div className="mt-7 flex flex-col items-center justify-center gap-2.5 sm:flex-row">

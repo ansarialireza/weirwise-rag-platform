@@ -178,7 +178,7 @@ export default function AssistantConfigurePage() {
   src="${embedSrc}"
   width="100%"
   height="600"
-  style="border: 1px solid #e4e4e7; border-radius: 12px;"
+  style="border: 1px solid #c5c9ce; border-radius: 12px;"
   title="${name || "Weirwise assistant"}"
 ></iframe>`;
 
@@ -408,7 +408,7 @@ export default function AssistantConfigurePage() {
                         className={cn(
                           "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border",
                           attached
-                            ? "border-accent bg-accent text-white"
+                            ? "border-accent bg-accent text-accent-foreground"
                             : "border-border bg-card text-transparent"
                         )}
                       >
@@ -652,7 +652,7 @@ export default function AssistantConfigurePage() {
                 </Button>
               </div>
 
-              <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-onyx p-4 text-[12px] leading-relaxed text-zinc-300">
+              <pre className="mt-4 overflow-x-auto rounded-xl border border-border bg-onyx p-4 text-[12px] leading-relaxed text-white/80">
                 <code>{embedCode}</code>
               </pre>
 

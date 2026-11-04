@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const applyTheme = useCallback((t: Theme) => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
-    root.classList.remove("dark", "light", "colorful", "theme-obsidian", "theme-light", "theme-cyber");
+    root.classList.remove("dark", "light");
 
     let effective: "dark" | "light";
     if (t === "system") {

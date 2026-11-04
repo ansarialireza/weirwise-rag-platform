@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-emerald.svg" alt="Backend CI"></a>
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-emerald.svg" alt="Frontend CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14-black.svg" alt="Next.js 14"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-3FD0DA.svg" alt="Backend CI"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-3FD0DA.svg" alt="Frontend CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6B7078.svg" alt="License: MIT"></a>
+  <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-6B7078.svg" alt="Python 3.11+"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14-101114.svg" alt="Next.js 14"></a>
 </p>
 
 ---

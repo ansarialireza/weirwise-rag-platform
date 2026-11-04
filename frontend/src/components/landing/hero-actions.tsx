@@ -13,7 +13,7 @@ export function HeroActions() {
     <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md mx-auto">
       <Link
         href={user ? "/overview" : "/register"}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white text-black px-6 py-2.5 text-sm font-medium hover:bg-zinc-200 active:scale-[0.98] transition-all"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 active:scale-[0.98] transition-all"
       >
         <span>{user ? "Open Studio" : "Start Free Trial"}</span>
         <ArrowRight className="h-4 w-4" />
@@ -21,7 +21,7 @@ export function HeroActions() {
 
       <Link
         href="/login"
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-zinc-800 bg-transparent px-5 py-2.5 text-sm font-medium text-white hover:bg-white/5 hover:border-zinc-700 active:scale-[0.98] transition-all"
+        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-transparent px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted active:scale-[0.98] transition-all"
       >
         Sign In
       </Link>

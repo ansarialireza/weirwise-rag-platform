@@ -466,7 +466,7 @@ export default function AdminProvidersPage() {
               </strong>
             </span>
             {controlSettings?.emergency_stop && (
-              <span className="font-semibold text-rose-400 uppercase">Emergency stop active</span>
+              <span className="font-semibold text-destructive uppercase">Emergency stop active</span>
             )}
             <a href="/admin/operations" className="underline underline-offset-2 hover:text-foreground">
               Manage policy
@@ -489,7 +489,7 @@ export default function AdminProvidersPage() {
           <div role="status" className="border-t border-border/60 bg-muted/20 px-4 py-2.5 text-[11px]">
             {explanation.available ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 <span className="text-foreground font-medium">
                   {explanation.credential_label} ({explanation.key_prefix})
                 </span>
@@ -507,7 +507,7 @@ export default function AdminProvidersPage() {
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-amber-400">
+              <div className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 <span>
                   No credential would be selected: <span className="font-mono">{explanation.reason}</span>
@@ -682,7 +682,7 @@ export default function AdminProvidersPage() {
       {validationResults.length > 0 && (
         <div role="status" className="rounded-md border border-border/70 bg-card p-3 text-xs">
           <div className="font-semibold text-foreground flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <span>
               Validation Result: {validationResults.filter((item) => item.status === "active").length} valid,{" "}
               {validationResults.filter((item) => item.status === "error").length} inactive
@@ -740,7 +740,7 @@ export default function AdminProvidersPage() {
                 c.monthly_budget_usd > 0
                   ? Math.min(100, (Number(c.current_month_spend_usd) / Number(c.monthly_budget_usd)) * 100)
                   : 0;
-              const dotClass = !isActive ? "bg-zinc-500" : isHealthy ? "bg-emerald-500" : "bg-amber-500";
+              const dotClass = !isActive ? "bg-muted-foreground" : isHealthy ? "bg-success" : "bg-warning";
 
               return (
                 <div key={c.id}>
@@ -766,8 +766,8 @@ export default function AdminProvidersPage() {
                             className={`text-[10px] font-mono uppercase px-1.5 py-0.2 rounded border ${
                               isActive
                                 ? isCooling
-                                  ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
-                                  : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                                  ? "border-warning/40 text-warning bg-warning/10"
+                                  : "border-success/30 text-success bg-success/5"
                                 : "border-border/60 text-muted-foreground bg-muted"
                             }`}
                           >
@@ -791,7 +791,7 @@ export default function AdminProvidersPage() {
                           {c.last_failure_at && (
                             <>
                               <span>�</span>
-                              <span className="font-mono text-amber-400">
+                              <span className="font-mono text-warning">
                                 last err: {new Date(c.last_failure_at).toLocaleTimeString()}
                               </span>
                             </>
@@ -799,7 +799,7 @@ export default function AdminProvidersPage() {
                           {c.last_error_reason && (
                             <>
                               <span>�</span>
-                              <span className="text-rose-400 font-mono text-[10px] max-w-[22rem] truncate" title={c.last_error_reason}>
+                              <span className="text-destructive font-mono text-[10px] max-w-[22rem] truncate" title={c.last_error_reason}>
                                 {c.last_error_reason}
                               </span>
                             </>
@@ -810,7 +810,7 @@ export default function AdminProvidersPage() {
                           <div className="flex items-center gap-2 pt-0.5">
                             <div className="h-1 w-36 rounded-full bg-muted overflow-hidden" aria-hidden="true">
                               <div
-                                className={`h-full ${budgetPct >= 100 ? "bg-rose-500" : budgetPct >= 85 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                className={`h-full ${budgetPct >= 100 ? "bg-destructive" : budgetPct >= 85 ? "bg-warning" : "bg-success"}`}
                                 style={{ width: `${budgetPct}%` }}
                               />
                             </div>
@@ -851,8 +851,8 @@ export default function AdminProvidersPage() {
                         onClick={() => handleToggleCredential(c.id, c.is_active)}
                         className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
                           c.is_active
-                            ? "hover:bg-amber-500/10 hover:text-amber-400"
-                            : "hover:bg-emerald-500/10 hover:text-emerald-400"
+                            ? "hover:bg-warning/10 hover:text-warning"
+                            : "hover:bg-success/10 hover:text-success"
                         }`}
                       >
                         <Power className="h-3 w-3 mr-1" />
@@ -910,13 +910,13 @@ export default function AdminProvidersPage() {
                                   <li key={event.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-mono text-muted-foreground">
                                     <span className="text-foreground">{new Date(event.created_at).toLocaleTimeString()}</span>
                                     <OutcomeBadge outcome={event.outcome} />
-                                    {event.is_failover && <span className="text-amber-400">failover#{event.attempt_number}</span>}
+                                    {event.is_failover && <span className="text-warning">failover#{event.attempt_number}</span>}
                                     <span>strategy={event.strategy}</span>
                                     {event.decision_reason && <span>why={event.decision_reason}</span>}
-                                    {event.error_category && <span className="text-rose-400">{event.error_category}</span>}
+                                    {event.error_category && <span className="text-destructive">{event.error_category}</span>}
                                     {event.latency_ms > 0 && <span>{event.latency_ms}ms</span>}
                                     {event.error_message && (
-                                      <span className="text-rose-400/80 max-w-full truncate" title={event.error_message}>
+                                      <span className="text-destructive/80 max-w-full truncate" title={event.error_message}>
                                         {event.error_message}
                                       </span>
                                     )}
@@ -1047,11 +1047,11 @@ export default function AdminProvidersPage() {
                 </span>
                 <span className="text-muted-foreground">mode={event.routing_mode}</span>
                 <span className="text-muted-foreground">strategy={event.strategy}</span>
-                {event.is_failover && <span className="text-amber-400">failover#{event.attempt_number}</span>}
+                {event.is_failover && <span className="text-warning">failover#{event.attempt_number}</span>}
                 {event.decision_reason && <span className="text-muted-foreground truncate">why={event.decision_reason}</span>}
-                {event.error_category && <span className="text-rose-400">{event.error_category}</span>}
+                {event.error_category && <span className="text-destructive">{event.error_category}</span>}
                 {event.retry_after_seconds != null && (
-                  <span className="text-amber-400">retry-after={event.retry_after_seconds}s</span>
+                  <span className="text-warning">retry-after={event.retry_after_seconds}s</span>
                 )}
                 {event.latency_ms > 0 && <span className="text-muted-foreground">{event.latency_ms}ms</span>}
               </li>
@@ -1102,9 +1102,9 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
 function OutcomeBadge({ outcome }: { outcome: string }) {
   const tone =
     outcome === "success"
-      ? "text-emerald-400 border-emerald-500/30"
+      ? "text-success border-success/30"
       : outcome === "selected"
-        ? "text-cyan-400 border-cyan-500/30"
-        : "text-rose-400 border-rose-500/30";
+        ? "text-info border-info/30"
+        : "text-destructive border-destructive/30";
   return <span className={`px-1 py-0.2 rounded border ${tone}`}>{outcome}</span>;
 }

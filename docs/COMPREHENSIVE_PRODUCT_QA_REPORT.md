@@ -31,7 +31,7 @@ All mandatory Development release gates have passed with zero unresolved P0 or P
 - **Registration**: Client-side constraint validation strictly enforces password rules (<8 characters rejected). Successful account registration provisions personal workspace and JWT bearer tokens.
 - **Login / Logout**: JWT token lifecycle and refresh mechanisms operate correctly. Session destruction immediately redirects unauthorized requests to `/login`.
 - **Private Staff Admin Security**: The legacy "1-Click Demo Login" button has been completely eliminated from the frontend code and database migrations. Superuser staff credentials access `/admin` while regular tenant accounts are immediately redirected away.
-- **Theme Switcher**: Colorful, Light, and Dark themes toggle seamlessly and persist across full page reloads via `localStorage`.
+- **Theme Switcher**: Light and Dark themes toggle seamlessly and persist across full page reloads via `localStorage`.
 
 ### 2.2 Workspace & Multi-Tenancy Isolation
 - **Workspace Provisioning**: Automatically provisions personal workspace and default project.

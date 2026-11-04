@@ -91,8 +91,8 @@ export function InteractiveRagVisualizer() {
           <span className="text-xs font-semibold text-foreground tracking-tight">
             Live Grounded Orchestrator
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500 border border-emerald-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
             Verified Truth
           </span>
         </div>
@@ -209,7 +209,7 @@ export function InteractiveRagVisualizer() {
               <span className="text-primary uppercase tracking-wider font-sans font-semibold flex items-center gap-1">
                 <Sparkles className="h-3 w-3" /> Grounded Assistant
               </span>
-              <span className="text-[9px] rounded bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 font-semibold">
+              <span className="rounded bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold text-success">
                 Zero Hallucination
               </span>
             </div>

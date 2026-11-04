@@ -23,7 +23,7 @@ Retrieves public branding, communication settings, and visual themes for a publi
   "language": "en",
   "tone": "friendly",
   "fallback_message": "I apologize, but I do not have verified knowledge to answer that.",
-  "theme_color": "#4f46e5",
+  "theme_color": "#3FD0DA",
   "avatar_url": null,
   "greeting_message": "Hello! How can I assist you with Acme products today?",
   "suggested_prompts": ["What is your return policy?", "How do I track my order?"]

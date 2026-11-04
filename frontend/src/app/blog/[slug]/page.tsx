@@ -64,13 +64,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 const mdxComponents = {
   h1: (props: any) => (
-    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#090A0C] dark:text-foreground mt-8 mb-4" {...props} />
+    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mt-8 mb-4" {...props} />
   ),
   h2: (props: any) => (
-    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#090A0C] dark:text-foreground mt-8 mb-3" {...props} />
+    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-8 mb-3" {...props} />
   ),
   h3: (props: any) => (
-    <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[#090A0C] dark:text-foreground mt-6 mb-2" {...props} />
+    <h3 className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-6 mb-2" {...props} />
   ),
   p: (props: any) => (
     <p className="text-base text-muted-foreground leading-relaxed mb-4" {...props} />
@@ -84,7 +84,7 @@ const mdxComponents = {
   li: (props: any) => <li className="leading-relaxed" {...props} />,
   strong: (props: any) => <strong className="font-semibold text-foreground" {...props} />,
   blockquote: (props: any) => (
-    <blockquote className="border-l-4 border-[#2563FF] pl-4 italic text-muted-foreground my-4 bg-secondary/30 py-2 rounded-r" {...props} />
+    <blockquote className="border-l-4 border-accent pl-4 italic text-muted-foreground my-4 bg-secondary/30 py-2 rounded-r" {...props} />
   ),
   pre: (props: any) => (
     <pre className="p-4 rounded-xl bg-muted border border-border overflow-x-auto text-xs sm:text-sm font-mono my-6 text-foreground" {...props} />
@@ -144,7 +144,7 @@ export default function BlogPostPage({ params }: Props) {
         <div className="mb-8">
           <Link
             href="/blog"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-[#2563FF] transition-colors group mb-6"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-accent transition-colors group mb-6"
           >
             <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to all insights</span>
@@ -152,7 +152,7 @@ export default function BlogPostPage({ params }: Props) {
 
           <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground mb-4">
             {post.meta.category && (
-              <span className="px-2.5 py-0.5 rounded-full bg-[#2563FF]/10 text-[#2563FF] font-semibold text-[11px]">
+              <span className="px-2.5 py-0.5 rounded-full bg-accent/10 text-accent font-semibold text-[11px]">
                 {post.meta.category}
               </span>
             )}
@@ -168,7 +168,7 @@ export default function BlogPostPage({ params }: Props) {
             )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-[#090A0C] dark:text-foreground leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
             {post.meta.title}
           </h1>
 
@@ -207,7 +207,7 @@ export default function BlogPostPage({ params }: Props) {
 
         {/* Bottom Call to Action Card */}
         <div className="mt-16 rounded-2xl border border-border bg-card p-6 sm:p-8 text-center relative overflow-hidden shadow-xs">
-          <h3 className="text-xl font-extrabold text-[#090A0C] dark:text-foreground mb-2">
+          <h3 className="text-xl font-extrabold text-foreground mb-2">
             Experience Grounded AI for Your Business
           </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">

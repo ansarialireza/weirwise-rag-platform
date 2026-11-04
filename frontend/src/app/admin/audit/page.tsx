@@ -56,7 +56,7 @@ function getActionMeta(action: string) {
     return {
       title: "Activate User Account",
       category: "user" as ActionCategory,
-      badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      badgeColor: "bg-success/10 text-success border-success/20",
       icon: Users,
     };
   }
@@ -64,7 +64,7 @@ function getActionMeta(action: string) {
     return {
       title: "Suspend User Account",
       category: "user" as ActionCategory,
-      badgeColor: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      badgeColor: "bg-destructive/10 text-destructive border-destructive/20",
       icon: Users,
     };
   }
@@ -72,7 +72,7 @@ function getActionMeta(action: string) {
     return {
       title: "Delete Vault Credential",
       category: "security" as ActionCategory,
-      badgeColor: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+      badgeColor: "bg-destructive/10 text-destructive border-destructive/20",
       icon: Key,
     };
   }
@@ -80,7 +80,7 @@ function getActionMeta(action: string) {
     return {
       title: "Add Vault Credential",
       category: "security" as ActionCategory,
-      badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+      badgeColor: "bg-info/10 text-info border-info/20",
       icon: Key,
     };
   }
@@ -88,7 +88,7 @@ function getActionMeta(action: string) {
     return {
       title: "Update Provider Credentials",
       category: "provider" as ActionCategory,
-      badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+      badgeColor: "bg-info/10 text-info border-info/20",
       icon: Cpu,
     };
   }
@@ -96,7 +96,7 @@ function getActionMeta(action: string) {
     return {
       title: "Update Operations Policy",
       category: "operations" as ActionCategory,
-      badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+      badgeColor: "bg-warning/10 text-warning border-warning/20",
       icon: SlidersHorizontal,
     };
   }
@@ -740,13 +740,13 @@ export default function AdminAuditPage() {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-[11px]">
                           <div className="p-2.5 rounded bg-muted/20 border border-border/60 space-y-1">
-                            <span className="text-rose-400 font-semibold block text-[10px] uppercase">State Before</span>
+                            <span className="text-destructive font-semibold block text-[10px] uppercase">State Before</span>
                             <pre className="text-muted-foreground overflow-x-auto whitespace-pre-wrap">
                               {JSON.stringify(inspectLog.details.before, null, 2)}
                             </pre>
                           </div>
                           <div className="p-2.5 rounded bg-muted/20 border border-border/60 space-y-1">
-                            <span className="text-emerald-400 font-semibold block text-[10px] uppercase">State After</span>
+                            <span className="text-success font-semibold block text-[10px] uppercase">State After</span>
                             <pre className="text-foreground overflow-x-auto whitespace-pre-wrap">
                               {JSON.stringify(inspectLog.details.after, null, 2)}
                             </pre>
@@ -787,7 +787,7 @@ export default function AdminAuditPage() {
                   >
                     {copiedRaw ? (
                       <>
-                        <Check className="h-3 w-3 mr-1 text-emerald-400" /> Copied
+                        <Check className="h-3 w-3 mr-1 text-success" /> Copied
                       </>
                     ) : (
                       <>

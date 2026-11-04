@@ -102,23 +102,23 @@ class EmailService:
         html = f"""
         <div
             style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                max-width: 560px; margin: 0 auto; padding: 24px; background: #ffffff;
-                border: 1px solid #e5e7eb; border-radius: 8px;"
+                max-width: 560px; margin: 0 auto; padding: 24px; background: #FFFFFF;
+                border: 1px solid #E2E5E8; border-top: 3px solid #3FD0DA; border-radius: 8px;"
         >
-            <h2 style="color: #090A0C; margin-bottom: 16px;">Verify your Weirwise account</h2>
-            <p style="color: #4b5563; font-size: 14px; line-height: 20px;">
+            <h2 style="color: #101114; margin-bottom: 16px;">Verify your Weirwise account</h2>
+            <p style="color: #34363A; font-size: 14px; line-height: 20px;">
                 Use the verification code below to complete your registration and activate your personal workspace:
             </p>
             <div
-                style="margin: 24px 0; padding: 16px; background-color: #f3f4f6;
+                style="margin: 24px 0; padding: 16px; background-color: #F4F5F6;
                     border-radius: 8px; text-align: center;"
             >
                 <span
                     style="font-size: 32px; font-weight: bold; letter-spacing: 6px;
-                        color: #090A0C; font-family: monospace;"
+                        color: #101114; font-family: monospace;"
                 >{otp_code}</span>
             </div>
-            <p style="color: #6b7280; font-size: 12px;">
+            <p style="color: #5B6168; font-size: 12px;">
                 This code expires in {settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES} minutes. If you did not sign
                 up for Weirwise, please disregard this message.
             </p>
@@ -137,23 +137,23 @@ class EmailService:
         html = f"""
         <div
             style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-                max-width: 560px; margin: 0 auto; padding: 24px; background: #ffffff;
-                border: 1px solid #e5e7eb; border-radius: 8px;"
+                max-width: 560px; margin: 0 auto; padding: 24px; background: #FFFFFF;
+                border: 1px solid #E2E5E8; border-top: 3px solid #3FD0DA; border-radius: 8px;"
         >
-            <h2 style="color: #090A0C; margin-bottom: 16px;">Password Reset Request</h2>
-            <p style="color: #4b5563; font-size: 14px; line-height: 20px;">
+            <h2 style="color: #101114; margin-bottom: 16px;">Password Reset Request</h2>
+            <p style="color: #34363A; font-size: 14px; line-height: 20px;">
                 You recently requested to reset your password. Use the token or code below to set your new password:
             </p>
             <div
-                style="margin: 24px 0; padding: 16px; background-color: #f3f4f6;
+                style="margin: 24px 0; padding: 16px; background-color: #F4F5F6;
                     border-radius: 8px; text-align: center;"
             >
                 <span
                     style="font-size: 24px; font-weight: bold; letter-spacing: 4px;
-                        color: #090A0C; font-family: monospace;"
+                        color: #101114; font-family: monospace;"
                 >{reset_token}</span>
             </div>
-            <p style="color: #6b7280; font-size: 12px;">
+            <p style="color: #5B6168; font-size: 12px;">
                 This reset code expires in {settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES} minutes. If you did not make
                 this request, your account is secure and you may ignore this email.
             </p>

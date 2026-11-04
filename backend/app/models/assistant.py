@@ -140,7 +140,7 @@ class Deployment(Base):
     theme_config = Column(
         CompatibleJSON,
         default=lambda: {
-            "primary_color": "#2563EB",
+            "primary_color": "#3FD0DA",
             "assistant_title": "AI Assistant",
             "welcome_message": "Hello! How can I assist you with our business services today?",
             "placeholder_text": "Ask us a question...",

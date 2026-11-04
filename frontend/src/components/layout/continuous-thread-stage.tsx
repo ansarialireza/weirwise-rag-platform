@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useStoryStage } from "@/lib/story-stage-context";
+import { useTheme } from "@/lib/theme-context";
 
 /**
  * ContinuousThreadStage:
@@ -19,6 +20,7 @@ import { useStoryStage } from "@/lib/story-stage-context";
  */
 export function ContinuousThreadStage() {
   const { stage, chunkDropCount, isSilentDarkness } = useStoryStage();
+  const { resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [fallingBlocks, setFallingBlocks] = useState<
     Array<{ id: number; col: number; startY: number; targetY: number; progress: number; size: number }>
@@ -95,8 +97,12 @@ export function ContinuousThreadStage() {
     };
     window.addEventListener("resize", handleResize);
 
+    const styles = getComputedStyle(document.documentElement);
+    const accent = styles.getPropertyValue("--accent").trim() || "184 68% 55%";
+    const muted = styles.getPropertyValue("--muted-foreground").trim() || "213 7% 67%";
+
     // Vector nodes for Stage 4 (Assistant Tuning)
-    const nodes: Array<{ x: number; y: number; vx: number; vy: number; radius: number; color: string }> = [];
+    const nodes: Array<{ x: number; y: number; vx: number; vy: number; radius: number; tone: "accent" | "muted" }> = [];
     const nodeCount = 26;
     for (let i = 0; i < nodeCount; i++) {
       nodes.push({
@@ -105,7 +111,7 @@ export function ContinuousThreadStage() {
         vx: (Math.random() - 0.5) * 0.35,
         vy: (Math.random() - 0.5) * 0.35,
         radius: Math.random() > 0.7 ? 2.5 : 1.8,
-        color: i % 2 === 0 ? "#46C7D6" : "#2563FF",
+        tone: i % 2 === 0 ? "accent" : "muted",
       });
     }
 
@@ -126,9 +132,9 @@ export function ContinuousThreadStage() {
         ctx.lineWidth = 1;
 
         const waveStreams = [
-          { stroke: "rgba(70, 199, 214, 0.12)", yBase: 0.35, freq: 0.003, speed: 1.0 },
-          { stroke: "rgba(37, 99, 255, 0.10)", yBase: 0.50, freq: 0.004, speed: 0.8 },
-          { stroke: "rgba(70, 199, 214, 0.09)", yBase: 0.65, freq: 0.0025, speed: 1.2 },
+          { stroke: `hsl(${accent} / 0.12)`, yBase: 0.35, freq: 0.003, speed: 1.0 },
+          { stroke: `hsl(${muted} / 0.08)`, yBase: 0.50, freq: 0.004, speed: 0.8 },
+          { stroke: `hsl(${accent} / 0.09)`, yBase: 0.65, freq: 0.0025, speed: 1.2 },
         ];
 
         waveStreams.forEach((stream) => {
@@ -183,7 +189,7 @@ export function ContinuousThreadStage() {
           if (n.y < 0 || n.y > height) n.vy *= -1;
 
           // Watermark node dot
-          ctx.fillStyle = n.color === "#46C7D6" ? "rgba(70, 199, 214, 0.22)" : "rgba(37, 99, 255, 0.22)";
+          ctx.fillStyle = n.tone === "accent" ? `hsl(${accent} / 0.22)` : `hsl(${muted} / 0.22)`;
           ctx.beginPath();
           ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
           ctx.fill();
@@ -197,7 +203,7 @@ export function ContinuousThreadStage() {
 
             if (dist < 180) {
               const alpha = (1 - dist / 180) * 0.12; // Max 12% opacity
-              ctx.strokeStyle = `rgba(70, 199, 214, ${alpha})`;
+              ctx.strokeStyle = `hsl(${accent} / ${alpha})`;
               ctx.lineWidth = 0.8;
               ctx.beginPath();
               ctx.moveTo(n.x, n.y);
@@ -218,14 +224,14 @@ export function ContinuousThreadStage() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", handleResize);
     };
-  }, [stage]);
+  }, [stage, resolvedTheme]);
 
   return (
     <div
       aria-hidden="true"
       className="fixed inset-0 pointer-events-none z-0 overflow-hidden transition-colors duration-700 ease-out select-none"
       style={{
-        backgroundColor: isSilentDarkness ? "rgba(5, 6, 8, 0.98)" : "transparent",
+        backgroundColor: isSilentDarkness ? "hsl(var(--background) / 0.98)" : "transparent",
       }}
     >
       {/* Dynamic Animated Canvas Layer */}
@@ -238,22 +244,22 @@ export function ContinuousThreadStage() {
             className="absolute inset-0 opacity-[0.09] dark:opacity-[0.11]"
             style={{
               backgroundImage: `
-                linear-gradient(to right, rgba(70, 199, 214, 0.3) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(37, 99, 255, 0.3) 1px, transparent 1px)
+                linear-gradient(to right, hsl(var(--accent) / 0.3) 1px, transparent 1px),
+                linear-gradient(to bottom, hsl(var(--border-strong) / 0.3) 1px, transparent 1px)
               `,
               backgroundSize: "32px 32px",
             }}
           />
-          <div className="absolute top-10 left-10 w-4 h-4 border-t border-l border-[#46C7D6]/40 font-mono text-[9px] text-[#46C7D6]/50 pt-1 pl-1">
+          <div className="absolute top-10 left-10 w-4 h-4 border-t border-l border-accent/40 pt-1 pl-1 font-mono text-[9px] text-accent/50">
             01.GATE
           </div>
-          <div className="absolute top-10 right-10 w-4 h-4 border-t border-r border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pt-1 pr-1 text-right">
+          <div className="absolute top-10 right-10 w-4 h-4 border-t border-r border-accent/40 pt-1 pr-1 text-right font-mono text-[9px] text-accent/50">
             AUTH.256
           </div>
-          <div className="absolute bottom-10 left-10 w-4 h-4 border-b border-l border-[#2563FF]/40 font-mono text-[9px] text-[#2563FF]/50 pb-1 pl-1">
+          <div className="absolute bottom-10 left-10 w-4 h-4 border-b border-l border-accent/40 pb-1 pl-1 font-mono text-[9px] text-accent/50">
             SEC.STABLE
           </div>
-          <div className="absolute bottom-10 right-10 w-4 h-4 border-b border-r border-[#46C7D6]/40 font-mono text-[9px] text-[#46C7D6]/50 pb-1 pr-1 text-right">
+          <div className="absolute bottom-10 right-10 w-4 h-4 border-b border-r border-accent/40 pb-1 pr-1 text-right font-mono text-[9px] text-accent/50">
             GRID.LOCK
           </div>
         </div>
@@ -280,7 +286,7 @@ export function ContinuousThreadStage() {
             return (
               <div
                 key={b.id}
-                className="absolute border border-[#46C7D6]/70 bg-[#46C7D6]/15 rounded-xs transition-transform duration-75 shadow-[0_0_8px_rgba(70,199,214,0.3)]"
+                className="absolute rounded-xs border border-accent/70 bg-accent/15 transition-transform duration-75"
                 style={{
                   left: `${(b.col * 8 * 4) % (typeof window !== "undefined" ? window.innerWidth - 60 : 800)}px`,
                   top: `${currentY}px`,
@@ -289,7 +295,7 @@ export function ContinuousThreadStage() {
                   opacity: 1 - b.progress * 0.25,
                 }}
               >
-                <div className="w-1.5 h-1.5 bg-[#46C7D6] absolute top-0.5 left-0.5" />
+                <div className="absolute left-0.5 top-0.5 h-1.5 w-1.5 bg-accent" />
               </div>
             );
           })}
@@ -301,7 +307,7 @@ export function ContinuousThreadStage() {
         <span
           className="inline-block w-1.5 h-1.5 rounded-none"
           style={{
-            backgroundColor: stage === "clarity" ? "#46C7D6" : stage === "tuning" ? "#2563FF" : "#46C7D6",
+            backgroundColor: stage === "clarity" ? "hsl(var(--muted-foreground))" : "hsl(var(--accent))",
           }}
         />
         <span>{stage}</span>

@@ -4,15 +4,16 @@ import { cn } from "@/lib/utils";
 interface WeirwiseSymbolProps {
   className?: string;
   variant?: "two-tone" | "monochrome";
+  surface?: "theme" | "dark";
   size?: number | string;
   priority?: boolean;
 }
 
-export function WeirwiseSymbol({ className, priority = false }: WeirwiseSymbolProps) {
+export function WeirwiseSymbol({ className, surface = "theme", priority = false }: WeirwiseSymbolProps) {
   return (
     <span
       className={cn(
-        "inline-flex aspect-[350/170] w-auto shrink-0 items-center justify-center",
+        "inline-flex aspect-[820/560] w-auto shrink-0 items-center justify-center",
         className
       )}
       aria-hidden="true"
@@ -20,18 +21,18 @@ export function WeirwiseSymbol({ className, priority = false }: WeirwiseSymbolPr
       <Image
         src="/weirwise-symbol.svg"
         alt=""
-        width={350}
-        height={170}
+        width={820}
+        height={560}
         priority={priority}
-        className="hidden h-full w-full object-contain dark:block"
+        className={cn("h-full w-full object-contain", surface === "dark" ? "block" : "hidden dark:block")}
       />
       <Image
         src="/weirwise-symbol-light.svg"
         alt=""
-        width={350}
-        height={170}
+        width={820}
+        height={560}
         priority={priority}
-        className="block h-full w-full object-contain dark:hidden"
+        className={cn("h-full w-full object-contain", surface === "dark" ? "hidden" : "block dark:hidden")}
       />
     </span>
   );

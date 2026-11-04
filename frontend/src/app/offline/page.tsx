@@ -37,14 +37,14 @@ export default function OfflinePage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-[#000000] text-foreground select-none font-mono">
-      <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-950/80 p-8 space-y-6 text-center">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-background text-foreground select-none font-mono">
+      <div className="w-full max-w-md rounded-md border border-border bg-card p-8 space-y-6 text-center">
         {/* Stark Status Header */}
         <div className="space-y-3">
-          <div className="inline-block px-3 py-1 rounded-sm border border-zinc-800 bg-zinc-900 text-[11px] uppercase tracking-widest text-zinc-400">
+          <div className="inline-block px-3 py-1 rounded-sm border border-border bg-muted text-[11px] uppercase tracking-widest text-muted-foreground">
             {isOnline ? "[ STATUS: ONLINE. RECONNECTING... ]" : "[ CONNECTION LOST. AWAITING NETWORK... ]"}
           </div>
-          <h1 className="text-sm font-semibold tracking-tight text-white uppercase">
+          <h1 className="text-sm font-semibold tracking-tight text-foreground uppercase">
             Cluster Link Offline
           </h1>
         </div>
@@ -66,7 +66,7 @@ export default function OfflinePage() {
             variant="ghost"
             size="sm"
             onClick={() => window.history.back()}
-            className="w-full rounded-md h-9 text-xs text-zinc-400 hover:text-white border border-transparent hover:border-zinc-800"
+            className="w-full rounded-md h-9 text-xs text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             RETURN
@@ -74,7 +74,7 @@ export default function OfflinePage() {
         </div>
 
         {/* Minimal Terminal Footer */}
-        <div className="pt-4 border-t border-zinc-900 text-[10px] text-zinc-600 tracking-wider">
+        <div className="pt-4 border-t border-border text-[10px] text-muted-foreground/70 tracking-wider">
           WEIRWISE LOCAL NODE &middot; PWA STANDALONE ACTIVE
         </div>
       </div>

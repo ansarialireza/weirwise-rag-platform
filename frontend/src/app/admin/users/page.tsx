@@ -381,7 +381,7 @@ export default function AdminUsersPage() {
                           </span>
                         )}
                         {u.is_superuser ? (
-                          <span className="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-mono font-medium">
+                          <span className="px-1.5 py-0.2 rounded bg-info/10 text-info border border-info/20 text-[10px] font-mono font-medium">
                             Staff Admin
                           </span>
                         ) : (
@@ -390,7 +390,7 @@ export default function AdminUsersPage() {
                           </span>
                         )}
                         {u.is_verified && (
-                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+                          <span className="px-1.5 py-0.2 rounded bg-success/10 text-success border border-success/20 text-[10px] font-mono">
                             Verified
                           </span>
                         )}
@@ -410,10 +410,10 @@ export default function AdminUsersPage() {
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-medium font-mono">
                       <span
                         className={`h-2 w-2 rounded-full ${
-                          u.is_active ? "bg-emerald-500" : "bg-rose-500"
+                          u.is_active ? "bg-success" : "bg-destructive"
                         }`}
                       />
-                      <span className={u.is_active ? "text-emerald-500" : "text-rose-500"}>
+                      <span className={u.is_active ? "text-success" : "text-destructive"}>
                         {u.is_active ? "Active" : "Suspended"}
                       </span>
                     </span>
@@ -439,7 +439,7 @@ export default function AdminUsersPage() {
                           className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
                             u.is_active
                               ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-                              : "hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30"
+                              : "hover:bg-success/10 hover:text-success hover:border-success/30"
                           }`}
                         >
                           {isUpdating ? (
@@ -511,7 +511,7 @@ export default function AdminUsersPage() {
                 </div>
               </div>
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-border/60 bg-card">
-                <span className={`h-1.5 w-1.5 rounded-full ${selectedUser.is_active ? "bg-emerald-500" : "bg-rose-500"}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${selectedUser.is_active ? "bg-success" : "bg-destructive"}`} />
                 {selectedUser.is_active ? "Active" : "Suspended"}
               </span>
             </div>
@@ -563,7 +563,7 @@ export default function AdminUsersPage() {
                   className={`text-xs ${
                     selectedUser.is_active
                       ? "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-                      : "hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30"
+                      : "hover:bg-success/10 hover:text-success hover:border-success/30"
                   }`}
                 >
                   {selectedUser.is_active ? "Suspend Account" : "Activate Account"}
