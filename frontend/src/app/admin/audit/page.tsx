@@ -428,23 +428,52 @@ export default function AdminAuditPage() {
           <div className="col-span-2 text-right">Timestamp & Action</div>
         </div>
 
-        {/* Loading State */}
-        {loading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground">
-            <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
-            <p className="font-mono text-[11px]">Streaming security records from tamper-proof ledger...</p>
-          </div>
-        ) : processedLogs.length === 0 ? (
-          <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
-            <Shield className="h-6 w-6 text-muted-foreground/40 mx-auto" />
-            <p className="font-medium text-foreground">No audit records found matching your filters.</p>
-            {isFiltered && (
-              <Button variant="outline" size="sm" onClick={resetFilters} className="text-xs h-7">
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        ) : (
+        {/* Table body: fixed-height scroll region so loading rows and data rows
+            occupy the same space and the pagination bar never jumps. */}
+        <div className="min-h-[360px] max-h-[calc(100vh-320px)] overflow-y-auto">
+          {loading ? (
+            <div className="divide-y divide-border/60" aria-hidden="true">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="px-4 py-3">
+                  <div className="hidden md:grid grid-cols-12 gap-3 items-center h-8">
+                    <div className="col-span-3 space-y-2">
+                      <div className="h-3 w-32 rounded bg-muted animate-pulse" />
+                      <div className="h-2.5 w-20 rounded bg-muted/70 animate-pulse" />
+                    </div>
+                    <div className="col-span-3 space-y-2">
+                      <div className="h-3 w-40 rounded bg-muted animate-pulse" />
+                      <div className="h-2.5 w-24 rounded bg-muted/70 animate-pulse" />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <div className="h-3 w-28 rounded bg-muted animate-pulse" />
+                      <div className="h-2.5 w-20 rounded bg-muted/70 animate-pulse" />
+                    </div>
+                    <div className="col-span-2">
+                      <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+                    </div>
+                    <div className="col-span-2 flex justify-end">
+                      <div className="h-3 w-24 rounded bg-muted animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="md:hidden space-y-2 py-1">
+                    <div className="h-3 w-40 rounded bg-muted animate-pulse" />
+                    <div className="h-2.5 w-56 rounded bg-muted/70 animate-pulse" />
+                    <div className="h-2.5 w-32 rounded bg-muted/70 animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : processedLogs.length === 0 ? (
+            <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+              <Shield className="h-6 w-6 text-muted-foreground/40 mx-auto" />
+              <p className="font-medium text-foreground">No audit records found matching your filters.</p>
+              {isFiltered && (
+                <Button variant="outline" size="sm" onClick={resetFilters} className="text-xs h-7">
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
           <div className="divide-y divide-border/60">
             {processedLogs.map((log) => {
               const meta = getActionMeta(log.action);
@@ -573,6 +602,7 @@ export default function AdminAuditPage() {
             })}
           </div>
         )}
+        </div>
 
         {/* Bottom Pagination Bar */}
         <div className="bg-muted/30 px-4 py-2.5 border-t border-border/70 flex items-center justify-between text-xs text-muted-foreground">

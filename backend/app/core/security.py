@@ -38,6 +38,49 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
+_COMMON_PASSWORDS = {
+    "password",
+    "password1",
+    "password123",
+    "password1234",
+    "passw0rd",
+    "qwertyuiop",
+    "qwerty123",
+    "123456789012",
+    "1234567890123",
+    "letmein12345",
+    "welcome12345",
+    "admin123456",
+    "changeme1234",
+    "iloveyou1234",
+    "weirwise1234",
+}
+
+
+def password_policy_error(password: str) -> str | None:
+    """Return a human-readable policy violation, or None when the password is acceptable."""
+    if len(password) < settings.PASSWORD_MIN_LENGTH:
+        return f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters long."
+    if len(password) > 128:
+        return "Password must be at most 128 characters long."
+    if password.strip().lower() in _COMMON_PASSWORDS:
+        return "Password is too common. Choose a less predictable password."
+    classes = sum(
+        (
+            any(c.islower() for c in password),
+            any(c.isupper() for c in password),
+            any(c.isdigit() for c in password),
+            any(not c.isalnum() for c in password),
+        )
+    )
+    if classes < settings.PASSWORD_MIN_CHARACTER_CLASSES:
+        return (
+            "Password must include at least "
+            f"{settings.PASSWORD_MIN_CHARACTER_CLASSES} of: lowercase letters, uppercase letters, digits, symbols."
+        )
+    return None
+
+
 def hash_token(token: str) -> str:
     """Hash a sensitive token (refresh token, reset token, API key) with SHA-256 for database storage."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()

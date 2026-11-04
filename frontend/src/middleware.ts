@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// HSTS is only meaningful (and only safe) on requests that actually arrived over TLS.
+function withTransportSecurity(response: NextResponse, request: NextRequest): NextResponse {
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  if (request.nextUrl.protocol === "https:" || forwardedProto === "https") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  return response;
+}
+
 // We use NextRequest and NextResponse for geolocation and Accept-Language negotiation
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,7 +26,7 @@ export function middleware(request: NextRequest) {
     pathname === "/weirwise-app-icon.svg" ||
     pathname.includes(".")
   ) {
-    return NextResponse.next();
+    return withTransportSecurity(NextResponse.next(), request);
   }
 
   // Check cookie preference first
@@ -54,7 +63,7 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  return response;
+  return withTransportSecurity(response, request);
 }
 
 export const config = {

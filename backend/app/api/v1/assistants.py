@@ -11,6 +11,7 @@ from backend.app.api.dependencies import (
     get_current_user,
     require_workspace,
 )
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.core.security import generate_secure_token
 from backend.app.db.session import get_db_session
@@ -91,11 +92,15 @@ async def _retrieve_citations(
         if not ks.core_kb_id:
             continue
         try:
+            # Never trust a per-assistant threshold below the platform safety floor.
+            effective_threshold = max(
+                float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY
+            )
             search_data = await core_client.search(
                 kb_id=ks.core_kb_id,
                 query=query,
                 top_k=assistant.top_k,
-                score_threshold=assistant.score_threshold,
+                score_threshold=effective_threshold,
             )
             for item in search_data.get("results", []):
                 metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}

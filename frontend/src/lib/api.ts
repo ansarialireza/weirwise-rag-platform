@@ -36,7 +36,9 @@ class ApiClient {
 
   constructor() {
     if (typeof window !== "undefined") {
-      this.token = localStorage.getItem("wwp_token");
+      // Access tokens stay in memory only. Persistent auth is delivered through
+      // HttpOnly cookies set by the API, which scripts cannot read.
+      localStorage.removeItem("wwp_token");
       this.workspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
       this.projectId = localStorage.getItem(PROJECT_STORAGE_KEY);
     }
@@ -44,13 +46,8 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.token = token;
-    if (typeof window !== "undefined") {
-      if (token) {
-        localStorage.setItem("wwp_token", token);
-      } else {
-        localStorage.removeItem("wwp_token");
-        this.clearTenancy();
-      }
+    if (!token && typeof window !== "undefined") {
+      this.clearTenancy();
     }
   }
 

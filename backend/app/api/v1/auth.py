@@ -35,8 +35,9 @@ from backend.app.schemas.auth import (
     UserResponse,
     VerifyEmailRequest,
 )
+from backend.app.services.auth_rate_limiter import AuthRateLimiter, client_ip, enforce_limit
 from backend.app.services.email import email_service
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,8 +45,23 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=AuthMessageResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: UserRegisterRequest, db: AsyncSession = Depends(get_db_session)) -> AuthMessageResponse:
+async def register(
+    payload: UserRegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthMessageResponse:
     """Register a new user account with is_verified=False, generate 6-digit OTP, and dispatch verification email."""
+    ip = client_ip(request)
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "register_ip",
+            ip,
+            settings.AUTH_REGISTER_IP_LIMIT,
+            settings.AUTH_REGISTER_IP_WINDOW_SECONDS,
+        ),
+        "Too many registration attempts. Please try again later.",
+    )
+
     # Check if email exists
     existing = await db.execute(select(User).where(User.email == payload.email.lower()))
     existing_user = existing.scalar_one_or_none()
@@ -189,9 +205,25 @@ async def verify_email(
 @router.post("/resend-verification", response_model=AuthMessageResponse)
 async def resend_verification(
     payload: ResendVerificationRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMessageResponse:
     """Resend a new 6-digit verification OTP to the user's email."""
+    email = payload.email.lower()
+    ip = client_ip(request)
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "resend_email", email, settings.AUTH_RESET_EMAIL_LIMIT, settings.AUTH_RESET_EMAIL_WINDOW_SECONDS
+        ),
+        "Too many verification requests. Please try again later.",
+    )
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "resend_ip", ip, settings.AUTH_RESET_IP_LIMIT, settings.AUTH_RESET_IP_WINDOW_SECONDS
+        ),
+        "Too many verification requests. Please try again later.",
+    )
+
     res = await db.execute(select(User).where(User.email == payload.email.lower()))
     user = res.scalar_one_or_none()
 
@@ -231,17 +263,73 @@ async def resend_verification(
 async def login(
     payload: UserLoginRequest,
     response: Response,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:
     """Authenticate user with email and password, returning JWT access token and session refresh token."""
-    res = await db.execute(select(User).where(User.email == payload.email.lower(), User.is_active.is_(True)))
+    email = payload.email.lower()
+    ip = client_ip(request)
+    account_key = f"{email}|{ip}"
+
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "login_ip_attempt",
+            ip,
+            settings.AUTH_LOGIN_IP_ATTEMPT_LIMIT,
+            settings.AUTH_LOGIN_IP_WINDOW_SECONDS,
+        )
+    )
+    enforce_limit(
+        await AuthRateLimiter.check(
+            "login_ip_failure", ip, settings.AUTH_LOGIN_IP_LIMIT, settings.AUTH_LOGIN_IP_WINDOW_SECONDS
+        )
+    )
+    enforce_limit(
+        await AuthRateLimiter.check(
+            "login_account_failure",
+            account_key,
+            settings.AUTH_LOGIN_ACCOUNT_LIMIT,
+            settings.AUTH_LOGIN_ACCOUNT_WINDOW_SECONDS,
+        )
+    )
+    enforce_limit(
+        await AuthRateLimiter.check(
+            "login_account_global",
+            email,
+            settings.AUTH_LOGIN_ACCOUNT_GLOBAL_LIMIT,
+            settings.AUTH_LOGIN_ACCOUNT_GLOBAL_WINDOW_SECONDS,
+        )
+    )
+
+    res = await db.execute(select(User).where(User.email == email, User.is_active.is_(True)))
     user = res.scalar_one_or_none()
 
     if not user or not verify_password(payload.password, user.hashed_password):
+        ip_failure = await AuthRateLimiter.check_and_record(
+            "login_ip_failure", ip, settings.AUTH_LOGIN_IP_LIMIT, settings.AUTH_LOGIN_IP_WINDOW_SECONDS
+        )
+        account_failure = await AuthRateLimiter.check_and_record(
+            "login_account_failure",
+            account_key,
+            settings.AUTH_LOGIN_ACCOUNT_LIMIT,
+            settings.AUTH_LOGIN_ACCOUNT_WINDOW_SECONDS,
+        )
+        global_failure = await AuthRateLimiter.check_and_record(
+            "login_account_global",
+            email,
+            settings.AUTH_LOGIN_ACCOUNT_GLOBAL_LIMIT,
+            settings.AUTH_LOGIN_ACCOUNT_GLOBAL_WINDOW_SECONDS,
+        )
+        for decision in (ip_failure, account_failure, global_failure):
+            if not decision.allowed:
+                enforce_limit(decision)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
         )
+
+    await AuthRateLimiter.reset("login_account_failure", account_key)
+    await AuthRateLimiter.reset("login_account_global", email)
 
     if not user.is_verified and not user.is_superuser:
         raise HTTPException(
@@ -410,9 +498,25 @@ async def get_current_user_profile(user: User = Depends(get_current_user)) -> Us
 @router.post("/password-reset/request", response_model=AuthMessageResponse)
 async def request_password_reset(
     payload: PasswordResetRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMessageResponse:
     """Request a password reset code / token. Triggers email delivery."""
+    email = payload.email.lower()
+    ip = client_ip(request)
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "reset_email", email, settings.AUTH_RESET_EMAIL_LIMIT, settings.AUTH_RESET_EMAIL_WINDOW_SECONDS
+        ),
+        "Too many password reset requests. Please try again later.",
+    )
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "reset_ip", ip, settings.AUTH_RESET_IP_LIMIT, settings.AUTH_RESET_IP_WINDOW_SECONDS
+        ),
+        "Too many password reset requests. Please try again later.",
+    )
+
     res = await db.execute(select(User).where(User.email == payload.email.lower()))
     user = res.scalar_one_or_none()
 
@@ -448,10 +552,22 @@ async def request_password_reset(
 @router.post("/password-reset/confirm", response_model=AuthMessageResponse)
 async def confirm_password_reset(
     payload: PasswordResetConfirmRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMessageResponse:
     """Confirm password reset using single-use reset token/code and set new password."""
+    ip = client_ip(request)
     token_hash = hash_token(payload.token.strip())
+    enforce_limit(
+        await AuthRateLimiter.check_and_record("reset_token", token_hash, 10, 900),
+        "Too many reset attempts. Please request a new code.",
+    )
+    enforce_limit(
+        await AuthRateLimiter.check_and_record(
+            "reset_confirm_ip", ip, settings.AUTH_RESET_IP_LIMIT, settings.AUTH_RESET_IP_WINDOW_SECONDS
+        ),
+        "Too many reset attempts. Please try again later.",
+    )
     now = datetime.now(UTC)
 
     # If email provided, narrow search to that user for extra precision

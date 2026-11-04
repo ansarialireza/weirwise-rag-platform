@@ -24,7 +24,7 @@ _PROVIDER_MODELS: dict[str, dict[str, str]] = {
     "openai": {"fast": "gpt-4o-mini", "deep": "gpt-4o"},
     "openrouter": {"fast": "openai/gpt-4o-mini", "deep": "openai/gpt-4o"},
     "anthropic": {"fast": "claude-3-5-haiku-latest", "deep": "claude-3-5-sonnet-latest"},
-    "gemini": {"fast": "gemini-1.5-flash", "deep": "gemini-1.5-pro"},
+    "gemini": {"fast": "gemini-3.5-flash", "deep": "gemini-3.5-flash"},
 }
 
 # USD per 1M tokens (input, output). Kept deliberately conservative.
@@ -37,6 +37,7 @@ _PRICING: dict[str, tuple[float, float]] = {
     "claude-3-5-sonnet-latest": (3.00, 15.00),
     "gemini-1.5-flash": (0.075, 0.30),
     "gemini-1.5-pro": (1.25, 5.00),
+    "gemini-3.5-flash": (0.50, 2.00),
 }
 
 _PROVIDER_ORDER = ("openai", "anthropic", "gemini", "openrouter")
@@ -88,7 +89,15 @@ class GroundedAnswer:
 
 def _tier(requested_model: str) -> str:
     normalized = (requested_model or "Auto").strip().lower()
-    if normalized in {"deep thinking", "deep", "reasoning", "gpt-4o", "claude-3-5-sonnet-latest", "gemini-1.5-pro"}:
+    if normalized in {
+        "deep thinking",
+        "deep",
+        "reasoning",
+        "gpt-4o",
+        "claude-3-5-sonnet-latest",
+        "gemini-1.5-pro",
+        "gemini-3.5-pro",
+    }:
         return "deep"
     return "fast"
 
@@ -97,8 +106,8 @@ def _model_for(provider_name: str, requested_model: str) -> str:
     tier = _tier(requested_model)
     aliases = {"auto", "fast", "deep thinking", "deep", "reasoning"}
     if requested_model and requested_model.strip().lower() not in aliases:
-        # Concrete model names are passed through for OpenAI-compatible APIs.
-        if provider_name in ("openai", "openrouter"):
+        # Concrete model names are passed through for providers that accept them directly.
+        if provider_name in ("openai", "openrouter", "gemini"):
             return requested_model.strip()
     return _PROVIDER_MODELS.get(provider_name, {}).get(tier, "gpt-4o-mini")
 

@@ -48,6 +48,33 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 DEEPGRAM_LISTEN_URL = "wss://api.deepgram.com/v1/listen"
 DEEPGRAM_SPEAK_URL = "https://api.deepgram.com/v1/speak"
 
+# Keep-alive pool for TTS. Reusing the TLS connection removes the handshake
+# from every spoken chunk, which is a measurable part of first-audio latency.
+_tts_clients: dict[int, httpx.AsyncClient] = {}
+
+
+def _tts_client() -> httpx.AsyncClient:
+    loop_id = id(asyncio.get_running_loop())
+    client = _tts_clients.get(loop_id)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=30.0,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10, keepalive_expiry=120.0),
+        )
+        _tts_clients[loop_id] = client
+    return client
+
+
+async def _warm_speak_connection(raw_key: str) -> None:
+    """Prime the pooled TTS TLS connection ahead of the first spoken chunk."""
+    try:
+        response = await _tts_client().get(
+            DEEPGRAM_SPEAK_URL, headers={"Authorization": f"Token {raw_key}"}
+        )
+        await response.aclose()
+    except Exception:  # noqa: BLE001 - warm-up is best-effort
+        pass
+
 VOICE_SUBPROTOCOL = "wwp-voice"
 MAX_CONNECT_ATTEMPTS = 3
 ALLOWED_LANGUAGES = {
@@ -203,7 +230,7 @@ def _listen_url(language: str) -> str:
         "language": language,
         "smart_format": "true",
         "interim_results": "true",
-        "endpointing": "300",
+        "endpointing": str(settings.DEEPGRAM_ENDPOINTING_MS),
         "utterance_end_ms": "1000",
         "vad_events": "true",
     }
@@ -232,6 +259,7 @@ async def stream_transcription(
     await websocket.accept(subprotocol=VOICE_SUBPROTOCOL)
 
     upstream = None
+    upstream_key: str | None = None
     async for raw_key, candidate in _voice_candidates(db):
         connect_started = time.perf_counter()
         try:
@@ -249,6 +277,7 @@ async def stream_transcription(
                     routing_id=candidate.routing_id,
                     latency_ms=int((time.perf_counter() - connect_started) * 1000),
                 )
+            upstream_key = raw_key
             break
         except Exception as exc:  # noqa: BLE001 - surfaced to the client as a voice error
             logger.warning("Deepgram live connection failed: %s", type(exc).__name__)
@@ -272,6 +301,12 @@ async def stream_transcription(
             )
         await websocket.close(code=1011)
         return
+
+    # The first spoken reply is sent several seconds from now; open the TTS TLS
+    # connection while the user is still talking so its first chunk skips the
+    # handshake.
+    if upstream_key:
+        asyncio.create_task(_warm_speak_connection(upstream_key))
 
     async def browser_to_upstream() -> bool:
         """Return True when the client asked to stop, False on disconnect."""
@@ -301,6 +336,12 @@ async def stream_transcription(
         async for message in upstream:
             if isinstance(message, bytes):
                 continue
+            # Re-prime the TTS connection while the turn is still being
+            # transcribed; providers drop idle keep-alive sockets quickly.
+            if upstream_key:
+                compact = message.replace(" ", "")
+                if '"type":"SpeechStarted"' in compact or '"speech_final":true' in compact:
+                    asyncio.create_task(_warm_speak_connection(upstream_key))
             if websocket.client_state.name == "CONNECTED":
                 await websocket.send_text(message)
 
@@ -341,7 +382,7 @@ async def synthesize_speech(
     await _require_voice_availability(db)
     voice = body.voice if body.voice in ALLOWED_TTS_VOICES else settings.DEEPGRAM_TTS_MODEL
 
-    client = httpx.AsyncClient(timeout=30.0)
+    client = _tts_client()
     upstream = None
     try:
         async for raw_key, candidate in _voice_candidates(db):
@@ -409,12 +450,10 @@ async def synthesize_speech(
                     yield chunk
             finally:
                 await upstream.aclose()
-                await client.aclose()
 
         return StreamingResponse(stream_audio(), media_type="audio/mpeg")
     except BaseException:
         if upstream is not None:
             with contextlib.suppress(Exception):
                 await upstream.aclose()
-        await client.aclose()
         raise

@@ -20,6 +20,7 @@ from backend.app.api.v1.voice import router as voice_router
 from backend.app.api.v1.workspaces import router as workspaces_router
 from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging, logger
+from backend.app.core.security_headers import SecurityHeadersMiddleware
 from backend.app.db.base import Base
 from backend.app.db.session import engine
 from backend.app.services.storage import storage_service
@@ -80,6 +81,8 @@ def create_application() -> FastAPI:
         response.headers["X-Request-ID"] = req_id
         response.headers["X-Process-Time-MS"] = f"{process_time:.2f}"
         return response
+
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CORS configuration
     if settings.ALLOWED_ORIGINS:

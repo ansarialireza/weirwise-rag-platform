@@ -75,7 +75,11 @@ function cleanForSpeech(text: string): string {
  * Splits streamed answer text into speakable chunks. Sentence boundaries are
  * preferred so the first words can start playing while the model keeps writing.
  */
-function splitForSpeech(text: string, flush: boolean): { chunks: string[]; rest: string } {
+function splitForSpeech(
+  text: string,
+  flush: boolean,
+  targetChars: number = 160
+): { chunks: string[]; rest: string } {
   const chunks: string[] = [];
   let rest = text;
 
@@ -88,14 +92,14 @@ function splitForSpeech(text: string, flush: boolean): { chunks: string[]; rest:
     rest = rest.slice(cut);
   }
 
-  while (rest.length > 160) {
-    const window = rest.slice(0, 160);
+  while (rest.length > targetChars) {
+    const window = rest.slice(0, targetChars);
     const breakAt = Math.max(
       window.lastIndexOf(", "),
       window.lastIndexOf("; "),
       window.lastIndexOf(" ")
     );
-    const cut = breakAt > 60 ? breakAt + 1 : 160;
+    const cut = breakAt > targetChars * 0.4 ? breakAt + 1 : targetChars;
     const piece = rest.slice(0, cut).trim();
     if (piece) chunks.push(piece);
     rest = rest.slice(cut);
@@ -372,7 +376,10 @@ export function useVoiceConversation({
   const feedAnswer = useCallback(
     (delta: string) => {
       answerBufferRef.current += delta;
-      const { chunks, rest } = splitForSpeech(answerBufferRef.current, false);
+      // Start the first synthesis earlier (short chunk) so audio begins while
+      // the model is still streaming; later chunks keep fuller sentences.
+      const isOpeningChunk = ttsQueueRef.current.length === 0 && !playingRef.current;
+      const { chunks, rest } = splitForSpeech(answerBufferRef.current, false, isOpeningChunk ? 96 : 160);
       answerBufferRef.current = rest;
       chunks.forEach(enqueueSpeech);
     },

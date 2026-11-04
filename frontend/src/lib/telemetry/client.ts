@@ -46,7 +46,7 @@ export class TelemetryClient {
   constructor(config: TelemetryConfig = {}) {
     this.isBrowser = typeof window !== "undefined";
     this.config = {
-      endpoint: config.endpoint || "/api/v1/telemetry/events:batch",
+      endpoint: config.endpoint || "",
       batchThreshold: config.batchThreshold ?? 25,
       flushIntervalMs: config.flushIntervalMs ?? 10_000,
       maxBufferSize: config.maxBufferSize ?? 200,
@@ -58,7 +58,7 @@ export class TelemetryClient {
     this.buffer = new EventBuffer(this.config.maxBufferSize);
     this.sessionManager = new SessionManager(this.config.sessionInactivityTimeoutMs);
     this.transport = new BatchTransport({
-      endpoint: this.config.endpoint,
+      endpoint: this.config.endpoint || undefined,
       debug: this.config.debug,
     });
 

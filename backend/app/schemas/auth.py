@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
+from backend.app.core.security import password_policy_error
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.functional_validators import AfterValidator
 
@@ -22,9 +23,19 @@ def validate_email_str(v: str) -> str:
 EmailStrType = Annotated[str, AfterValidator(validate_email_str)]
 
 
+def validate_password_str(v: str) -> str:
+    error = password_policy_error(v)
+    if error:
+        raise ValueError(error)
+    return v
+
+
+PasswordStr = Annotated[str, Field(min_length=12, max_length=128), AfterValidator(validate_password_str)]
+
+
 class UserRegisterRequest(BaseModel):
     email: EmailStrType
-    password: str = Field(..., min_length=8, max_length=128)
+    password: PasswordStr
     full_name: str = Field(..., min_length=2, max_length=255)
 
 
@@ -51,7 +62,7 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirmRequest(BaseModel):
     email: EmailStrType | None = None
     token: str = Field(..., min_length=1)
-    new_password: str = Field(..., min_length=8, max_length=128)
+    new_password: PasswordStr
 
 
 class VerifyEmailRequest(BaseModel):

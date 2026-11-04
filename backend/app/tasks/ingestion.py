@@ -1,9 +1,12 @@
 """Background task processor for document indexing, Core synchronization, and tiered storage migration."""
 
+import asyncio
 import os
+import time
 import uuid
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import async_session_factory
 from backend.app.models.project import (
@@ -13,6 +16,68 @@ from backend.app.models.project import (
 )
 from backend.app.services.storage import storage_service
 from sqlalchemy import select
+
+_READY_STATES = {"completed", "ready"}
+_FAILED_STATES = {"failed", "error"}
+
+
+async def _wait_for_core_indexing(
+    core_client: CoreApiClient, core_doc_id: uuid.UUID, initial_status: str | None
+) -> tuple[str, str | None]:
+    """Return the terminal Core status, polling while indexing is still in flight.
+
+    The upload API is asynchronous in Core, so treating a 202 as "ready" would
+    report indexed documents that are not queryable yet.
+    """
+    status = (initial_status or "pending").lower()
+    if status in _READY_STATES or status in _FAILED_STATES:
+        return status, None
+
+    deadline = time.monotonic() + settings.CORE_INDEX_POLL_TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        await asyncio.sleep(settings.CORE_INDEX_POLL_INTERVAL_SECONDS)
+        try:
+            data = await core_client.get_document_status(core_doc_id)
+        except CoreApiException as exc:
+            logger.warning(f"Core status poll failed for doc {core_doc_id}: {exc!s}")
+            continue
+
+        status = str(data.get("status") or "").lower()
+        if status in _READY_STATES:
+            return status, None
+        if status in _FAILED_STATES:
+            return status, data.get("error_message")
+
+    logger.warning(f"Core indexing for doc {core_doc_id} did not finish within the polling window.")
+    return "timeout", "Core indexing did not complete within the configured timeout."
+
+
+async def _recalculate_source_status(db, source: KnowledgeSource) -> None:
+    """Derive the source status from all of its documents instead of assuming success."""
+    res = await db.execute(select(Document).where(Document.knowledge_source_id == source.id))
+    documents = res.scalars().all()
+    if not documents:
+        source.status = SourceProcessingStatus.PENDING.value
+        return
+
+    statuses = [doc.status for doc in documents]
+    if any(s in (SourceProcessingStatus.PENDING.value, SourceProcessingStatus.PROCESSING.value) for s in statuses):
+        source.status = SourceProcessingStatus.PROCESSING.value
+        return
+
+    if any(s == SourceProcessingStatus.READY.value for s in statuses):
+        source.status = SourceProcessingStatus.READY.value
+        source.error_message = None
+        return
+
+    if all(s == SourceProcessingStatus.FAILED.value for s in statuses):
+        source.status = SourceProcessingStatus.FAILED.value
+        source.error_message = next(
+            (doc.error_message for doc in documents if doc.error_message), source.error_message
+        )
+        return
+
+    source.status = SourceProcessingStatus.READY.value
 
 
 async def process_document_ingestion(document_id: uuid.UUID) -> None:
@@ -81,37 +146,40 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
                 cold_path = storage_service.move_to_cold_storage(document.storage_path)
                 document.storage_path = cold_path
 
-            core_status = doc_data.get("status", "completed")
-            if core_status in ("completed", "ready"):
+            # 6. Wait for Core to finish indexing before reporting READY.
+            core_status, core_error = await _wait_for_core_indexing(
+                core_client, core_doc_id, doc_data.get("status")
+            )
+            if core_status in _READY_STATES:
                 document.status = SourceProcessingStatus.READY.value
-                source.status = SourceProcessingStatus.READY.value
+                document.error_message = None
+            elif core_status in _FAILED_STATES or core_status == "timeout":
+                document.status = SourceProcessingStatus.FAILED.value
+                document.error_message = core_error or f"Core indexing ended in state '{core_status}'."
             else:
-                document.status = SourceProcessingStatus.READY.value
-                source.status = SourceProcessingStatus.READY.value
+                document.status = SourceProcessingStatus.PROCESSING.value
 
-            document.error_message = None
+            await _recalculate_source_status(db, source)
             await db.commit()
             logger.info(
-                f"Document {document.id} successfully ingested into Core and moved to "
-                f"cold tier vault ({document.storage_path})."
+                f"Document {document.id} ingested with Core status '{core_status}' and stored at "
+                f"{document.storage_path}."
             )
 
         except CoreApiException as e:
             logger.error(f"Core API error while ingesting doc {document.id}: {e!s}")
             document.status = SourceProcessingStatus.FAILED.value
             document.error_message = f"Core ingestion failed: {e!s}"
-            source.status = SourceProcessingStatus.FAILED.value
-            source.error_message = document.error_message
             _retain_source_file(document, initial_temp_path)
+            await _recalculate_source_status(db, source)
             await db.commit()
 
         except Exception as e:
             logger.exception(f"Unexpected error while ingesting doc {document.id}: {e!s}")
             document.status = SourceProcessingStatus.FAILED.value
             document.error_message = f"Processing error: {e!s}"
-            source.status = SourceProcessingStatus.FAILED.value
-            source.error_message = document.error_message
             _retain_source_file(document, initial_temp_path)
+            await _recalculate_source_status(db, source)
             await db.commit()
 
         finally:

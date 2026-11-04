@@ -8,11 +8,13 @@ Engineering Principles:
 - Streamed Network Retrieval: Chunked async streaming using aiofiles with StreamingResponse.
 """
 
+import asyncio
 import hashlib
 import os
 import re
 import shutil
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from typing import Optional
 
@@ -86,25 +88,51 @@ class TieredStorageService:
 
         hasher = hashlib.sha256()
         total_size = 0
-        chunks: list[bytes] = []
+        part_path = os.path.join(self.hot_dir, f".upload-{uuid.uuid4().hex}.part")
 
-        while chunk := await file.read(64 * 1024):  # Read in 64KB chunks
-            total_size += len(chunk)
-            if total_size > settings.MAX_UPLOAD_SIZE_BYTES:
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail=f"File exceeds maximum upload size of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB",
-                )
-            hasher.update(chunk)
-            chunks.append(chunk)
+        try:
+            async def write_stream(out) -> None:
+                nonlocal total_size
+                while chunk := await file.read(64 * 1024):  # Read in 64KB chunks
+                    total_size += len(chunk)
+                    if total_size > settings.MAX_UPLOAD_SIZE_BYTES:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail=(
+                                "File exceeds maximum upload size of "
+                                f"{settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB"
+                            ),
+                        )
+                    hasher.update(chunk)
+                    if aiofiles is not None:
+                        await out.write(chunk)
+                    else:
+                        await asyncio.to_thread(out.write, chunk)
 
-        content_hash = hasher.hexdigest()
-        file_storage_name = f"{content_hash}_{safe_name}"
-        hot_temp_path = os.path.join(self.hot_dir, file_storage_name)
+            if aiofiles is not None:
+                async with aiofiles.open(part_path, "wb") as out:
+                    await write_stream(out)
+                    await out.flush()
+                    await asyncio.to_thread(os.fsync, out.fileno())
+            else:
+                with open(part_path, "wb") as out:
+                    await write_stream(out)
+                    out.flush()
+                    await asyncio.to_thread(os.fsync, out.fileno())
 
-        # Write to volatile fast hot storage
-        with open(hot_temp_path, "wb") as f:
-            f.writelines(chunks)
+            content_hash = hasher.hexdigest()
+            file_storage_name = f"{content_hash}_{safe_name}"
+            hot_temp_path = os.path.join(self.hot_dir, file_storage_name)
+
+            # Atomic rename keeps readers from ever seeing a partial file.
+            os.replace(part_path, hot_temp_path)
+        except BaseException:
+            try:
+                if os.path.exists(part_path):
+                    os.remove(part_path)
+            except OSError as cleanup_error:
+                logger.warning(f"Could not remove partial upload {part_path}: {cleanup_error}")
+            raise
 
         return safe_name, hot_temp_path, total_size, content_hash
 

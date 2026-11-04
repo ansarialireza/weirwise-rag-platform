@@ -30,6 +30,36 @@ class Settings(BaseSettings):
     SESSION_COOKIE_MAX_AGE_SECONDS: int = 30 * 24 * 60 * 60  # 30 days = 2,592,000s
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
     EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 15
+    PASSWORD_MIN_LENGTH: int = 12
+    PASSWORD_MIN_CHARACTER_CLASSES: int = 3
+
+    # Authentication rate limiting (Redis-backed, in-process fallback when Redis is unavailable)
+    AUTH_RATE_LIMIT_ENABLED: bool = True
+    AUTH_LOGIN_ACCOUNT_LIMIT: int = 5
+    AUTH_LOGIN_ACCOUNT_WINDOW_SECONDS: int = 900
+    AUTH_LOGIN_ACCOUNT_GLOBAL_LIMIT: int = 50
+    AUTH_LOGIN_ACCOUNT_GLOBAL_WINDOW_SECONDS: int = 3600
+    AUTH_LOGIN_IP_LIMIT: int = 50
+    AUTH_LOGIN_IP_WINDOW_SECONDS: int = 900
+    AUTH_LOGIN_IP_ATTEMPT_LIMIT: int = 200
+    AUTH_RESET_EMAIL_LIMIT: int = 5
+    AUTH_RESET_EMAIL_WINDOW_SECONDS: int = 3600
+    AUTH_RESET_IP_LIMIT: int = 30
+    AUTH_RESET_IP_WINDOW_SECONDS: int = 3600
+    AUTH_REGISTER_IP_LIMIT: int = 100
+    AUTH_REGISTER_IP_WINDOW_SECONDS: int = 3600
+    TRUST_PROXY_HEADERS: bool = False
+
+    # HTTP security headers
+    ENABLE_HSTS: bool = False
+    HSTS_MAX_AGE_SECONDS: int = 31536000
+
+    # Grounding safety floor, applied even when an assistant threshold is lower.
+    MIN_GROUNDING_SIMILARITY: float = 0.55
+
+    # Core indexing status polling
+    CORE_INDEX_POLL_INTERVAL_SECONDS: float = 1.0
+    CORE_INDEX_POLL_TIMEOUT_SECONDS: float = 120.0
 
     # Email / Resend & SMTP Service
     RESEND_API_KEY: str | None = None
@@ -67,6 +97,9 @@ class Settings(BaseSettings):
     DEEPGRAM_API_KEY: str | None = None
     DEEPGRAM_STT_MODEL: str = "nova-3"
     DEEPGRAM_TTS_MODEL: str = "aura-asteria-en"
+    # Silence duration that finalizes an utterance. 300ms added perceptible
+    # lag to every turn; 250ms still tolerates short pauses within a question.
+    DEEPGRAM_ENDPOINTING_MS: int = 250
 
     # Redis Cache & Queue
     REDIS_URL: str | None = None

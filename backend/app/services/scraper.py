@@ -87,6 +87,27 @@ def normalize_url(url: str) -> str:
     return urlunparse((scheme, netloc, path, "", parsed.query, ""))
 
 
+BLOCKED_HOSTNAMES = {
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "::1",
+    "metadata.google.internal",
+    "instance-data",
+}
+BLOCKED_HOSTNAME_SUFFIXES = (".localhost", ".local", ".internal", ".home.arpa", ".lan")
+
+
+def _is_blocked_hostname(hostname: str) -> bool:
+    host = hostname.strip().rstrip(".").lower()
+    if not host or host in BLOCKED_HOSTNAMES:
+        return True
+    # Single-label hosts (intranet names) cannot be safely resolved to public space.
+    if "." not in host and ":" not in host:
+        return True
+    return any(host.endswith(suffix) for suffix in BLOCKED_HOSTNAME_SUFFIXES)
+
+
 def is_ssrf_safe_url(url: str) -> bool:
     """Validate that target URL uses http/https and resolves strictly to public routable IP."""
     try:
@@ -95,11 +116,11 @@ def is_ssrf_safe_url(url: str) -> bool:
             return False
 
         hostname = parsed.hostname
-        if not hostname:
+        if not hostname or _is_blocked_hostname(hostname):
             return False
 
-        # Block localhost and common metadata hostnames
-        if hostname.lower() in ("localhost", "127.0.0.1", "::1", "metadata.google.internal", "instance-data"):
+        # Reject embedded credentials that could confuse authority parsing.
+        if parsed.username or parsed.password:
             return False
 
         # Resolve DNS
@@ -173,29 +194,37 @@ class WebsiteCrawler:
         self.max_size_bytes = max_size_bytes
         self.user_agent = user_agent
 
-    async def _safe_get(self, client: httpx.AsyncClient, url: str) -> httpx.Response | None:
-        """Fetch URL with SSRF re-check on redirects."""
-        if not is_ssrf_safe_url(url):
-            logger.warning(f"Blocked unsafe or private URL request: {url}")
-            return None
+    async def _safe_get(self, client: httpx.AsyncClient, url: str, max_redirects: int = 5) -> httpx.Response | None:
+        """Fetch URL, validating SSRF safety on the initial URL and every redirect hop."""
+        current = url
+        headers = {
+            "User-Agent": self.user_agent,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
+        }
 
-        try:
-            resp = await client.get(
-                url,
-                headers={
-                    "User-Agent": self.user_agent,
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9",
-                },
-                follow_redirects=True,
-            )
-            # Re-check destination URL after redirects
-            if not is_ssrf_safe_url(str(resp.url)):
-                logger.warning(f"Blocked unsafe redirect target: {resp.url}")
+        for _ in range(max_redirects + 1):
+            if not is_ssrf_safe_url(current):
+                logger.warning(f"Blocked unsafe or private URL request: {current}")
                 return None
+
+            try:
+                resp = await client.get(current, headers=headers, follow_redirects=False)
+            except Exception as e:
+                logger.debug(f"Request failed for {current}: {e!s}")
+                return None
+
+            if resp.is_redirect:
+                location = resp.headers.get("location")
+                if not location:
+                    logger.warning(f"Redirect without Location header from {current}")
+                    return None
+                current = urljoin(current, location)
+                continue
+
             return resp
-        except Exception as e:
-            logger.debug(f"Request failed for {url}: {e!s}")
-            return None
+
+        logger.warning(f"Blocked request exceeding {max_redirects} redirects: {url}")
+        return None
 
     async def parse_robots_txt(
         self, client: httpx.AsyncClient, root_url: str
@@ -340,7 +369,7 @@ class WebsiteCrawler:
         root_domain = urlparse(norm_root).netloc
         result = CrawlResult(root_url=norm_root)
 
-        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=False) as client:
             # 1. Parse robots.txt
             rp, initial_sitemaps = await self.parse_robots_txt(client, norm_root)
 
