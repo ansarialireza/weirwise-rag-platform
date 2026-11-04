@@ -12,6 +12,7 @@ from backend.app.schemas.behavioral import (
 )
 from backend.app.services.behavioral_stream import (
     IngestionBackpressureException,
+    RedisNotConfiguredException,
     RedisUnavailableException,
     behavioral_stream_producer,
 )
@@ -21,6 +22,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telemetry", tags=["Behavioral Intelligence"])
+
+_redis_not_configured_logged = False
 
 
 @router.post(
@@ -81,6 +84,22 @@ async def ingest_behavioral_batch(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Telemetry ingestion queue is experiencing high load; please retry shortly.",
+        )
+    except RedisNotConfiguredException:
+        # Analytics storage is optional. Accept and drop the batch so clients do
+        # not retry forever and normal traffic is unaffected. Log once.
+        global _redis_not_configured_logged
+        if not _redis_not_configured_logged:
+            logger.warning(
+                "Telemetry storage is not configured (REDIS_URL is empty); "
+                "behavioral events will be accepted and dropped."
+            )
+            _redis_not_configured_logged = True
+        return IngestionResponse(
+            status="accepted",
+            session_id=payload.session_id,
+            events_queued=0,
+            ingested_at=datetime.now(UTC),
         )
     except RedisUnavailableException as e:
         logger.error(f"Redis pipeline unavailable during telemetry ingestion: {e!s}")

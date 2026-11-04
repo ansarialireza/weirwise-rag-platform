@@ -21,6 +21,16 @@ class RedisUnavailableException(Exception):
     pass
 
 
+class RedisNotConfiguredException(RedisUnavailableException):
+    """Raised when telemetry is disabled because no Redis URL was supplied.
+
+    Deployments without analytics storage should keep serving traffic; callers
+    treat this as "drop the batch", not as a transient outage to retry.
+    """
+
+    pass
+
+
 class IngestionBackpressureException(Exception):
     """Raised when stream backlog exceeds safety limits."""
 
@@ -37,7 +47,7 @@ class BehavioralStreamProducer:
     def get_redis_client(cls):
         """Returns a shared, pooled async Redis client."""
         if not settings.REDIS_URL:
-            raise RedisUnavailableException("REDIS_URL is not configured.")
+            raise RedisNotConfiguredException("REDIS_URL is not configured.")
 
         if cls._redis is None:
             try:
