@@ -23,6 +23,8 @@ class ApiError extends Error {
 
 class ApiClient {
   private token: string | null = null;
+  private isRefreshing: boolean = false;
+  private refreshPromise: Promise<string | null> | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -45,6 +47,44 @@ class ApiClient {
     return this.token;
   }
 
+  async refreshToken(): Promise<string | null> {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({}),
+        });
+
+        if (!response.ok) {
+          this.setToken(null);
+          return null;
+        }
+
+        const data = await response.json();
+        if (data.access_token) {
+          this.setToken(data.access_token);
+          return data.access_token;
+        }
+        return null;
+      } catch {
+        this.setToken(null);
+        return null;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
@@ -58,14 +98,25 @@ class ApiClient {
       headers["Content-Type"] = "application/json";
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    let response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
       credentials: "include",
     });
 
-    if (response.status === 401 && typeof window !== "undefined") {
-      this.setToken(null);
+    // If 401 Unauthorized and not already refreshing or calling /auth endpoints, attempt transparent refresh via 30-day persistent cookie
+    if (response.status === 401 && !endpoint.startsWith("/auth/login") && !endpoint.startsWith("/auth/refresh")) {
+      const newToken = await this.refreshToken();
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
+        response = await fetch(`${API_BASE}${endpoint}`, {
+          ...options,
+          headers,
+          credentials: "include",
+        });
+      } else if (typeof window !== "undefined") {
+        this.setToken(null);
+      }
     }
 
     if (!response.ok) {

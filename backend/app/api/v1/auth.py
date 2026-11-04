@@ -36,7 +36,7 @@ from backend.app.schemas.auth import (
     VerifyEmailRequest,
 )
 from backend.app.services.email import email_service
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -265,31 +265,49 @@ async def login(
     db.add(session)
     await db.commit()
 
-    # Set secure HttpOnly cookies for browser clients
+    # Set secure, persistent HttpOnly cookies for browser clients (30-day session retention)
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         samesite="lax",
         secure=not settings.DEBUG,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
     )
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=raw_refresh,
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires_in=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
     )
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_tokens(
-    payload: RefreshTokenRequest,
     response: Response,
+    payload: RefreshTokenRequest | None = None,
+    refresh_token_cookie: str | None = Cookie(None, alias="refresh_token"),
     db: AsyncSession = Depends(get_db_session),
 ) -> TokenResponse:
     """Exchange a valid refresh token for a new access token and rotated refresh token."""
-    ref_hash = hash_token(payload.refresh_token)
+    raw_token = payload.refresh_token if (payload and payload.refresh_token) else refresh_token_cookie
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token was not provided.",
+        )
+
+    ref_hash = hash_token(raw_token)
     now = datetime.now(UTC)
 
     stmt = select(UserSession).where(
@@ -334,13 +352,23 @@ async def refresh_tokens(
         httponly=True,
         samesite="lax",
         secure=not settings.DEBUG,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
     )
 
     return TokenResponse(
         access_token=access_token,
         refresh_token=raw_refresh,
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires_in=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
     )
 
 
@@ -348,12 +376,14 @@ async def refresh_tokens(
 async def logout(
     response: Response,
     payload: RefreshTokenRequest | None = None,
+    refresh_token_cookie: str | None = Cookie(None, alias="refresh_token"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMessageResponse:
     """Revoke active user session and clear browser auth cookies."""
-    if payload and payload.refresh_token:
-        ref_hash = hash_token(payload.refresh_token)
+    target_refresh = (payload.refresh_token if payload and payload.refresh_token else None) or refresh_token_cookie
+    if target_refresh:
+        ref_hash = hash_token(target_refresh)
         res = await db.execute(
             select(UserSession).where(
                 UserSession.refresh_token_hash == ref_hash,
@@ -365,7 +395,8 @@ async def logout(
             session.revoked_at = datetime.now(UTC)
             await db.commit()
 
-    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/")
     return AuthMessageResponse(message="Successfully logged out.")
 
 

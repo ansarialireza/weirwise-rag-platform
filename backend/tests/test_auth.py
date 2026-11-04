@@ -64,6 +64,13 @@ def test_auth_registration_and_login_flow():
     access_token = tokens["access_token"]
     refresh_token = tokens["refresh_token"]
 
+    # Verify 30-day persistent cookies in response
+    set_cookie_headers = login_resp.headers.get_list("set-cookie") if hasattr(login_resp.headers, "get_list") else [login_resp.headers.get("set-cookie", "")]
+    combined_cookies = " ".join(set_cookie_headers)
+    assert "access_token=" in combined_cookies
+    assert "refresh_token=" in combined_cookies
+    assert "max-age=2592000" in combined_cookies.lower() or "Max-Age=2592000" in combined_cookies
+
     # 7. Access current user profile (/me)
     me_resp = client.get(
         "/api/v1/auth/me",

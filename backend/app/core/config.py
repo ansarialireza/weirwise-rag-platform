@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "insecure-dev-secret-key-replace-in-production-0123456789abcdef"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    SESSION_COOKIE_MAX_AGE_SECONDS: int = 30 * 24 * 60 * 60  # 30 days = 2,592,000s
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 15
     EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES: int = 15
 
