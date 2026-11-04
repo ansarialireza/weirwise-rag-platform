@@ -250,7 +250,7 @@ class BusinessIntegration(Base):
     encrypted_credentials = Column(Text, nullable=False)  # Fernet encrypted payload
     config = Column(CompatibleJSON, default=dict, nullable=False)
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
-    sync_status = Column(String(50), default="idle", nullable=False)  # idle, syncing, completed, failed
+    sync_status = Column(String(50), default="idle", nullable=False)  # idle, syncing, completed, failed, unsupported
     last_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)

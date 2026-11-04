@@ -107,7 +107,7 @@ export default function AssistantsListPage() {
       });
 
       setShowCreate(false);
-      router.push(`/dashboard/assistants/${created.id}`);
+      router.push(`/assistants/${created.id}`);
     } catch (err: any) {
       createAssistantWf.stepFailed("API_ERROR", {
         status: err.status,

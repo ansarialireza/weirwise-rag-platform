@@ -71,12 +71,13 @@ async def test_intelligent_routing_and_cooldown():
         session.add(p)
         await session.flush()
 
-        enc1, h1, pref1 = encrypt_credential_secret("sk-key-low-priority-12345")
-        enc2, h2, pref2 = encrypt_credential_secret("sk-key-high-priority-67890")
+        enc1, h1, pref1 = encrypt_credential_secret("sk-key-primary-12345")
+        enc2, h2, pref2 = encrypt_credential_secret("sk-key-backup-67890")
 
+        # Lower priority number means higher routing priority.
         c1 = ProviderCredential(
             provider_id=p.id,
-            label="Backup Key",
+            label="Primary Key",
             key_prefix=pref1,
             encrypted_secret=enc1,
             secret_hash=h1,
@@ -84,33 +85,33 @@ async def test_intelligent_routing_and_cooldown():
         )
         c2 = ProviderCredential(
             provider_id=p.id,
-            label="Primary Key",
+            label="Backup Key",
             key_prefix=pref2,
             encrypted_secret=enc2,
             secret_hash=h2,
-            priority=10,  # Higher priority
+            priority=10,
         )
         session.add_all([c1, c2])
         await session.commit()
 
-        # 1. Routing engine must select higher priority credential (c2)
+        # 1. Routing engine must select the lower-numbered (primary) credential
         resolution = await IntelligentRoutingEngine.select_credential(session, p.provider_name)
         assert resolution is not None
-        assert resolution.credential.id == c2.id
-        assert resolution.raw_secret == "sk-key-high-priority-67890"
+        assert resolution.credential.id == c1.id
+        assert resolution.raw_secret == "sk-key-primary-12345"
 
         p.supported_models = ["allowed-model"]
         await session.commit()
         assert await IntelligentRoutingEngine.select_credential(session, p.provider_name, "blocked-model") is None
         allowed_resolution = await IntelligentRoutingEngine.select_credential(session, p.provider_name, "allowed-model")
         assert allowed_resolution is not None
-        assert allowed_resolution.credential.id == c2.id
+        assert allowed_resolution.credential.id == c1.id
         p.supported_models = []
         await session.commit()
 
-        # 2. Simulate 429 Rate Limit on c2
+        # 2. Simulate 429 Rate Limit on the primary key
         await IntelligentRoutingEngine.record_failure(
-            session, str(c2.id), error_type="RateLimitError", reason="429 Too Many Requests", is_rate_limit=True
+            session, str(c1.id), error_type="RateLimitError", reason="429 Too Many Requests", is_rate_limit=True
         )
 
         control.automatic_failover = False
@@ -120,11 +121,11 @@ async def test_intelligent_routing_and_cooldown():
         control.automatic_failover = True
         await session.commit()
 
-        # 3. Next resolution must failover cleanly to healthy backup (c1)
+        # 3. Next resolution must failover cleanly to the healthy backup key
         failover_res = await IntelligentRoutingEngine.select_credential(session, p.provider_name)
         assert failover_res is not None
-        assert failover_res.credential.id == c1.id
-        assert failover_res.raw_secret == "sk-key-low-priority-12345"
+        assert failover_res.credential.id == c2.id
+        assert failover_res.raw_secret == "sk-key-backup-67890"
 
         if previous_control is None:
             await session.delete(control)

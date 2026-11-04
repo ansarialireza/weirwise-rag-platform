@@ -24,8 +24,8 @@ from backend.app.models.assistant import (
     Message,
     UnansweredQuery,
 )
-from backend.app.models.audit import ApiCredential, UsageEvent
-from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
+from backend.app.models.audit import ApiCredential
+from backend.app.models.auth import Membership, User, WorkspaceRole
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     ApiCredentialCreateRequest,
@@ -46,8 +46,8 @@ from backend.app.schemas.assistant import (
     PublishValidationResponse,
 )
 from backend.app.services.evaluations import evaluation_service
+from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
-from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -570,11 +570,13 @@ async def studio_playground_chat(
 
     project = await verify_project_access(assistant.project_id, current_user.id, db)
 
-    # Quota check: ensure workspace has not exceeded monthly message quota
-    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
-    workspace = ws_res.scalar_one_or_none()
-    if workspace:
-        await subscription_service.check_chat_entitlement(workspace, db)
+    # Quota check and usage metering share one accounting path with the public runtime.
+    await metering_service.check_and_increment_chat_turn(
+        db=db,
+        workspace_id=project.workspace_id,
+        project_id=assistant.project_id,
+        assistant_id=assistant.id,
+    )
 
     # 1. Resolve or create conversation
     conv = None
@@ -669,13 +671,18 @@ async def studio_playground_chat(
             citations=citations,
             latency_ms=latency_ms,
             is_grounded=assistant_msg.is_grounded,
-            created_at=assistant_msg.created_at,
         )
 
     # Mode 2: AI Answer (RAG)
     if citations:
-        context_block = "\n\n".join(retrieved_contexts[:2])
-        assistant_reply = f"Based on verified knowledge in {linked_sources[0].name}:\n\n{context_block}"
+        answer = await llm_service.generate_grounded_answer(
+            db=db,
+            assistant=assistant,
+            query=payload.message,
+            passages=[c.content for c in citations],
+            workspace_id=project.workspace_id,
+        )
+        assistant_reply = answer.content
     else:
         assistant_reply = assistant.fallback_message
 
@@ -691,16 +698,6 @@ async def studio_playground_chat(
         is_grounded=bool(citations),
     )
     db.add(assistant_msg)
-
-    # 6. Usage Event
-    usage = UsageEvent(
-        workspace_id=project.workspace_id,
-        project_id=assistant.project_id,
-        assistant_id=assistant.id,
-        event_type="chat_turn",
-        quantity=1,
-    )
-    db.add(usage)
     await db.commit()
     await db.refresh(assistant_msg)
 

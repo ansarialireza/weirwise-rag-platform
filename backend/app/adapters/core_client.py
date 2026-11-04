@@ -89,6 +89,30 @@ class CoreApiClient:
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)
 
+    async def delete_knowledge_base(self, kb_id: uuid.UUID) -> None:
+        """Delete a Core knowledge base together with its documents and vector chunks."""
+        url = f"{self.base_url}/api/v1/knowledge-bases/{kb_id}"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.delete(url, headers=self._get_headers())
+                if resp.status_code in (200, 202, 204, 404):
+                    return
+                raise CoreApiException(f"Core KB deletion failed: {resp.text}", resp.status_code)
+        except httpx.RequestError as e:
+            raise CoreApiException(f"Core connection error: {e!s}", 503)
+
+    async def delete_document(self, doc_id: uuid.UUID) -> None:
+        """Delete a Core document and all of its vector chunks."""
+        url = f"{self.base_url}/api/v1/documents/{doc_id}"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.delete(url, headers=self._get_headers())
+                if resp.status_code in (200, 202, 204, 404):
+                    return
+                raise CoreApiException(f"Core document deletion failed: {resp.text}", resp.status_code)
+        except httpx.RequestError as e:
+            raise CoreApiException(f"Core connection error: {e!s}", 503)
+
     async def get_document_status(self, doc_id: uuid.UUID) -> dict[str, Any]:
         """Poll Core document indexing status."""
         url = f"{self.base_url}/api/v1/documents/{doc_id}"

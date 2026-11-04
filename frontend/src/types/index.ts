@@ -9,12 +9,33 @@ export interface User {
   updated_at: string;
 }
 
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  plan_tier: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  workspace_id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type KnowledgeSourceType = "file_upload" | "website_crawl";
 export type SourceProcessingStatus = "pending" | "processing" | "ready" | "failed" | "deleting";
 
 export interface KnowledgeSource {
   id: string;
-  user_id: string;
+  project_id: string;
   core_kb_id?: string;
   name: string;
   source_type: KnowledgeSourceType;
@@ -41,12 +62,12 @@ export interface DocumentItem {
   updated_at: string;
 }
 
-export type AssistantStatus = "draft" | "published" | "archived";
+export type AssistantStatus = "draft" | "published" | "archived" | "unpublished";
 export type EngineMode = "search_only" | "ai_answer";
 
 export interface Assistant {
   id: string;
-  user_id: string;
+  project_id: string;
   core_assistant_id?: string;
   name: string;
   description?: string;
@@ -57,8 +78,13 @@ export interface Assistant {
   max_tokens: number;
   score_threshold: number;
   top_k: number;
+  language?: string;
+  tone?: string;
+  fallback_message?: string;
+  escalation_email?: string;
   status: AssistantStatus;
   version: number;
+  last_published_at?: string;
   knowledge_source_ids: string[];
   created_at: string;
   updated_at: string;
@@ -95,9 +121,22 @@ export interface Deployment {
   updated_at: string;
 }
 
+export interface PublicAssistantConfig {
+  assistant_id: string;
+  name: string;
+  language: string;
+  tone: string;
+  welcome_message: string;
+  placeholder_text: string;
+  primary_color: string;
+  position: string;
+  show_branding: boolean;
+  allowed_domains: string[];
+}
+
 export interface ApiCredential {
   id: string;
-  user_id: string;
+  workspace_id: string;
   name: string;
   key_prefix: string;
   scopes: string[];

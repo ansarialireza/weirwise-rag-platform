@@ -1,5 +1,7 @@
 import {
   User,
+  Workspace,
+  Project,
   KnowledgeSource,
   DocumentItem,
   Assistant,
@@ -7,6 +9,9 @@ import {
   Deployment,
   ApiCredential,
 } from "@/types";
+
+const WORKSPACE_STORAGE_KEY = "wwp_workspace_id";
+const PROJECT_STORAGE_KEY = "wwp_project_id";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
@@ -25,10 +30,15 @@ class ApiClient {
   private token: string | null = null;
   private isRefreshing: boolean = false;
   private refreshPromise: Promise<string | null> | null = null;
+  private workspaceId: string | null = null;
+  private projectId: string | null = null;
+  private tenancyPromise: Promise<{ workspaceId: string; projectId: string }> | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
       this.token = localStorage.getItem("wwp_token");
+      this.workspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+      this.projectId = localStorage.getItem(PROJECT_STORAGE_KEY);
     }
   }
 
@@ -39,8 +49,72 @@ class ApiClient {
         localStorage.setItem("wwp_token", token);
       } else {
         localStorage.removeItem("wwp_token");
+        this.clearTenancy();
       }
     }
+  }
+
+  private clearTenancy() {
+    this.workspaceId = null;
+    this.projectId = null;
+    this.tenancyPromise = null;
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+      localStorage.removeItem(PROJECT_STORAGE_KEY);
+    }
+  }
+
+  /**
+   * Resolve the workspace/project the dashboard operates in.
+   * The backend requires project-scoped routes, so the active context is
+   * discovered once per session (and created on first login).
+   */
+  async getTenancy(): Promise<{ workspaceId: string; projectId: string }> {
+    if (this.workspaceId && this.projectId) {
+      return { workspaceId: this.workspaceId, projectId: this.projectId };
+    }
+    if (!this.tenancyPromise) {
+      this.tenancyPromise = this.resolveTenancy().finally(() => {
+        this.tenancyPromise = null;
+      });
+    }
+    return this.tenancyPromise;
+  }
+
+  private async resolveTenancy(): Promise<{ workspaceId: string; projectId: string }> {
+    const workspaces = await this.request<Workspace[]>("/workspaces");
+    let workspace = workspaces.find((w) => w.id === this.workspaceId) || workspaces[0];
+    if (!workspace) {
+      workspace = await this.request<Workspace>("/workspaces", {
+        method: "POST",
+        body: JSON.stringify({ name: "My Workspace" }),
+      });
+    }
+
+    const projects = await this.request<Project[]>(`/workspaces/${workspace.id}/projects`);
+    let project = projects.find((p) => p.id === this.projectId) || projects[0];
+    if (!project) {
+      project = await this.request<Project>(`/workspaces/${workspace.id}/projects`, {
+        method: "POST",
+        body: JSON.stringify({ name: "Default Project" }),
+      });
+    }
+
+    this.workspaceId = workspace.id;
+    this.projectId = project.id;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace.id);
+      localStorage.setItem(PROJECT_STORAGE_KEY, project.id);
+    }
+    return { workspaceId: workspace.id, projectId: project.id };
+  }
+
+  getWorkspaceId(): string | null {
+    return this.workspaceId;
+  }
+
+  getProjectId(): string | null {
+    return this.projectId;
   }
 
   getToken(): string | null {
@@ -193,20 +267,34 @@ class ApiClient {
     return this.request<User>("/auth/me");
   }
 
-  // Knowledge Sources Endpoints (Flat & Reparented to User)
+  // Workspace & Project Endpoints
+  async getWorkspaces(): Promise<Workspace[]> {
+    return this.request<Workspace[]>("/workspaces");
+  }
+
+  async getProjects(workspaceId: string): Promise<Project[]> {
+    return this.request<Project[]>(`/workspaces/${workspaceId}/projects`);
+  }
+
+  // Knowledge Sources Endpoints (Project-scoped)
   async getSources(): Promise<KnowledgeSource[]> {
-    return this.request<KnowledgeSource[]>("/sources");
+    const { projectId } = await this.getTenancy();
+    return this.request<KnowledgeSource[]>(`/projects/${projectId}/sources`);
   }
 
   async createSource(data: { name: string; source_type: string; target_url?: string; settings?: Record<string, any> }): Promise<KnowledgeSource> {
-    return this.request<KnowledgeSource>("/sources", {
+    const { projectId } = await this.getTenancy();
+    return this.request<KnowledgeSource>(`/projects/${projectId}/sources`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async getSource(sourceId: string): Promise<KnowledgeSource> {
-    return this.request<KnowledgeSource>(`/sources/${sourceId}`);
+    const sources = await this.getSources();
+    const source = sources.find((s) => s.id === sourceId);
+    if (!source) throw new ApiError("Knowledge source not found.", 404);
+    return source;
   }
 
   async getDocuments(sourceId: string): Promise<DocumentItem[]> {
@@ -216,13 +304,18 @@ class ApiClient {
   async uploadDocuments(sourceId: string, files: File[]): Promise<{ source_id: string; uploaded_count: number; documents: DocumentItem[] }> {
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
-    return this.request<{ source_id: string; uploaded_count: number; documents: DocumentItem[] }>(
-      `/sources/${sourceId}/documents`,
+    const res = await this.request<{ source_id: string; uploaded_documents: DocumentItem[] }>(
+      `/sources/${sourceId}/documents/upload`,
       {
         method: "POST",
         body: formData,
       }
     );
+    return {
+      source_id: res.source_id,
+      uploaded_count: res.uploaded_documents.length,
+      documents: res.uploaded_documents,
+    };
   }
 
   async deleteDocument(documentId: string): Promise<void> {
@@ -231,9 +324,22 @@ class ApiClient {
     });
   }
 
-  // Assistant Endpoints (Flat & Reparented to User)
+  async retryDocument(documentId: string): Promise<DocumentItem> {
+    return this.request<DocumentItem>(`/documents/${documentId}/retry`, {
+      method: "POST",
+    });
+  }
+
+  async deleteSource(sourceId: string): Promise<void> {
+    return this.request<void>(`/sources/${sourceId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Assistant Endpoints (Project-scoped)
   async getAssistants(): Promise<Assistant[]> {
-    return this.request<Assistant[]>("/assistants");
+    const { projectId } = await this.getTenancy();
+    return this.request<Assistant[]>(`/projects/${projectId}/assistants`);
   }
 
   async getAssistant(id: string): Promise<Assistant> {
@@ -241,7 +347,8 @@ class ApiClient {
   }
 
   async createAssistant(data: Partial<Assistant>): Promise<Assistant> {
-    return this.request<Assistant>("/assistants", {
+    const { projectId } = await this.getTenancy();
+    return this.request<Assistant>(`/projects/${projectId}/assistants`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -266,30 +373,71 @@ class ApiClient {
     });
   }
 
-  async checkPublishReadiness(id: string): Promise<{ ready: boolean; errors: string[]; warnings: string[] }> {
-    return this.request<{ ready: boolean; errors: string[]; warnings: string[] }>(`/assistants/${id}/publish-readiness`);
+  async checkPublishReadiness(
+    id: string
+  ): Promise<{ ready: boolean; errors: string[]; warnings: string[] }> {
+    const res = await this.request<{
+      is_ready: boolean;
+      issues: string[];
+      knowledge_sources_count: number;
+      indexed_documents_count: number;
+    }>(`/assistants/${id}/publish-readiness`);
+    return { ready: res.is_ready, errors: res.issues, warnings: [] };
   }
 
   async chatWithAssistant(
     assistantId: string,
-    query: string,
+    message: string,
     conversationId?: string
   ): Promise<{
     conversation_id: string;
     message_id: string;
-    answer: string;
-    citations: any[];
+    content: string;
+    sources: any[];
     latency_ms: number;
     is_grounded: boolean;
   }> {
     return this.request(`/assistants/${assistantId}/chat`, {
       method: "POST",
-      body: JSON.stringify({ query, conversation_id: conversationId }),
+      body: JSON.stringify({ message, conversation_id: conversationId }),
     });
   }
 
   async getDeployments(assistantId: string): Promise<Deployment[]> {
     return this.request<Deployment[]>(`/assistants/${assistantId}/deployments`);
+  }
+
+  // Public widget runtime (no dashboard auth required)
+  async getPublicAssistantConfig(assistantId: string, widgetKey?: string): Promise<any> {
+    const headers: Record<string, string> = {};
+    if (widgetKey) headers["X-Widget-Key"] = widgetKey;
+    return this.request(`/public/assistants/${assistantId}/config`, { headers });
+  }
+
+  async publicChat(
+    assistantId: string,
+    message: string,
+    options: { widgetKey?: string; conversationId?: string; sessionToken?: string } = {}
+  ): Promise<{
+    conversation_id: string;
+    message_id: string;
+    content: string;
+    sources: any[];
+    is_grounded: boolean;
+    session_token?: string;
+  }> {
+    const headers: Record<string, string> = {};
+    if (options.widgetKey) headers["X-Widget-Key"] = options.widgetKey;
+    if (options.sessionToken) headers["X-Session-Token"] = options.sessionToken;
+    return this.request(`/public/assistants/${assistantId}/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        message,
+        conversation_id: options.conversationId,
+        session_token: options.sessionToken,
+      }),
+    });
   }
 
   async createDeployment(
@@ -303,7 +451,8 @@ class ApiClient {
   }
 
   async createApiCredential(data: { name: string; scopes: string[] }): Promise<ApiCredential> {
-    return this.request<ApiCredential>("/api-credentials", {
+    const { workspaceId } = await this.getTenancy();
+    return this.request<ApiCredential>(`/workspaces/${workspaceId}/api-credentials`, {
       method: "POST",
       body: JSON.stringify(data),
     });

@@ -129,7 +129,6 @@ def test_quota_graceful_blocking_chat_and_storage():
     import io
 
     from backend.app.db.session import async_session_factory
-    from backend.app.models.audit import UsageEvent
 
     uid = uuid.uuid4().hex[:8]
     email = f"quota_test_{uid}@example.com"
@@ -165,17 +164,13 @@ def test_quota_graceful_blocking_chat_and_storage():
     )
     asst_id = asst_res.json()["id"]
 
-    # Manually inject usage events to exceed the 100 messages quota
+    # Manually push the entitlement counter past the 100 message quota
     async def inject_usage():
+        from backend.app.services.metering import metering_service
+
         async with async_session_factory() as session:
-            event = UsageEvent(
-                workspace_id=uuid.UUID(ws_id),
-                project_id=uuid.UUID(proj_id),
-                assistant_id=uuid.UUID(asst_id),
-                event_type="chat_turn",
-                quantity=150,
-            )
-            session.add(event)
+            entitlement = await metering_service.get_or_create_entitlements(session, uuid.UUID(ws_id))
+            entitlement.current_period_chat_turns = 150
             await session.commit()
 
     asyncio.run(inject_usage())

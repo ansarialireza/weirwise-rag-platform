@@ -81,7 +81,7 @@ class IntelligentRoutingEngine:
                 ProviderCredential.provider_id == provider.id,
                 ProviderCredential.is_active.is_(True),
             )
-            .order_by(ProviderCredential.priority.desc())
+            .order_by(ProviderCredential.priority.asc())
         )
         c_res = await db.execute(c_stmt)
         candidates = c_res.scalars().all()
@@ -123,7 +123,7 @@ class IntelligentRoutingEngine:
         # Manual mode honors the configured priority but does not rotate to another key.
         selected: ProviderCredential
         if not automatic_mode:
-            selected = max(eligible, key=lambda credential: credential.priority)
+            selected = min(eligible, key=lambda credential: credential.priority)
             selected.last_used_at = now
             selected.total_requests_served += 1
             await db.commit()
@@ -134,7 +134,7 @@ class IntelligentRoutingEngine:
 
         # 5. Apply Routing Strategy
         if control and not control.automatic_failover:
-            selected = max(request_candidates, key=lambda credential: credential.priority)
+            selected = min(request_candidates, key=lambda credential: credential.priority)
             if selected not in eligible:
                 logger.warning("Automatic failover is disabled and the primary credential is unavailable.")
                 return None
@@ -159,7 +159,7 @@ class IntelligentRoutingEngine:
             selected = eligible[0]
 
         else:
-            # Default Priority-based
+            # Default Priority-based (lower number = higher priority)
             highest_priority = eligible[0].priority
             top_tier = [c for c in eligible if c.priority == highest_priority]
             top_tier.sort(

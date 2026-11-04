@@ -45,7 +45,10 @@ export default function SourcesKnowledgePage() {
   const [docFilter, setDocFilter] = useState("");
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
   const [docToDelete, setDocToDelete] = useState<{ id: string; filename: string } | null>(null);
+  const [sourceToDelete, setSourceToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingSource, setIsDeletingSource] = useState(false);
+  const [retryingDocId, setRetryingDocId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,18 +69,17 @@ export default function SourcesKnowledgePage() {
     try {
       const list = await api.getSources();
       setSources(list);
-      if (list.length > 0 && !selectedSource) {
-        setSelectedSource(list[0]);
-      }
+      setSelectedSource((prev) => {
+        if (!prev) return list[0] || null;
+        return list.find((s) => s.id === prev.id) || list[0] || null;
+      });
     } finally {
       setLoading(false);
     }
-  }, [selectedSource]);
+  }, []);
 
   useEffect(() => {
-    if (true) {
-      loadSources();
-    }
+    loadSources();
   }, [loadSources]);
 
   const loadDocuments = useCallback(async () => {
@@ -210,10 +212,54 @@ export default function SourcesKnowledgePage() {
     }
   };
 
+  const handleRetryDocument = async (docId: string) => {
+    setRetryingDocId(docId);
+    try {
+      await api.retryDocument(docId);
+      await loadDocuments();
+      toast({ type: "success", message: "Document queued for processing again." });
+    } catch (err: any) {
+      toast({ type: "error", message: err.message || "Failed to retry document" });
+    } finally {
+      setRetryingDocId(null);
+    }
+  };
+
+  const handleDeleteSource = async () => {
+    if (!sourceToDelete) return;
+    setIsDeletingSource(true);
+    try {
+      await api.deleteSource(sourceToDelete.id);
+      setDocuments([]);
+      setSelectedSource(null);
+      await loadSources();
+      toast({ type: "success", message: `Deleted ${sourceToDelete.name}` });
+      setSourceToDelete(null);
+    } catch (err: any) {
+      toast({ type: "error", message: err.message || "Failed to delete knowledge source" });
+    } finally {
+      setIsDeletingSource(false);
+    }
+  };
+
   // Helper for consistent badge formatting (e.g. "ready" -> "Ready")
   const formatStatus = (status: string) => {
     if (!status) return "Ready";
     return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  };
+
+  const statusTone = (status: string) => {
+    if (status === "ready") return "text-emerald-400";
+    if (status === "failed") return "text-red-400";
+    if (status === "processing") return "text-amber-400";
+    return "text-zinc-400";
+  };
+
+  const statusDot = (status: string) => {
+    if (status === "ready") return "bg-emerald-400";
+    if (status === "failed") return "bg-red-400";
+    if (status === "processing") return "bg-amber-400";
+    return "bg-zinc-400";
   };
 
   // Touch handlers for drawer swipe-down
@@ -353,8 +399,8 @@ export default function SourcesKnowledgePage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono ${statusTone(src.status)}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(src.status)}`} />
                         {formatStatus(src.status)}
                       </span>
                       <ChevronRight className={`h-4 w-4 transition-transform ${isSelected ? "text-foreground" : "text-zinc-600"}`} />
@@ -381,12 +427,10 @@ export default function SourcesKnowledgePage() {
                       </span>
                     </div>
                     <p className="text-[11px] text-zinc-400 flex items-center gap-2 font-mono">
-                      <span className="inline-flex items-center gap-1 text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span className={`inline-flex items-center gap-1 ${statusTone(selectedSource.status)}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(selectedSource.status)}`} />
                         {formatStatus(selectedSource.status)}
                       </span>
-                      <span className="text-zinc-600">•</span>
-                      <span>1536-dim vector embeddings</span>
                       {selectedSource.target_url && (
                         <>
                           <span className="text-zinc-600">•</span>
@@ -394,6 +438,9 @@ export default function SourcesKnowledgePage() {
                         </>
                       )}
                     </p>
+                    {selectedSource.error_message && (
+                      <p className="text-[11px] text-red-400 font-mono">{selectedSource.error_message}</p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2.5 shrink-0">
@@ -405,6 +452,15 @@ export default function SourcesKnowledgePage() {
                       className="gap-1.5"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSourceToDelete({ id: selectedSource.id, name: selectedSource.name })}
+                      className="gap-1.5 text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
                     </Button>
 
                     <label className="cursor-pointer">
@@ -461,7 +517,7 @@ export default function SourcesKnowledgePage() {
                       <div className="space-y-1">
                         <p className="text-xs sm:text-sm font-medium text-foreground">No documents uploaded yet</p>
                         <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                          Upload files to chunk, calculate embeddings, and index them for assistant retrieval.
+                          Upload files so your assistant can search and use their content.
                         </p>
                       </div>
                     </div>
@@ -485,14 +541,32 @@ export default function SourcesKnowledgePage() {
                                 <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
                                   {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
                                 </div>
+                                {doc.status === "failed" && doc.error_message && (
+                                  <div className="text-[11px] text-red-400 mt-0.5 line-clamp-2">
+                                    {doc.error_message}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono ${statusTone(doc.status)}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${statusDot(doc.status)}`} />
                                 {formatStatus(doc.status)}
                               </span>
+
+                              {doc.status === "failed" && (
+                                <button
+                                  type="button"
+                                  disabled={retryingDocId === doc.id}
+                                  onClick={() => handleRetryDocument(doc.id)}
+                                  className="h-7 px-2 rounded-md flex items-center gap-1 text-[11px] font-mono text-amber-400 hover:bg-amber-950/30 transition-colors disabled:opacity-50"
+                                  title="Retry processing"
+                                >
+                                  <RefreshCw className={`h-3 w-3 ${retryingDocId === doc.id ? "animate-spin" : ""}`} />
+                                  Retry
+                                </button>
+                              )}
 
                               <button
                                 type="button"
@@ -534,12 +608,34 @@ export default function SourcesKnowledgePage() {
             <span className="font-semibold text-foreground font-mono">
               {docToDelete?.filename}
             </span>
-            ? This will remove the file and instantly wipe all associated vector embeddings from the database. This action cannot be undone.
+            ? This removes the file and everything your assistants learned from it. This action cannot be undone.
           </>
         }
         confirmText="Delete"
         cancelText="Cancel"
         isLoading={isDeleting}
+        variant="destructive"
+      />
+
+      <AlertDialog
+        isOpen={Boolean(sourceToDelete)}
+        onClose={() => {
+          if (!isDeletingSource) setSourceToDelete(null);
+        }}
+        onConfirm={handleDeleteSource}
+        title="Delete Knowledge Source"
+        description={
+          <>
+            Are you sure you want to delete{" "}
+            <span className="font-semibold text-foreground font-mono">
+              {sourceToDelete?.name}
+            </span>
+            ? Every document in it will be removed from storage and from any assistant that uses it. This action cannot be undone.
+          </>
+        }
+        confirmText="Delete Source"
+        cancelText="Cancel"
+        isLoading={isDeletingSource}
         variant="destructive"
       />
 
@@ -624,13 +720,13 @@ export default function SourcesKnowledgePage() {
                       {
                         value: "file_upload",
                         label: "File Upload (PDF, TXT, Markdown, CSV)",
-                        description: "Upload local files to chunk and generate 1536-dim vector embeddings",
+                        description: "Make the contents of your files searchable for your assistants",
                         icon: <Upload className="h-4 w-4 stroke-[1.5]" />,
                       },
                       {
                         value: "website_crawl",
                         label: "Website URL Crawl",
-                        description: "Extract, clean, and vectorize live documentation or web domains",
+                        description: "Import the content of a public web page and keep it searchable",
                         icon: <ExternalLink className="h-4 w-4 stroke-[1.5]" />,
                       },
                     ]}

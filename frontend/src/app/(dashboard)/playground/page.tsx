@@ -29,8 +29,6 @@ export default function DedicatedPlaygroundPage() {
   const params = useParams();
   const searchParams = useSearchParams();
 
-  const workspaceId = params.workspaceId as string;
-  const projectId = params.projectId as string;
   const preselectedAssistantId = searchParams.get("assistantId");
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -56,26 +54,24 @@ export default function DedicatedPlaygroundPage() {
   };
 
   useEffect(() => {
-    if (projectId) {
-      Promise.all([
-        api.getAssistants(),
-        api.getSources(),
-      ])
-        .then(([aList, sList]) => {
-          setAssistants(aList);
-          setSources(sList);
-          if (aList.length > 0) {
-            const found = preselectedAssistantId
-              ? aList.find((a) => a.id === preselectedAssistantId)
-              : aList[0];
-            setSelectedAssistant(found || aList[0]);
-          }
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [projectId, preselectedAssistantId]);
+    Promise.all([
+      api.getAssistants(),
+      api.getSources(),
+    ])
+      .then(([aList, sList]) => {
+        setAssistants(aList);
+        setSources(sList);
+        if (aList.length > 0) {
+          const found = preselectedAssistantId
+            ? aList.find((a) => a.id === preselectedAssistantId)
+            : aList[0];
+          setSelectedAssistant(found || aList[0]);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [preselectedAssistantId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -118,8 +114,8 @@ export default function DedicatedPlaygroundPage() {
       const assistantMsg: ChatMessage = {
         id: resp.message_id,
         role: "assistant",
-        content: resp.answer,
-        sources: resp.citations,
+        content: resp.content,
+        sources: resp.sources,
         created_at: new Date().toISOString(),
       };
 

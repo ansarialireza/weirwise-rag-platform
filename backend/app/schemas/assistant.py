@@ -111,6 +111,7 @@ class ChatResponse(BaseModel):
     token_usage: dict[str, Any] = {}
     is_grounded: bool = True
     suggest_escalation: bool = False
+    session_token: str | None = None
 
 
 class PublicRuntimeConfigResponse(BaseModel):

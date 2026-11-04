@@ -102,6 +102,7 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             document.error_message = f"Core ingestion failed: {e!s}"
             source.status = SourceProcessingStatus.FAILED.value
             source.error_message = document.error_message
+            _retain_source_file(document, initial_temp_path)
             await db.commit()
 
         except Exception as e:
@@ -110,13 +111,29 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             document.error_message = f"Processing error: {e!s}"
             source.status = SourceProcessingStatus.FAILED.value
             source.error_message = document.error_message
+            _retain_source_file(document, initial_temp_path)
             await db.commit()
 
         finally:
-            # Step 4: Failsafe Deletion — Strictly guarantee local temp file is removed from local SSD
-            if initial_temp_path and os.path.exists(initial_temp_path):
+            # Remove the hot-tier spool copy only after the file has a durable location.
+            if (
+                initial_temp_path
+                and document.storage_path
+                and document.storage_path != initial_temp_path
+                and os.path.exists(initial_temp_path)
+            ):
                 try:
                     os.remove(initial_temp_path)
                     logger.info(f"Failsafe deletion: purged volatile local temp file {initial_temp_path}")
                 except Exception as del_err:
                     logger.warning(f"Failsafe deletion failed for {initial_temp_path}: {del_err}")
+
+
+def _retain_source_file(document: Document, initial_temp_path: str | None) -> None:
+    """Move a failed upload to durable storage so ingestion can be retried."""
+    if not initial_temp_path or not os.path.exists(initial_temp_path):
+        return
+    try:
+        document.storage_path = storage_service.move_to_cold_storage(initial_temp_path)
+    except Exception as exc:
+        logger.warning(f"Could not retain source file {initial_temp_path} for retry: {exc!s}")

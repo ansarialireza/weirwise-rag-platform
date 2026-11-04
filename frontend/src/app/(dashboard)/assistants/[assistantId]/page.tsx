@@ -28,12 +28,11 @@ export default function AssistantConfigurePage() {
   const params = useParams();
   const router = useRouter();
 
-  const workspaceId = params.workspaceId as string;
-  const projectId = params.projectId as string;
   const assistantId = params.assistantId as string;
 
   const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [widgetKey, setWidgetKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Form State
@@ -55,12 +54,13 @@ export default function AssistantConfigurePage() {
   const [copiedEmbed, setCopiedEmbed] = useState(false);
 
   useEffect(() => {
-    if (projectId && assistantId) {
+    if (assistantId) {
       Promise.all([
         api.getAssistant(assistantId),
         api.getSources(),
+        api.getDeployments(assistantId),
       ])
-        .then(([a, sList]) => {
+        .then(([a, sList, deployments]) => {
           setAssistant(a);
           setName(a.name);
           setInstructions(a.system_instructions || "");
@@ -71,6 +71,7 @@ export default function AssistantConfigurePage() {
           setTopK(a.top_k || 4);
           setSelectedSourceIds(a.knowledge_source_ids || []);
           setSources(sList);
+          setWidgetKey(deployments.find((d) => d.is_active)?.public_key || null);
         })
         .catch((err: any) => {
           setErrorMessage(err.message || "Failed to load assistant configuration.");
@@ -79,7 +80,7 @@ export default function AssistantConfigurePage() {
           setLoading(false);
         });
     }
-  }, [projectId, assistantId]);
+  }, [assistantId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +116,8 @@ export default function AssistantConfigurePage() {
     try {
       const updated = await api.publishAssistant(assistantId);
       setAssistant(updated);
+      const deployments = await api.getDeployments(assistantId);
+      setWidgetKey(deployments.find((d) => d.is_active)?.public_key || null);
       setPublishSuccess(true);
       setTimeout(() => setPublishSuccess(false), 3500);
     } catch (err: any) {
@@ -137,6 +140,10 @@ export default function AssistantConfigurePage() {
       setSelectedSourceIds([...selectedSourceIds, sourceId]);
     }
   };
+
+  const embedSrc = `${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}${
+    widgetKey ? `?key=${encodeURIComponent(widgetKey)}` : ""
+  }`;
 
   if (loading) {
     return (
@@ -270,7 +277,7 @@ export default function AssistantConfigurePage() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-foreground">AI Answer</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">RAG Synthesized</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">AI Generated</span>
                   </div>
                 </div>
               </button>
@@ -349,7 +356,7 @@ export default function AssistantConfigurePage() {
 
             <div className="space-y-2 p-4 rounded-md border border-zinc-800 bg-zinc-900/40">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-foreground">Similarity Cutoff</span>
+                <span className="font-semibold text-foreground">Match Strictness</span>
                 <span className="font-mono text-[#46C7D6] font-bold">{scoreThreshold}</span>
               </div>
               <input
@@ -365,7 +372,7 @@ export default function AssistantConfigurePage() {
 
             <div className="space-y-2 p-4 rounded-md border border-zinc-800 bg-zinc-900/40">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-foreground">Top K Chunks</span>
+                <span className="font-semibold text-foreground">Passages to Use</span>
                 <span className="font-mono text-[#46C7D6] font-bold">{topK}</span>
               </div>
               <input
@@ -397,7 +404,7 @@ export default function AssistantConfigurePage() {
                 <span>HTML Responsive Snippet</span>
                 <button
                   type="button"
-                  onClick={() => handleCopyEmbed(`<iframe\n  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius: 6px; border: 1px solid #27272a;"\n  title="${name || "Weirwise AI Assistant"}"\n></iframe>`)}
+                  onClick={() => handleCopyEmbed(`<iframe\n  src="${embedSrc}"\n  width="100%"\n  height="600"\n  frameborder="0"\n  style="border-radius: 6px; border: 1px solid #27272a;"\n  title="${name || "Weirwise AI Assistant"}"\n></iframe>`)}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-foreground text-xs font-medium transition-colors"
                 >
                   {copiedEmbed ? (
@@ -415,7 +422,7 @@ export default function AssistantConfigurePage() {
               </div>
               <pre className="text-xs font-mono text-zinc-300 overflow-x-auto whitespace-pre p-1">
 {`<iframe
-  src="${typeof window !== "undefined" ? window.location.origin : ""}/embed/${assistantId}"
+  src="${embedSrc}"
   width="100%"
   height="600"
   frameborder="0"

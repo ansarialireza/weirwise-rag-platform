@@ -2,9 +2,11 @@
 
 import time
 import uuid
+from urllib.parse import urlsplit
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.core.logging import logger
+from backend.app.core.security import generate_secure_token
 from backend.app.db.session import get_db_session
 from backend.app.models.assistant import (
     AnswerFeedback,
@@ -28,6 +30,7 @@ from backend.app.schemas.assistant import (
     HumanHandoffResponse,
     PublicRuntimeConfigResponse,
 )
+from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -35,6 +38,49 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/public", tags=["Public Assistant Runtime"])
+
+
+def _hostname(value: str | None) -> str:
+    """Extract a lowercase hostname from an Origin, Referer, or domain entry."""
+    if not value:
+        return ""
+    candidate = value if "://" in value else f"https://{value}"
+    try:
+        return (urlsplit(candidate).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def origin_is_allowed(request_origin: str | None, allowed_domains: list[str] | None) -> bool:
+    """Match the request hostname exactly, allowing explicit wildcard subdomains.
+
+    Substring matching is intentionally not used: it would accept
+    `mycompany.com.attacker.net` for an allowlisted `mycompany.com`.
+    """
+    if not allowed_domains:
+        return True
+    if "*" in allowed_domains:
+        return True
+
+    request_host = _hostname(request_origin)
+    if not request_host:
+        return False
+
+    for entry in allowed_domains:
+        allowed_host = _hostname(entry)
+        if not allowed_host:
+            continue
+        if allowed_host.startswith("*."):
+            suffix = allowed_host[2:]
+            if request_host == suffix or request_host.endswith(f".{suffix}"):
+                return True
+        elif request_host == allowed_host:
+            return True
+    return False
+
+
+def _session_token(request: Request, body_token: str | None = None) -> str | None:
+    return body_token or request.headers.get("X-Session-Token")
 
 
 async def resolve_public_deployment(
@@ -72,14 +118,9 @@ async def resolve_public_deployment(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid widget public key.")
 
         # Origin / Domain restriction check
-        if deployment.allowed_domains and len(deployment.allowed_domains) > 0:
+        if deployment.allowed_domains:
             request_origin = origin or referer or ""
-            allowed = False
-            for domain in deployment.allowed_domains:
-                if domain in request_origin or domain == "*":
-                    allowed = True
-                    break
-            if not allowed:
+            if not origin_is_allowed(request_origin, deployment.allowed_domains):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Origin domain is not permitted by this assistant deployment policy.",
@@ -156,6 +197,7 @@ async def public_chat(
     )
 
     # 1. Resolve or Create Conversation
+    incoming_token = _session_token(request, payload.session_token)
     conv = None
     if payload.conversation_id:
         conv_stmt = select(Conversation).where(
@@ -163,15 +205,24 @@ async def public_chat(
             Conversation.assistant_id == assistant.id,
         )
         conv = (await db.execute(conv_stmt)).scalar_one_or_none()
+        if conv and conv.session_token and incoming_token != conv.session_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Conversation session token is missing or invalid.",
+            )
 
+    session_token = incoming_token
     if not conv:
+        session_token = incoming_token or generate_secure_token("wws_")[0]
         conv = Conversation(
             assistant_id=assistant.id,
-            session_token=payload.session_token or request.headers.get("X-Session-Token"),
+            session_token=session_token,
             title=payload.message[:60],
         )
         db.add(conv)
         await db.flush()
+    else:
+        session_token = conv.session_token or session_token
 
     # 2. Record User Message
     user_msg = Message(
@@ -236,10 +287,14 @@ async def public_chat(
     # 4. Formulate Grounded Answer or Fallback
     is_grounded = bool(citations)
     if is_grounded:
-        context_block = "\n\n".join(retrieved_contexts[:2])
-        assistant_reply = (
-            f"Based on our business knowledge: {context_block}\n\nLet me know if you would like more assistance!"
+        answer = await llm_service.generate_grounded_answer(
+            db=db,
+            assistant=assistant,
+            query=payload.message,
+            passages=[c.content for c in citations],
+            workspace_id=ws_id,
         )
+        assistant_reply = answer.content
     else:
         assistant_reply = assistant.fallback_message
         # Track unanswered query for analytics
@@ -285,6 +340,7 @@ async def public_chat(
         latency_ms=latency_ms,
         is_grounded=is_grounded,
         suggest_escalation=suggest_escalation,
+        session_token=session_token,
     )
 
 
@@ -292,6 +348,7 @@ async def public_chat(
 async def submit_answer_feedback(
     message_id: uuid.UUID,
     payload: AnswerFeedbackRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> AnswerFeedbackResponse:
     """Submit thumbs up/down customer feedback on an assistant message."""
@@ -305,6 +362,12 @@ async def submit_answer_feedback(
     conv = (await db.execute(c_stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+
+    if conv.session_token and _session_token(request) != conv.session_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conversation session token is missing or invalid.",
+        )
 
     # Check existing feedback
     fb_stmt = select(AnswerFeedback).where(AnswerFeedback.message_id == message_id)
@@ -334,6 +397,7 @@ async def submit_answer_feedback(
 async def request_human_handoff(
     conversation_id: uuid.UUID,
     payload: HumanHandoffCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> HumanHandoffResponse:
     """Escalate a conversation when customer requests human help."""
@@ -341,6 +405,12 @@ async def request_human_handoff(
     conv = (await db.execute(c_stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+
+    if conv.session_token and _session_token(request) != conv.session_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conversation session token is missing or invalid.",
+        )
 
     conv.is_escalated = True
     conv.escalation_reason = payload.reason
