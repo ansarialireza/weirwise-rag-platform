@@ -1,42 +1,57 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { KnowledgeSource, DocumentItem } from "@/types";
 import { formatBytes } from "@/lib/utils";
 import {
+  AlertCircle,
   Database,
-  Upload,
-  FileText,
-  Plus,
-  X,
-  RefreshCw,
   ExternalLink,
-  ChevronRight,
+  FileText,
   FolderOpen,
-  Trash2,
+  Plus,
+  RefreshCw,
   Search,
+  Trash2,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatusPill } from "@/components/ui/status-pill";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 import { useStoryStage } from "@/lib/story-stage-context";
-import { BrutalistLoader } from "@/components/ui/brutalist-loader";
+
+const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
+
+function describeProcessingError(raw?: string | null): string {
+  const text = (raw || "").toLowerCase();
+  if (text.includes("too large") || text.includes("size limit")) {
+    return "This file is too large to prepare. Try a smaller copy.";
+  }
+  if (text.includes("unsupported") || text.includes("file type")) {
+    return "This file type isn't supported yet. Try a PDF, TXT, Markdown, or CSV file.";
+  }
+  if (text.includes("timeout") || text.includes("timed out")) {
+    return "Preparing this file took too long. Please try again.";
+  }
+  return "We couldn't prepare this file. Try again, or upload a different copy.";
+}
 
 export default function SourcesKnowledgePage() {
-  const params = useParams();
-  
   const { toast } = useToast();
   const uploadWorkflow = useWorkflow("wf_upload_documents");
   const createSourceWorkflow = useWorkflow("wf_create_source");
-  const { trackAction, trackFriction } = useTelemetry();
+  const { trackFriction } = useTelemetry();
   const { triggerChunkDrop } = useStoryStage();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -50,20 +65,20 @@ export default function SourcesKnowledgePage() {
   const [isDeletingSource, setIsDeletingSource] = useState(false);
   const [retryingDocId, setRetryingDocId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingDocs, setLoadingDocs] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const dragDepth = useRef(0);
 
-  // New source modal state
   const [showModal, setShowModal] = useState(false);
   const [sourceName, setSourceName] = useState("");
   const [sourceType, setSourceType] = useState<"file_upload" | "website_crawl">("file_upload");
   const [targetUrl, setTargetUrl] = useState("");
   const [creating, setCreating] = useState(false);
-
-  // Mobile Drawer swipe-to-dismiss gesture handling
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [drawerTranslateY, setDrawerTranslateY] = useState(0);
 
   const loadSources = useCallback(async () => {
     try {
@@ -73,6 +88,8 @@ export default function SourcesKnowledgePage() {
         if (!prev) return list[0] || null;
         return list.find((s) => s.id === prev.id) || list[0] || null;
       });
+    } catch (err: any) {
+      setPageError(err.message || "Could not load your knowledge sources.");
     } finally {
       setLoading(false);
     }
@@ -83,14 +100,20 @@ export default function SourcesKnowledgePage() {
   }, [loadSources]);
 
   const loadDocuments = useCallback(async () => {
-    if (selectedSource) {
-      setRefreshing(true);
-      try {
-        const docs = await api.getDocuments(selectedSource.id);
-        setDocuments(docs);
-      } finally {
-        setRefreshing(false);
-      }
+    if (!selectedSource) {
+      setDocuments([]);
+      return;
+    }
+    setLoadingDocs(true);
+    setRefreshing(true);
+    try {
+      const docs = await api.getDocuments(selectedSource.id);
+      setDocuments(docs);
+    } catch (err: any) {
+      setPageError(err.message || "Could not load documents for this source.");
+    } finally {
+      setLoadingDocs(false);
+      setRefreshing(false);
     }
   }, [selectedSource]);
 
@@ -98,21 +121,7 @@ export default function SourcesKnowledgePage() {
     loadDocuments();
   }, [loadDocuments]);
 
-  // Lock body scroll when modal/drawer is open
-  useEffect(() => {
-    if (showModal) {
-      document.body.style.overflow = "hidden";
-      setDrawerTranslateY(0);
-    } else {
-      document.body.style.overflow = "";
-      setDrawerTranslateY(0);
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [showModal]);
-
-  // Auto-poll document processing status when any document is in non-terminal state
+  // Auto-poll while any document is processing
   useEffect(() => {
     const hasPending = documents.some(
       (d) => d.status === "pending" || d.status === "processing"
@@ -124,7 +133,7 @@ export default function SourcesKnowledgePage() {
         const docs = await api.getDocuments(selectedSource.id);
         setDocuments(docs);
       } catch {
-        // Non-critical background polling failure
+        // Background refresh failure is non-critical
       }
     }, 2500);
 
@@ -135,63 +144,111 @@ export default function SourcesKnowledgePage() {
     e.preventDefault();
     if (!sourceName.trim()) return;
     setCreating(true);
+    createSourceWorkflow.start("create_source_submitted", { source_type: sourceType });
 
     try {
-      const created = await api.createSource( {
+      const created = await api.createSource({
         name: sourceName.trim(),
         source_type: sourceType,
         target_url: sourceType === "website_crawl" ? targetUrl.trim() : undefined,
       });
-      setSources([created, ...sources]);
+      setSources((prev) => [created, ...prev]);
       setSelectedSource(created);
       setShowModal(false);
       setSourceName("");
       setTargetUrl("");
-      toast({ type: "success", message: `Knowledge source "${created.name}" created.` });
+      createSourceWorkflow.complete({ source_id: created.id });
+      toast({ type: "success", message: `“${created.name}” is ready for documents.` });
     } catch (err: any) {
+      createSourceWorkflow.stepFailed("CREATE_SOURCE_ERROR", { status: err.status });
       toast({ type: "error", message: err.message || "Failed to create knowledge source" });
     } finally {
       setCreating(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !selectedSource) return;
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  const uploadFiles = async (files: File[]) => {
+    if (!selectedSource || files.length === 0) return;
 
-    const fileCount = files.length;
-    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
-    const extensions = Array.from(new Set(files.map((f) => f.name.split(".").pop()?.toLowerCase() || "unknown")));
+    const valid = files.filter((file) => {
+      const dot = file.name.lastIndexOf(".");
+      const ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : "";
+      return ACCEPTED_EXTENSIONS.includes(ext);
+    });
+
+    if (valid.length === 0) {
+      setUploadError("Choose PDF, TXT, Markdown, or CSV files.");
+      return;
+    }
+    if (valid.length < files.length) {
+      setUploadError(`${files.length - valid.length} unsupported file(s) were skipped.`);
+    } else {
+      setUploadError(null);
+    }
+
+    const totalBytes = valid.reduce((acc, f) => acc + f.size, 0);
+    const extensions = Array.from(
+      new Set(valid.map((f) => f.name.split(".").pop()?.toLowerCase() || "unknown"))
+    );
 
     uploadWorkflow.start("files_selected", {
-      file_count: fileCount,
+      file_count: valid.length,
       total_bytes: totalBytes,
       extensions,
       source_id: selectedSource.id,
     });
 
     setUploading(true);
-    setUploadError(null);
-    triggerChunkDrop(fileCount);
+    setUploadCount(valid.length);
+    triggerChunkDrop(valid.length);
 
     try {
-      await api.uploadDocuments(selectedSource.id, files);
-      uploadWorkflow.complete({
-        file_count: fileCount,
-        total_bytes: totalBytes,
-      });
+      await api.uploadDocuments(selectedSource.id, valid);
+      uploadWorkflow.complete({ file_count: valid.length, total_bytes: totalBytes });
       await loadDocuments();
       await loadSources();
-    } catch (err: any) {
-      uploadWorkflow.stepFailed("UPLOAD_ERROR", {
-        status: err.status,
+      toast({
+        type: "success",
+        message: `${valid.length} file${valid.length === 1 ? "" : "s"} added. Processing now.`,
       });
-      setUploadError(err.message || "Upload processing failed");
+    } catch (err: any) {
+      uploadWorkflow.stepFailed("UPLOAD_ERROR", { status: err.status });
+      trackFriction("upload_failed", selectedSource.id, { status: err.status });
+      setUploadError(err.message || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
-      e.target.value = "";
+      setUploadCount(0);
     }
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    await uploadFiles(files);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepth.current -= 1;
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0;
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepth.current = 0;
+    setIsDragging(false);
+    if (uploading) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    await uploadFiles(files);
   };
 
   const handleDeleteDocument = async () => {
@@ -200,7 +257,7 @@ export default function SourcesKnowledgePage() {
     setDeletingDocId(docToDelete.id);
     try {
       await api.deleteDocument(docToDelete.id);
-      setDocuments(documents.filter((d) => d.id !== docToDelete.id));
+      setDocuments((prev) => prev.filter((d) => d.id !== docToDelete.id));
       await loadSources();
       toast({ type: "success", message: `Deleted ${docToDelete.filename}` });
       setDocToDelete(null);
@@ -242,52 +299,25 @@ export default function SourcesKnowledgePage() {
     }
   };
 
-  // Helper for consistent badge formatting (e.g. "ready" -> "Ready")
-  const formatStatus = (status: string) => {
-    if (!status) return "Ready";
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  };
-
-  const statusTone = (status: string) => {
-    if (status === "ready") return "text-emerald-400";
-    if (status === "failed") return "text-red-400";
-    if (status === "processing") return "text-amber-400";
-    return "text-zinc-400";
-  };
-
-  const statusDot = (status: string) => {
-    if (status === "ready") return "bg-emerald-400";
-    if (status === "failed") return "bg-red-400";
-    if (status === "processing") return "bg-amber-400";
-    return "bg-zinc-400";
-  };
-
-  // Touch handlers for drawer swipe-down
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartY(e.touches[0].clientY);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY === null) return;
-    const deltaY = e.touches[0].clientY - touchStartY;
-    if (deltaY > 0) {
-      setDrawerTranslateY(deltaY);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (drawerTranslateY > 100) {
-      setShowModal(false);
-    } else {
-      setDrawerTranslateY(0);
-    }
-    setTouchStartY(null);
-  };
+  const filteredDocuments = documents.filter((doc) =>
+    doc.filename.toLowerCase().includes(docFilter.toLowerCase())
+  );
 
   if (loading) {
     return (
-      <div className="flex h-full min-h-[400px] items-center justify-center">
-        <BrutalistLoader label="INDEXING KNOWLEDGE SOURCES" />
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div className="space-y-2 lg:col-span-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </div>
+          <Skeleton className="h-[420px] lg:col-span-8" />
+        </div>
       </div>
     );
   }
@@ -295,323 +325,345 @@ export default function SourcesKnowledgePage() {
   const hasSources = sources.length > 0;
 
   return (
-    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-150">
-      {/* Top Header: Clean, Typographic, Precision-Engineered Brutalist-Tech */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
-            Knowledge Base
-          </h1>
-          {hasSources && (
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              {sources.length} {sources.length === 1 ? "source" : "sources"}
-            </span>
-          )}
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Knowledge"
+        description="The documents your assistants can answer from. Group them by topic."
+        actions={
+          hasSources ? (
+            <Button onClick={() => setShowModal(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add source
+            </Button>
+          ) : undefined
+        }
+      />
 
-        {hasSources && (
-          <Button
-            onClick={() => setShowModal(true)}
-            variant="primary"
-            size="sm"
-            className="gap-2 shrink-0 self-start sm:self-center"
-          >
-            <Plus className="h-4 w-4" /> Add Source
-          </Button>
-        )}
-      </div>
-
-      {uploadError && (
-        <Alert
-          type="destructive"
-          title="Upload Problem"
-          message={uploadError}
-        />
-      )}
+      {pageError && <Alert type="destructive" title="Something went wrong" message={pageError} />}
 
       {!hasSources ? (
-        /* Minimalist Zero-State: Transparent/subtle fill with ultra-thin delicate border */
-        <div className="rounded-md border border-zinc-800 bg-zinc-950/20 py-20 px-8 text-center flex flex-col items-center justify-center space-y-4 animate-in fade-in duration-150">
-          <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
-            <Database className="h-5 w-5 stroke-[1.5]" />
-          </div>
-
-          <div>
-            <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
-              No knowledge sources
-            </h2>
-          </div>
-
-          <Button
-            onClick={() => setShowModal(true)}
-            variant="primary"
-            size="sm"
-            className="gap-2 mt-2"
-          >
-            <Plus className="h-4 w-4" /> Add Source
-          </Button>
-        </div>
+        <EmptyState
+          icon={Database}
+          title="Bring in your first documents"
+          description="Create a source for a topic — like “Product docs” or “Policies” — then upload the files inside it."
+          actionLabel="Create a source"
+          onAction={() => setShowModal(true)}
+        />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Clean Datasets List */}
-          <div className="lg:col-span-4 space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-                Datasets ({sources.length})
-              </span>
+        <div className="grid items-start gap-6 lg:grid-cols-12">
+          {/* Source list */}
+          <aside className="lg:col-span-4">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Sources
+              </h2>
+              <span className="text-xs tabular-nums text-muted-foreground">{sources.length}</span>
             </div>
 
-            <div className="space-y-2">
-              {sources.map((src) => {
-                const isSelected = selectedSource?.id === src.id;
+            <div className="max-h-[320px] space-y-1.5 overflow-y-auto pe-1 lg:max-h-[calc(100vh-260px)]">
+              {sources.map((source) => {
+                const isSelected = selectedSource?.id === source.id;
                 return (
                   <button
-                    key={src.id}
+                    key={source.id}
                     type="button"
-                    onClick={() => setSelectedSource(src)}
-                    className={`w-full text-left p-3.5 rounded-lg border transition-all duration-150 flex items-center justify-between gap-3 ${
+                    onClick={() => setSelectedSource(source)}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl border p-3 text-start transition-colors",
                       isSelected
-                        ? "border-zinc-700 bg-zinc-900/50 text-foreground"
-                        : "border-zinc-850 border-zinc-800/60 bg-transparent hover:border-zinc-700 hover:bg-zinc-900/30 text-zinc-400 hover:text-foreground"
-                    }`}
+                        ? "border-border bg-card shadow-sm ring-1 ring-border"
+                        : "border-transparent bg-transparent hover:bg-card hover:shadow-sm"
+                    )}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-md border shrink-0 ${
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                         isSelected
-                          ? "border-zinc-700 bg-zinc-800/80 text-foreground"
-                          : "border-zinc-800 bg-zinc-900/40 text-zinc-500"
-                      }`}>
-                        <FolderOpen className="h-4 w-4 stroke-[1.5]" />
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <div className="text-xs sm:text-sm font-medium text-foreground truncate">
-                          {src.name}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center text-[10px] font-mono px-1.5 py-0.2 rounded border border-zinc-800 bg-zinc-950/60 text-zinc-400 uppercase">
-                            {src.source_type === "file_upload" ? "Files" : "Web Crawl"}
-                          </span>
-                          <span className="text-[11px] text-zinc-500 font-mono">
-                            {src.document_count ?? 0} docs
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono ${statusTone(src.status)}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(src.status)}`} />
-                        {formatStatus(src.status)}
+                          ? "bg-accent-soft text-accent"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {source.name}
                       </span>
-                      <ChevronRight className={`h-4 w-4 transition-transform ${isSelected ? "text-foreground" : "text-zinc-600"}`} />
-                    </div>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <span className="tabular-nums">
+                          {source.document_count ?? 0} document
+                          {(source.document_count ?? 0) === 1 ? "" : "s"}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          {source.source_type === "file_upload" ? "Files" : "Website"}
+                        </span>
+                      </span>
+                    </span>
+                    <StatusPill status={source.status} />
                   </button>
                 );
               })}
             </div>
-          </div>
 
-          {/* Right Column: Seamless Integrated Document View */}
-          <div className="lg:col-span-8 space-y-6">
+            <button
+              type="button"
+              onClick={() => setShowModal(true)}
+              className="mt-2 flex w-full items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-[13px] font-medium text-muted-foreground transition-colors hover:border-muted-foreground/30 hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" />
+              Add another source
+            </button>
+          </aside>
+
+          {/* Detail */}
+          <section className="min-w-0 lg:col-span-8">
             {selectedSource ? (
-              <div className="rounded-md border border-zinc-800 bg-zinc-950/20 p-6 sm:p-7 space-y-6">
-                {/* Clean Top Action Bar for Selected Dataset */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-800/60">
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h2 className="text-base sm:text-lg font-semibold text-foreground tracking-tight truncate">
-                        {selectedSource.name}
-                      </h2>
-                      <span className="px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900/60 text-[10px] font-mono text-zinc-400 uppercase">
-                        {selectedSource.source_type}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 flex items-center gap-2 font-mono">
-                      <span className={`inline-flex items-center gap-1 ${statusTone(selectedSource.status)}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${statusDot(selectedSource.status)}`} />
-                        {formatStatus(selectedSource.status)}
-                      </span>
-                      {selectedSource.target_url && (
-                        <>
-                          <span className="text-zinc-600">•</span>
-                          <span className="truncate max-w-xs">{selectedSource.target_url}</span>
-                        </>
+              <div className="space-y-5">
+                <div className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                          {selectedSource.name}
+                        </h2>
+                        <StatusPill status={selectedSource.status} />
+                      </div>
+                      <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{selectedSource.source_type === "file_upload" ? "File upload" : "Website"}</span>
+                        {selectedSource.target_url && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <a
+                              href={selectedSource.target_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex max-w-[260px] items-center gap-1 truncate hover:text-foreground hover:underline"
+                            >
+                              {selectedSource.target_url}
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          </>
+                        )}
+                      </p>
+                      {selectedSource.error_message && (
+                        <p className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
+                          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          {describeProcessingError(selectedSource.error_message)}
+                        </p>
                       )}
-                    </p>
-                    {selectedSource.error_message && (
-                      <p className="text-[11px] text-red-400 font-mono">{selectedSource.error_message}</p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadDocuments}
+                        isLoading={refreshing}
+                        className="gap-1.5"
+                        aria-label="Refresh documents"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Refresh</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setSourceToDelete({ id: selectedSource.id, name: selectedSource.name })
+                        }
+                        className="gap-1.5 text-muted-foreground hover:text-destructive"
+                        aria-label={`Delete ${selectedSource.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Upload dropzone */}
+                  <div
+                    onDragEnter={handleDragEnter}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={cn(
+                      "mt-5 rounded-xl border border-dashed p-6 text-center transition-colors",
+                      isDragging
+                        ? "border-accent bg-accent-soft"
+                        : "border-border bg-background/60"
+                    )}
+                  >
+                    {uploading ? (
+                      <div className="space-y-2">
+                        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
+                          <Upload className="h-4 w-4 animate-pulse" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          Uploading {uploadCount} file{uploadCount === 1 ? "" : "s"}…
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Keep this tab open while we prepare them.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <Upload className="h-4 w-4" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                          Drop files here, or choose from your device
+                        </p>
+                        <p className="text-xs text-muted-foreground">PDF, TXT, Markdown, or CSV · multiple files welcome</p>
+                        <label className="mt-1 inline-flex cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            className="sr-only"
+                            accept={ACCEPTED_EXTENSIONS.join(",")}
+                            onChange={handleFileInput}
+                            disabled={uploading}
+                          />
+                          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
+                            <Plus className="h-3.5 w-3.5" />
+                            Choose files
+                          </span>
+                        </label>
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={loadDocuments}
-                      isLoading={refreshing}
-                      className="gap-1.5"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" /> Refresh
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSourceToDelete({ id: selectedSource.id, name: selectedSource.name })}
-                      className="gap-1.5 text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </Button>
-
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        multiple
-                        className="hidden"
-                        accept=".txt,.pdf,.md,.csv"
-                        onChange={handleFileUpload}
-                        disabled={uploading}
-                      />
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        isLoading={uploading}
-                        className="pointer-events-none gap-1.5"
-                      >
-                        <Upload className="h-3.5 w-3.5" /> Upload Files
-                      </Button>
-                    </label>
-                  </div>
+                  {uploadError && (
+                    <div className="mt-3 flex items-start gap-2 text-xs text-destructive">
+                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>{uploadError}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Documents List & Mass Management */}
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-zinc-400 px-0.5">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-foreground font-medium">Indexed Documents ({documents.length})</span>
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-zinc-800 bg-zinc-900/40 text-zinc-400">
-                        PDF, TXT, MD, CSV
+                {/* Documents */}
+                <div className="rounded-xl border border-border bg-card shadow-sm">
+                  <div className="flex flex-col gap-3 border-b border-border/70 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-foreground">Documents</h3>
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {documents.length}
                       </span>
                     </div>
 
-                    {documents.length > 5 && (
-                      <div className="relative w-full sm:w-60">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+                    {documents.length > 0 && (
+                      <div className="relative w-full sm:w-56">
+                        <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                         <input
                           type="text"
-                          placeholder="Filter documents..."
+                          placeholder="Filter documents…"
                           value={docFilter}
                           onChange={(e) => setDocFilter(e.target.value)}
-                          className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-zinc-800 bg-zinc-950/40 text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20"
+                          className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-3 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
                     )}
                   </div>
 
-                  {documents.length === 0 ? (
-                    <div className="rounded-lg border border-zinc-850 border-zinc-800/60 bg-transparent py-14 px-4 text-center space-y-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400 mx-auto">
-                        <Upload className="h-4 w-4 stroke-[1.5]" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs sm:text-sm font-medium text-foreground">No documents uploaded yet</p>
-                        <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                          Upload files so your assistant can search and use their content.
-                        </p>
-                      </div>
+                  {loadingDocs ? (
+                    <div className="space-y-2 p-4">
+                      <Skeleton className="h-12" />
+                      <Skeleton className="h-12" />
+                      <Skeleton className="h-12" />
+                    </div>
+                  ) : documents.length === 0 ? (
+                    <div className="px-5 py-12 text-center">
+                      <FileText className="mx-auto h-5 w-5 text-muted-foreground/70" />
+                      <p className="mt-2 text-sm font-medium text-foreground">No documents yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Upload a few files above to get started.
+                      </p>
+                    </div>
+                  ) : filteredDocuments.length === 0 ? (
+                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                      No documents match “{docFilter}”.
                     </div>
                   ) : (
-                    <div className="divide-y divide-zinc-800/60 rounded-lg border border-zinc-800/80 overflow-hidden bg-transparent">
-                      {documents
-                        .filter((d) => d.filename.toLowerCase().includes(docFilter.toLowerCase()))
-                        .map((doc) => (
-                          <div
-                            key={doc.id}
-                            className="flex items-center justify-between p-3.5 hover:bg-zinc-900/30 transition-colors gap-3"
-                          >
-                            <div className="flex items-center gap-3 truncate min-w-0">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/40 text-zinc-400 shrink-0">
-                                <FileText className="h-4 w-4 stroke-[1.5]" />
-                              </div>
-                              <div className="truncate min-w-0">
-                                <div className="text-xs sm:text-sm font-medium text-foreground truncate">
-                                  {doc.filename}
-                                </div>
-                                <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
-                                  {formatBytes(doc.file_size_bytes)} &middot; {doc.mime_type || "text/plain"}
-                                </div>
-                                {doc.status === "failed" && doc.error_message && (
-                                  <div className="text-[11px] text-red-400 mt-0.5 line-clamp-2">
-                                    {doc.error_message}
-                                  </div>
-                                )}
-                              </div>
+                    <ul className="divide-y divide-border/60">
+                      {filteredDocuments.map((doc) => (
+                        <li
+                          key={doc.id}
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:px-5"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            <FileText className="h-4 w-4" />
+                          </span>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px] font-medium text-foreground">
+                              {doc.filename}
                             </div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {formatBytes(doc.file_size_bytes)}
+                            </div>
+                            {doc.status === "failed" && doc.error_message && (
+                              <div className="mt-0.5 line-clamp-2 text-[11px] text-destructive">
+                                {describeProcessingError(doc.error_message)}
+                              </div>
+                            )}
+                          </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono ${statusTone(doc.status)}`}>
-                                <span className={`h-1.5 w-1.5 rounded-full ${statusDot(doc.status)}`} />
-                                {formatStatus(doc.status)}
-                              </span>
-
-                              {doc.status === "failed" && (
-                                <button
-                                  type="button"
-                                  disabled={retryingDocId === doc.id}
-                                  onClick={() => handleRetryDocument(doc.id)}
-                                  className="h-7 px-2 rounded-md flex items-center gap-1 text-[11px] font-mono text-amber-400 hover:bg-amber-950/30 transition-colors disabled:opacity-50"
-                                  title="Retry processing"
-                                >
-                                  <RefreshCw className={`h-3 w-3 ${retryingDocId === doc.id ? "animate-spin" : ""}`} />
-                                  Retry
-                                </button>
-                              )}
-
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <StatusPill status={doc.status} />
+                            {doc.status === "failed" && (
                               <button
                                 type="button"
-                                disabled={deletingDocId === doc.id}
-                                onClick={() => setDocToDelete({ id: doc.id, filename: doc.filename })}
-                                className="h-7 w-7 rounded-md flex items-center justify-center text-zinc-400 hover:bg-red-950/30 hover:text-red-400 transition-colors disabled:opacity-50"
-                                title="Delete document"
-                                aria-label="Delete document"
+                                disabled={retryingDocId === doc.id}
+                                onClick={() => handleRetryDocument(doc.id)}
+                                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <RefreshCw
+                                  className={cn("h-3 w-3", retryingDocId === doc.id && "animate-spin")}
+                                />
+                                Retry
                               </button>
-                            </div>
+                            )}
+                            <button
+                              type="button"
+                              disabled={deletingDocId === doc.id}
+                              onClick={() => setDocToDelete({ id: doc.id, filename: doc.filename })}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                              aria-label={`Delete ${doc.filename}`}
+                              title="Delete document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-                        ))}
-                    </div>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="rounded-md border border-zinc-800 bg-zinc-950/20 py-16 text-center text-xs text-zinc-400">
-                Select a dataset from the left column to view its documents and indexed vectors.
+              <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-border bg-card/50 p-8 text-center text-sm text-muted-foreground">
+                Select a source to view its documents.
               </div>
             )}
-          </div>
+          </section>
         </div>
       )}
 
-      {/* Delete Document Premium Alert Dialog */}
       <AlertDialog
         isOpen={Boolean(docToDelete)}
         onClose={() => {
           if (!isDeleting) setDocToDelete(null);
         }}
         onConfirm={handleDeleteDocument}
-        title="Delete Document"
+        title="Delete document"
         description={
           <>
-            Are you sure you want to permanently delete{" "}
-            <span className="font-semibold text-foreground font-mono">
-              {docToDelete?.filename}
-            </span>
-            ? This removes the file and everything your assistants learned from it. This action cannot be undone.
+            <span className="font-medium text-foreground">{docToDelete?.filename}</span> will be
+            removed, along with everything assistants learned from it. This cannot be undone.
           </>
         }
-        confirmText="Delete"
+        confirmText="Delete document"
         cancelText="Cancel"
         isLoading={isDeleting}
         variant="destructive"
@@ -623,156 +675,83 @@ export default function SourcesKnowledgePage() {
           if (!isDeletingSource) setSourceToDelete(null);
         }}
         onConfirm={handleDeleteSource}
-        title="Delete Knowledge Source"
+        title="Delete source"
         description={
           <>
-            Are you sure you want to delete{" "}
-            <span className="font-semibold text-foreground font-mono">
-              {sourceToDelete?.name}
-            </span>
-            ? Every document in it will be removed from storage and from any assistant that uses it. This action cannot be undone.
+            <span className="font-medium text-foreground">{sourceToDelete?.name}</span> and every
+            document inside it will be removed from the assistants that use it. This cannot be
+            undone.
           </>
         }
-        confirmText="Delete Source"
+        confirmText="Delete source"
         cancelText="Cancel"
         isLoading={isDeletingSource}
         variant="destructive"
       />
 
-      {/* 
-        Responsive Creation Component:
-        - Mobile (< md): Native Bottom Drawer with swipe-down dismissal
-        - Desktop (>= md): Floating Dialog Modal centered on screen
-      */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col md:items-center md:justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-150 p-0 md:p-6"
-          onClick={() => setShowModal(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Add Knowledge Source"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              transform: drawerTranslateY > 0 ? `translateY(${drawerTranslateY}px)` : undefined,
-              transition: touchStartY === null ? "transform 0.15s ease-out" : "none",
-            }}
-            className={cn(
-              "w-full bg-[#0c0d10] text-foreground border-zinc-800 shadow-2xl flex flex-col relative",
-              // Mobile (< md): Slides up from bottom as Drawer
-              "mt-auto md:mt-0 rounded-t-md md:rounded-md border-t md:border border-x-0 md:border-x max-h-[90vh] md:max-h-[85vh] md:max-w-lg animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-150"
-            )}
-          >
-            {/* Mobile Swipe-Down Handle */}
-            <div className="flex justify-center pt-3 pb-1 md:hidden cursor-grab active:cursor-grabbing">
-              <div className="h-1 w-12 rounded-sm bg-zinc-700" />
-            </div>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Add a knowledge source"
+        description="A source groups related documents, like a topic or a team."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleCreateSource} className="space-y-5">
+          <Input
+            label="Name"
+            type="text"
+            required
+            autoFocus
+            placeholder="e.g. Product documentation"
+            value={sourceName}
+            onChange={(e) => setSourceName(e.target.value)}
+          />
 
-            {/* Header with Title and 'X' Button */}
-            <div className="flex items-center justify-between px-6 sm:px-8 py-5 border-b border-zinc-800/80 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900/60 text-[#46C7D6] shrink-0">
-                  <Database className="h-4 w-4 stroke-[1.5]" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Add Knowledge Source</h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="h-8 w-8 flex items-center justify-center rounded-sm border border-transparent hover:border-zinc-800 text-zinc-400 hover:text-foreground hover:bg-zinc-800/60 active:scale-95 transition-all"
-                aria-label="Close dialog"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+          <CustomSelect
+            label="Where does it come from?"
+            value={sourceType}
+            onChange={(value) => setSourceType(value as typeof sourceType)}
+            options={[
+              {
+                value: "file_upload",
+                label: "Files from my device",
+                description: "PDF, TXT, Markdown, or CSV",
+                icon: <Upload className="h-4 w-4" />,
+              },
+              {
+                value: "website_crawl",
+                label: "A public web page",
+                description: "Import the page content",
+                icon: <ExternalLink className="h-4 w-4" />,
+              },
+            ]}
+          />
 
-            {/* Form Body */}
-            <form onSubmit={handleCreateSource} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-6 sm:p-8 space-y-5 overflow-y-auto flex-1">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono font-medium text-zinc-300">
-                    Source Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Employee Handbook"
-                    value={sourceName}
-                    onChange={(e) => setSourceName(e.target.value)}
-                    className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
-                  />
-                </div>
+          {sourceType === "website_crawl" && (
+            <Input
+              label="Page URL"
+              type="url"
+              required
+              placeholder="https://docs.example.com"
+              value={targetUrl}
+              onChange={(e) => setTargetUrl(e.target.value)}
+            />
+          )}
 
-                {/* Custom Select */}
-                <div className="space-y-1.5">
-                  <CustomSelect
-                    label="Source Type"
-                    value={sourceType}
-                    onChange={(val) => setSourceType(val as any)}
-                    triggerClassName="border-zinc-800 bg-zinc-950/40 text-foreground focus:ring-1 focus:ring-white/20 focus:border-zinc-500 rounded-md"
-                    options={[
-                      {
-                        value: "file_upload",
-                        label: "File Upload (PDF, TXT, Markdown, CSV)",
-                        description: "Make the contents of your files searchable for your assistants",
-                        icon: <Upload className="h-4 w-4 stroke-[1.5]" />,
-                      },
-                      {
-                        value: "website_crawl",
-                        label: "Website URL Crawl",
-                        description: "Import the content of a public web page and keep it searchable",
-                        icon: <ExternalLink className="h-4 w-4 stroke-[1.5]" />,
-                      },
-                    ]}
-                  />
-                </div>
-
-                {sourceType === "website_crawl" && (
-                  <div className="space-y-1.5 animate-in fade-in duration-150">
-                    <label className="text-xs font-mono font-medium text-zinc-300">Target URL</label>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://docs.example.com"
-                      value={targetUrl}
-                      onChange={(e) => setTargetUrl(e.target.value)}
-                      className="w-full h-9 rounded-md border border-zinc-800 bg-zinc-950/40 px-3.5 py-2 text-xs sm:text-sm text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-white/20 transition-all"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons Footer */}
-              <div className="px-6 sm:px-8 py-4 border-t border-zinc-800/80 bg-zinc-950/40 flex items-center justify-end gap-3 shrink-0">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  isLoading={creating}
-                  disabled={!sourceName.trim()}
-                  className="px-5"
-                >
-                  Create Source
-                </Button>
-              </div>
-            </form>
+          <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
+            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={creating}
+              disabled={!sourceName.trim() || (sourceType === "website_crawl" && !targetUrl.trim())}
+            >
+              Create source
+            </Button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
     </div>
   );
 }

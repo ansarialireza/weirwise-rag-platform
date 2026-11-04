@@ -5,11 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -35,7 +33,6 @@ function ResetPasswordForm() {
       setError("New password must be at least 8 characters in length.");
       return;
     }
-
     if (newPassword !== confirmPassword) {
       setError("Passwords do not match. Please re-enter identical passwords.");
       return;
@@ -48,7 +45,7 @@ function ResetPasswordForm() {
         token: token.trim(),
         new_password: newPassword,
       });
-      setSuccess(res.message || "Password successfully reset!");
+      setSuccess(res.message || "Password updated.");
       toast({ message: "Password updated successfully. Please sign in.", type: "success" });
       setTimeout(() => {
         router.push(`/login?email=${encodeURIComponent(email.trim())}`);
@@ -61,112 +58,93 @@ function ResetPasswordForm() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
-      <CardHeader className="pb-3 border-b border-zinc-800/80">
-        <CardTitle className="text-xl font-semibold tracking-tight text-white">
-          Reset password
-        </CardTitle>
-      </CardHeader>
+    <div className="space-y-7">
+      <div>
+        <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Set new password</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Enter the code from your email and choose a new password.
+        </p>
+      </div>
 
-      <CardContent className="space-y-4 pt-5">
-        {error && (
-          <Alert
-            type="destructive"
-            title="Reset Error"
-            message={error}
-          />
-        )}
+      {error && <Alert type="destructive" title="Reset failed" message={error} />}
 
-        {success && (
-          <div className="flex items-center gap-2.5 rounded-md border border-zinc-800 bg-zinc-900/30 p-3.5 text-xs text-zinc-300 animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 text-[#46C7D6] shrink-0" />
-            <span className="font-medium">{success} Redirecting to sign in...</span>
-          </div>
-        )}
+      {success && (
+        <Alert
+          type="success"
+          message={`${success} Redirecting to sign in…`}
+        />
+      )}
 
-        <form onSubmit={handleReset} className="space-y-4">
-          <Input
-            label="Account Email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com"
-          />
+      <form onSubmit={handleReset} className="space-y-4">
+        <Input
+          label="Email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@company.com"
+        />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-300 block">
-              Reset Code / Token
-            </label>
-            <input
-              type="text"
-              required
-              autoComplete="one-time-code"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="e.g. 123456"
-              className="w-full tracking-[0.25em] font-mono text-center text-lg font-bold rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-2 text-white placeholder:text-zinc-600 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:border-zinc-600 transition-all"
-            />
-          </div>
+        <Input
+          label="Reset code"
+          type="text"
+          required
+          autoComplete="one-time-code"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="123456"
+          className="text-center font-mono text-base tracking-[0.25em]"
+        />
 
-          <Input
-            label="New Password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="Minimum 8 characters"
-          />
+        <Input
+          label="New password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Minimum 8 characters"
+        />
 
-          <Input
-            label="Confirm New Password"
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm minimum 8 characters"
-          />
+        <Input
+          label="Confirm new password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Repeat your password"
+        />
 
-          <button
-            type="submit"
-            disabled={loading || !!success}
-            className="w-full mt-2 inline-flex items-center justify-center font-medium text-sm rounded-md h-9 px-4 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {loading ? (
-              <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse mr-2" aria-hidden="true" />
-            ) : null}
-            Update Password
-          </button>
-        </form>
-      </CardContent>
-
-      <CardFooter className="flex items-center justify-between pt-3 pb-5 border-t border-border/50 text-xs text-muted-foreground">
-        <Link
-          href="/forgot-password"
-          className="text-foreground hover:underline transition-colors underline underline-offset-2"
+        <Button
+          type="submit"
+          size="lg"
+          className="mt-2 w-full"
+          isLoading={loading}
+          disabled={!!success}
         >
+          Update password
+        </Button>
+      </form>
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <Link href="/forgot-password" className="hover:text-foreground hover:underline">
           Request new code
         </Link>
-
-        <Link
-          href="/login"
-          className="font-semibold text-foreground hover:underline underline-offset-4 inline-flex items-center gap-1 transition-colors"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+        <Link href="/login" className="font-medium text-foreground hover:underline">
+          Back to sign in
         </Link>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground font-mono">Loading password reset...</div>}>
+    <Suspense fallback={<div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

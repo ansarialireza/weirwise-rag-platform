@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/toast";
-import { ArrowRight, CheckCircle2, RotateCw, MailCheck } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 
 function VerifyEmailForm() {
   const searchParams = useSearchParams();
@@ -37,8 +36,8 @@ function VerifyEmailForm() {
     setLoading(true);
     try {
       const res = await api.verifyEmail({ email: email.trim(), otp: cleanOtp });
-      setSuccess(res.message || "Email verified successfully!");
-      toast({ message: "Account activated! You may now sign in.", type: "success" });
+      setSuccess(res.message || "Email verified.");
+      toast({ message: "Account activated. You can sign in now.", type: "success" });
       setTimeout(() => {
         router.push(`/login?email=${encodeURIComponent(email.trim())}`);
       }, 1500);
@@ -51,14 +50,14 @@ function VerifyEmailForm() {
 
   const handleResend = async () => {
     if (!email) {
-      setError("Please specify an email address to resend the code.");
+      setError("Please enter your email address to resend the code.");
       return;
     }
     setError(null);
     setResending(true);
     try {
       const res = await api.resendVerification({ email: email.trim() });
-      toast({ message: res.message || "A new verification code was dispatched.", type: "info" });
+      toast({ message: res.message || "A new verification code was sent.", type: "info" });
     } catch (err: any) {
       setError(err.message || "Failed to resend code.");
     } finally {
@@ -67,100 +66,75 @@ function VerifyEmailForm() {
   };
 
   return (
-    <Card className="border border-zinc-800 bg-zinc-950/20 rounded-md overflow-hidden transition-all">
-      <CardHeader className="pb-3 border-b border-zinc-800/80">
-        <CardTitle className="text-xl font-semibold tracking-tight text-white">
-          Verify Email
-        </CardTitle>
-      </CardHeader>
+    <div className="space-y-7">
+      <div>
+        <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Verify your email</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Enter the 6-digit code we sent to your inbox.
+        </p>
+      </div>
 
-      <CardContent className="space-y-4 pt-5">
-        {error && (
-          <Alert
-            type="destructive"
-            title="Verification Error"
-            message={error}
-          />
-        )}
+      {error && <Alert type="destructive" title="Verification failed" message={error} />}
 
-        {success && (
-          <div className="flex items-center gap-2.5 rounded-md border border-zinc-800 bg-zinc-900/30 p-3.5 text-xs text-zinc-300 animate-in fade-in">
-            <CheckCircle2 className="h-4 w-4 text-[#46C7D6] shrink-0" />
-            <span className="font-medium">{success} Redirecting to sign in...</span>
-          </div>
-        )}
+      {success && <Alert type="success" message={`${success} Redirecting to sign in…`} />}
 
-        <form onSubmit={handleVerify} className="space-y-4">
-          <Input
-            label="Account Email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="name@company.com"
-          />
+      <form onSubmit={handleVerify} className="space-y-4">
+        <Input
+          label="Email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="name@company.com"
+        />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-300 block">
-              6-Digit Security Code
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                required
-                maxLength={6}
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
-                placeholder="••••••"
-                className="w-full tracking-[0.5em] font-mono text-center text-xl font-bold rounded-md border border-zinc-800 bg-zinc-900/40 px-4 py-2.5 text-white placeholder:text-zinc-600 placeholder:tracking-normal placeholder:font-sans focus:outline-none focus:border-zinc-600 transition-all"
-              />
-            </div>
-            <p className="text-[11px] text-zinc-500 text-center font-mono">
-              Code expires in 15 minutes.
-            </p>
-          </div>
+        <Input
+          label="Security code"
+          type="text"
+          required
+          maxLength={6}
+          autoComplete="one-time-code"
+          inputMode="numeric"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="000000"
+          className="text-center font-mono text-lg tracking-[0.4em]"
+          hint="The code expires in 15 minutes."
+        />
 
-          <button
-            type="submit"
-            disabled={loading || !!success}
-            className="w-full mt-2 inline-flex items-center justify-center font-medium text-sm rounded-md h-9 px-4 bg-white text-black hover:bg-zinc-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {loading ? (
-              <span className="inline-block h-3.5 w-1.5 bg-[#46C7D6] animate-pulse mr-2" aria-hidden="true" />
-            ) : null}
-            Verify Account
-          </button>
-        </form>
-      </CardContent>
+        <Button
+          type="submit"
+          size="lg"
+          className="mt-2 w-full"
+          isLoading={loading}
+          disabled={!!success}
+        >
+          Verify account
+        </Button>
+      </form>
 
-      <CardFooter className="flex items-center justify-between pt-3 pb-5 border-t border-border/50 text-xs text-muted-foreground">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
         <button
           type="button"
           onClick={handleResend}
           disabled={resending || !!success}
-          className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 font-medium transition-colors hover:text-foreground disabled:opacity-50"
         >
-          <RotateCw className={`h-3 w-3 ${resending ? "animate-spin text-foreground" : ""}`} />
+          <RotateCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
           Resend code
         </button>
-
-        <Link
-          href="/login"
-          className="font-semibold text-foreground hover:underline underline-offset-4 transition-colors"
-        >
+        <Link href="/login" className="font-medium text-foreground hover:underline">
           Back to sign in
         </Link>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground font-mono">Loading verification...</div>}>
+    <Suspense fallback={<div className="py-8 text-center text-sm text-muted-foreground">Loading…</div>}>
       <VerifyEmailForm />
     </Suspense>
   );

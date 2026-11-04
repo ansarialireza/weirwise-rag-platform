@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     WEIRWISE_CORE_API_KEY: str = ""
     WEIRWISE_CORE_TIMEOUT_SECONDS: float = 30.0
 
+    # Voice (Deepgram) — key stays server-side behind the authenticated relay
+    DEEPGRAM_API_KEY: str | None = None
+    DEEPGRAM_STT_MODEL: str = "nova-3"
+    DEEPGRAM_TTS_MODEL: str = "aura-asteria-en"
+
     # Redis Cache & Queue
     REDIS_URL: str | None = None
 

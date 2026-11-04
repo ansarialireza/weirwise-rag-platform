@@ -1,99 +1,99 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
-import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
+import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { Shield, Sparkles } from "lucide-react";
+import { SignalFlow } from "@/components/brand/signal-flow";
+import { Check } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { dict } = useI18n();
+  const points = [dict.auth.point1, dict.auth.point2, dict.auth.point3];
+
   return (
-    <div className="min-h-screen w-full flex bg-background text-foreground selection:bg-[#46C7D6] selection:text-black font-sans transition-colors overflow-hidden">
-      {/* Desktop Branding Panel */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 xl:p-16 border-r border-zinc-800 bg-zinc-950/20 select-none overflow-hidden">
-        {/* Top Header: Logo */}
-        <div className="relative z-10 flex items-center justify-between">
-          <Link href="/" className="inline-flex items-center">
-            <WeirwiseWordmark className="w-36" priority />
+    <div className="flex min-h-screen w-full bg-background font-sans text-foreground">
+      <div className="flex w-full flex-col px-5 py-6 sm:px-8 lg:w-[54%] lg:px-12 lg:py-8">
+        <div className="flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <WeirwiseSymbol className="h-7 w-auto" priority />
+            <span className="text-[15px] font-semibold tracking-tight text-foreground">
+              {dict.common.brand}
+            </span>
           </Link>
-          <div className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-800 bg-zinc-900/40 px-2.5 py-1 text-xs font-mono text-zinc-400">
-            <Sparkles className="h-3.5 w-3.5 text-[#46C7D6]" />
-            <span>STUDIO</span>
-          </div>
+          <ThemeSwitcher />
         </div>
 
-        {/* Centerpiece Showcase */}
-        <div className="relative z-10 max-w-md space-y-6 my-auto py-10">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm border border-zinc-800 bg-zinc-900/40 text-xs font-mono text-zinc-400">
-            <span className="w-1.5 h-1.5 rounded-none bg-[#46C7D6]" />
-            <span>STRICT GROUNDING ARCHITECTURE</span>
-          </div>
+        <div className="flex flex-1 items-center justify-center py-10">
+          <div className="w-full max-w-sm">{children}</div>
+        </div>
 
-          <h2 className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-tight">
-            Autonomous assistants. <br />
-            <span className="text-zinc-500 font-normal">Grounded in verified data.</span>
+        <p className="mx-auto max-w-sm text-center text-xs leading-relaxed text-muted-foreground">
+          {dict.auth.agreePrefix}{" "}
+          <Link href="/" className="text-foreground underline underline-offset-4">
+            {dict.auth.terms}
+          </Link>{" "}
+          {dict.auth.and}{" "}
+          <Link href="/" className="text-foreground underline underline-offset-4">
+            {dict.auth.privacy}
+          </Link>
+          .
+        </p>
+      </div>
+
+      <aside className="relative hidden overflow-hidden bg-onyx lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 dot-grid opacity-[0.15]"
+        />
+
+        <div className="relative flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white">
+          <WeirwiseSymbol className="h-7 w-auto" priority />
+          {dict.common.brand}
+          <span className="ms-1 inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+            <span className="h-1 w-1 rounded-full bg-signal" />
+            Studio
+          </span>
+        </div>
+
+        <div className="relative my-auto max-w-md py-12">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-signal">
+            {dict.auth.panelEyebrow}
+          </p>
+          <h2 className="mt-4 text-[2rem] font-semibold leading-[1.15] tracking-tight text-white xl:text-4xl">
+            {dict.auth.panelTitle}
           </h2>
-
-          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-            Synthesize corporate documentation into precise, attributed answers with zero hallucination and strict cryptographic isolation.
+          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+            {dict.auth.panelSubtitle}
           </p>
 
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <div className="p-3.5 rounded-md border border-zinc-800 bg-zinc-900/20">
-              <span className="text-[10px] font-mono text-zinc-500 uppercase">INDEXING</span>
-              <p className="text-xs font-medium text-white mt-1">1536-dim vector recall</p>
-            </div>
-            <div className="p-3.5 rounded-md border border-zinc-800 bg-zinc-900/20">
-              <span className="text-[10px] font-mono text-[#46C7D6] uppercase">SECURITY</span>
-              <p className="text-xs font-medium text-white mt-1">Row-level isolation</p>
-            </div>
-          </div>
+          <ul className="mt-8 space-y-3">
+            {points.map((point) => (
+              <li key={point} className="flex items-start gap-3 text-sm text-zinc-300">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal/15 text-signal">
+                  <Check className="h-3 w-3" strokeWidth={3} />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+
+          <SignalFlow className="mt-12 max-w-sm opacity-60" variant="compact" />
         </div>
 
-        {/* Bottom Compliance Bar */}
-        <div className="relative z-10 flex items-center justify-between pt-6 border-t border-zinc-800 text-xs text-zinc-500 font-mono">
-          <div className="flex items-center gap-2">
-            <Shield className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-            <span>End-to-end encrypted</span>
-          </div>
-          <span>v0.1.0</span>
+        <div className="relative flex items-center gap-2 text-xs text-zinc-500">
+          <span className="h-1.5 w-1.5 rounded-full bg-signal" />
+          Private workspaces · Your data stays yours
         </div>
-      </div>
-
-      {/* Form Panel */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 relative overflow-y-auto">
-        {/* Mobile Header: Logo & Theme Switcher */}
-        <div className="flex items-center justify-between w-full max-w-sm mx-auto mb-6">
-          <Link href="/" className="lg:hidden inline-flex items-center">
-            <WeirwiseWordmark className="w-28" priority />
-          </Link>
-          <div className="ml-auto">
-            <ThemeSwitcher />
-          </div>
-        </div>
-
-        {/* Centered Auth Card Container */}
-        <div className="w-full max-w-sm mx-auto my-auto py-4">
-          {children}
-        </div>
-
-        {/* Legal Notice */}
-        <div className="w-full max-w-sm mx-auto pt-6 text-center text-xs text-zinc-500">
-          <p>
-            By continuing, you agree to our{" "}
-            <Link href="/" className="text-zinc-400 hover:text-white underline underline-offset-4 transition-colors">
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link href="/" className="text-zinc-400 hover:text-white underline underline-offset-4 transition-colors">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </div>
-      </div>
+      </aside>
     </div>
   );
 }

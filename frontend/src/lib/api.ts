@@ -598,6 +598,58 @@ class ApiClient {
     if (query.trim()) params.set("q", query.trim());
     return this.request<any[]>(`/admin/audit-logs?${params.toString()}`);
   }
+
+  // Voice (Deepgram). Audio is relayed by the API so the key never reaches the browser.
+  async getVoiceStatus(): Promise<{ available: boolean }> {
+    return this.request<{ available: boolean }>("/voice/status");
+  }
+
+  getVoiceStreamUrl(language?: string): string {
+    const root = API_BASE.startsWith("http")
+      ? API_BASE.replace(/^http/, "ws")
+      : `${
+          typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws"
+        }://${typeof window !== "undefined" ? window.location.host : "localhost"}${API_BASE}`;
+    const url = new URL(`${root}/voice/stream`);
+    if (language) url.searchParams.set("language", language.slice(0, 2).toLowerCase());
+    return url.toString();
+  }
+
+  getAccessToken(): string | null {
+    return this.token;
+  }
+
+  async synthesizeSpeech(text: string, voice?: string): Promise<Blob> {
+    const makeRequest = async () => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+      return fetch(`${API_BASE}/voice/speak`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ text, voice }),
+      });
+    };
+
+    let response = await makeRequest();
+    if (response.status === 401) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) response = await makeRequest();
+    }
+
+    if (!response.ok) {
+      let detail = "Could not generate speech.";
+      try {
+        const data = await response.json();
+        detail = data.detail || detail;
+      } catch {
+        // Ignore non-JSON error bodies
+      }
+      throw new ApiError(detail, response.status);
+    }
+
+    return response.blob();
+  }
 }
 
 export const api = new ApiClient();

@@ -3,16 +3,11 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { AppTopbar } from "@/components/layout/app-topbar";
 import { useAuth } from "@/lib/auth-context";
-import { Menu, Sliders } from "lucide-react";
-import Link from "next/link";
-import { BrutalistLoader } from "@/components/ui/brutalist-loader";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -21,12 +16,9 @@ export default function DashboardLayout({
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
+    if (!authLoading && !user) router.push("/login");
   }, [user, authLoading, router]);
 
-  // Handle ESC key to dismiss mobile drawer & restore focus to trigger
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && mobileMenuOpen) {
@@ -38,7 +30,6 @@ export default function DashboardLayout({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mobileMenuOpen]);
 
-  // Lock body scrolling when mobile drawer is open
   useEffect(() => {
     if (mobileMenuOpen) {
       document.body.style.overflow = "hidden";
@@ -51,104 +42,78 @@ export default function DashboardLayout({
     };
   }, [mobileMenuOpen]);
 
-  const handleCloseDrawer = () => {
-    setMobileMenuOpen(false);
-    menuTriggerRef.current?.focus();
+  const openSearch = () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
   };
 
   if (authLoading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <BrutalistLoader label="AUTHENTICATING" />
+      <div className="flex h-dvh w-full items-center justify-center bg-background">
+        <div className="w-full max-w-xs space-y-3 px-6">
+          <div className="flex items-center gap-2.5">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+        </div>
       </div>
     );
   }
 
+  if (!user) return null;
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background">
-      {/* Desktop Sidebar (Persistent left rail) */}
-      <div className="hidden md:flex shrink-0">
+    <div className="flex h-dvh w-full overflow-hidden bg-background">
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+
+      <div className="hidden shrink-0 md:flex">
         <Sidebar />
       </div>
 
-      {/* Mobile Drawer (Accessible Full-Viewport Modal Overlay) */}
       {mobileMenuOpen && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Navigation drawer"
+          aria-label="Navigation"
           className="fixed inset-0 z-50 flex md:hidden"
         >
-          {/* Backdrop covering entire viewport with subtle blur */}
           <div
-            data-testid="drawer-backdrop"
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-            onClick={handleCloseDrawer}
+            className="absolute inset-0 bg-onyx/50 backdrop-blur-[2px] animate-in"
+            onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
-
-          {/* Drawer Container */}
           <div
             ref={drawerRef}
             tabIndex={-1}
-            className="relative z-50 flex h-full w-[85vw] max-w-[300px] flex-col bg-card shadow-2xl outline-none animate-in slide-in-from-left duration-200 border-r border-border/40"
+            className="relative z-10 flex h-full w-[86vw] max-w-[300px] flex-col border-r border-border bg-card shadow-lift outline-none animate-in"
           >
             <Sidebar
-              onItemClick={handleCloseDrawer}
-              onClose={handleCloseDrawer}
-              isMobileDrawer={true}
+              onItemClick={() => setMobileMenuOpen(false)}
+              onClose={() => setMobileMenuOpen(false)}
+              isMobileDrawer
             />
           </div>
         </div>
       )}
 
-      {/* Main Content Area */}
       <div
-        className="flex flex-1 flex-col overflow-hidden min-w-0"
+        className="flex min-w-0 flex-1 flex-col overflow-hidden"
         aria-hidden={mobileMenuOpen ? true : undefined}
       >
-        {/* Mobile Header Bar: Clean & Minimalist */}
-        <header className="h-14 md:hidden grid grid-cols-[48px_1fr_48px] items-center border-b border-border/40 bg-background/80 backdrop-blur-md px-3 shrink-0 select-none z-10">
-          {/* Left Menu Trigger */}
-          <div className="flex items-center justify-start">
-            <button
-              ref={menuTriggerRef}
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors focus:outline-none"
-              aria-label="Open navigation menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-          </div>
+        <AppTopbar
+          onOpenMenu={() => {
+            setMobileMenuOpen(true);
+          }}
+          onOpenSearch={openSearch}
+        />
 
-          {/* Centered Context Title */}
-          <div className="flex items-center justify-center min-w-0 px-2 text-center">
-            <span
-              className="text-xs font-semibold tracking-tight text-foreground truncate"
-              title="Dashboard"
-            >
-              Weirwise Studio
-            </span>
+        <main id="main-content" className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-content px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+            {children}
           </div>
-
-          {/* Right Action / Playground Shortcut */}
-          <div className="flex items-center justify-end">
-            <Link
-              href="/playground"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900/60 text-zinc-300 hover:text-white hover:border-zinc-700 transition-colors focus:outline-none"
-              title="Open Playground"
-              aria-label="Open Playground"
-            >
-              <Sliders className="h-4 w-4" />
-            </Link>
-          </div>
-        </header>
-
-        {/* Scrollable Dashboard Body */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
         </main>
       </div>
     </div>

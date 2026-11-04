@@ -1,518 +1,835 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Assistant, KnowledgeSource, ChatMessage } from "@/types";
+import { Assistant, ChatMessage, CitationItem, KnowledgeSource } from "@/types";
 import {
-  Bot,
+  AlertCircle,
   ArrowUp,
-  FileText,
-  Sliders,
-  CheckCircle2,
-  RefreshCw,
-  Copy,
+  Bot,
   Check,
-  ChevronRight,
-  SlidersHorizontal,
+  Copy,
+  FileText,
+  Mic,
   Plus,
-  ArrowRight,
+  RefreshCw,
+  Search,
+  Settings2,
+  Sparkles,
+  Square,
+  Volume2,
+  VolumeX,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { CrystallineCursor } from "@/components/chat/crystalline-cursor";
-import { ScrambleText } from "@/components/chat/scramble-text";
-import { BrutalistLoader } from "@/components/ui/brutalist-loader";
+import { PageHeader } from "@/components/ui/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useVoiceInput } from "@/lib/use-voice-input";
+import { cn } from "@/lib/utils";
 
-export default function DedicatedPlaygroundPage() {
-  const params = useParams();
+function VoiceBars({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-end gap-0.5", className)} aria-hidden="true">
+      {[0, 1, 2, 3].map((bar) => (
+        <span
+          key={bar}
+          className="h-3 w-0.5 origin-bottom animate-voice-bar rounded-full bg-current"
+          style={{ animationDelay: `${bar * 0.12}s` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function SourceQuote({
+  source,
+  index,
+  onCopy,
+  copied,
+}: {
+  source: CitationItem;
+  index: number;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-foreground">
+          <FileText className="h-3 w-3 shrink-0 text-accent" />
+          <span className="truncate">{source.document_name || `Source ${index + 1}`}</span>
+        </span>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Copy quote"
+        >
+          {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
+        </button>
+      </div>
+      <p className="line-clamp-4 whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
+        {source.content}
+      </p>
+    </div>
+  );
+}
+
+function PlaygroundPage() {
   const searchParams = useSearchParams();
-
   const preselectedAssistantId = searchParams.get("assistantId");
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Playground conversation state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputQuery, setInputQuery] = useState("");
   const [chatting, setChatting] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
 
-  // Inspector Panel toggle
   const [showInspector, setShowInspector] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const [speakReplies, setSpeakReplies] = useState(false);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
 
-  const handleCopyEvidence = (text: string, idx: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(idx);
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+
+  const voice = useVoiceInput({
+    language: selectedAssistant?.language || "en",
+    onFinalTranscript: (text) => {
+      setInputQuery((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+      setVoiceHint("Transcript added. Press Enter to send.");
+      requestAnimationFrame(() => composerRef.current?.focus());
+    },
+  });
 
   useEffect(() => {
-    Promise.all([
-      api.getAssistants(),
-      api.getSources(),
-    ])
+    Promise.all([api.getAssistants(), api.getSources()])
       .then(([aList, sList]) => {
         setAssistants(aList);
         setSources(sList);
         if (aList.length > 0) {
           const found = preselectedAssistantId
-            ? aList.find((a) => a.id === preselectedAssistantId)
+            ? aList.find((assistant) => assistant.id === preselectedAssistantId)
             : aList[0];
           setSelectedAssistant(found || aList[0]);
         }
       })
-      .finally(() => {
-        setLoading(false);
-      });
+      .catch((err: any) => setLoadError(err.message || "Could not load the playground."))
+      .finally(() => setLoading(false));
   }, [preselectedAssistantId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    api
+      .getVoiceStatus()
+      .then((status) => setVoiceAvailable(status.available))
+      .catch(() => setVoiceAvailable(false));
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    setSpeakingId(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAudio();
+    };
+  }, [stopAudio]);
+
+  useEffect(() => {
+    if (messages.length || chatting) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [messages, chatting]);
 
   const handleSelectAssistant = (assistantId: string) => {
-    const found = assistants.find((a) => a.id === assistantId);
-    if (found) {
-      setSelectedAssistant(found);
-      setMessages([]);
-      setConversationId(undefined);
-    }
+    const found = assistants.find((assistant) => assistant.id === assistantId);
+    if (!found) return;
+    voice.cancel();
+    stopAudio();
+    setSelectedAssistant(found);
+    setMessages([]);
+    setConversationId(undefined);
+    setSendError(null);
+    setVoiceHint(null);
   };
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const query = (textToSend || inputQuery).trim();
+  const speak = useCallback(
+    async (text: string, messageId: string) => {
+      if (!voiceAvailable || !text.trim()) return;
+      stopAudio();
+      try {
+        const blob = await api.synthesizeSpeech(text);
+        const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        setSpeakingId(messageId);
+        audio.onended = () => stopAudio();
+        audio.onerror = () => stopAudio();
+        await audio.play();
+      } catch {
+        stopAudio();
+      }
+    },
+    [stopAudio, voiceAvailable]
+  );
+
+  const handleSendMessage = async (textOverride?: string) => {
+    const query = (textOverride ?? inputQuery).trim();
     if (!query || chatting || !selectedAssistant) return;
 
+    voice.cancel();
+    stopAudio();
     setInputQuery("");
+    setSendError(null);
+    setVoiceHint(null);
 
-    const userMsg: ChatMessage = {
-      id: Math.random().toString(),
+    const userMessage: ChatMessage = {
+      id: `local-${Date.now()}`,
       role: "user",
       content: query,
       created_at: new Date().toISOString(),
     };
-
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMessage]);
     setChatting(true);
 
     try {
-      const resp = await api.chatWithAssistant(
+      const response = await api.chatWithAssistant(
         selectedAssistant.id,
         query,
         conversationId
       );
+      setConversationId(response.conversation_id);
 
-      setConversationId(resp.conversation_id);
-
-      const assistantMsg: ChatMessage = {
-        id: resp.message_id,
+      const assistantMessage: ChatMessage = {
+        id: response.message_id,
         role: "assistant",
-        content: resp.content,
-        sources: resp.sources,
+        content: response.content,
+        sources: response.sources,
         created_at: new Date().toISOString(),
       };
+      setMessages((prev) => [...prev, assistantMessage]);
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      if (speakReplies && selectedAssistant.engine_mode !== "search_only") {
+        speak(response.content, response.message_id);
+      }
     } catch (err: any) {
-      const errorMsg: ChatMessage = {
-        id: Math.random().toString(),
-        role: "assistant",
-        content: `Error: ${err.message || "Unable to retrieve response from assistant."}`,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setSendError(err.message || "The assistant couldn't respond just now.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: "assistant",
+          content: "I couldn't reach the knowledge base just now. Please try again.",
+          created_at: new Date().toISOString(),
+        },
+      ]);
     } finally {
       setChatting(false);
     }
   };
 
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1600);
+  };
+
+  const clearConversation = () => {
+    voice.cancel();
+    stopAudio();
+    setMessages([]);
+    setConversationId(undefined);
+    setSendError(null);
+    setVoiceHint(null);
+  };
+
   if (loading) {
     return (
-      <div className="flex h-full min-h-[400px] items-center justify-center">
-        <BrutalistLoader label="INITIALIZING PLAYGROUND" />
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <Skeleton className="h-[520px]" />
       </div>
     );
   }
 
+  const hasAssistants = assistants.length > 0;
+  const isSearchMode = selectedAssistant?.engine_mode === "search_only";
+  const attachedSources = sources.filter((source) =>
+    selectedAssistant?.knowledge_source_ids?.includes(source.id)
+  );
+
   const promptSuggestions = [
     "What are our core operational guidelines?",
-    "Summarize key policies found in the uploaded documents",
+    "Summarize the key policies in our documents",
     "Explain our customer onboarding workflow",
   ];
 
-  const hasAssistants = assistants.length > 0;
+  const confidence =
+    (selectedAssistant?.score_threshold || 0.7) >= 0.85
+      ? "Very strict"
+      : (selectedAssistant?.score_threshold || 0.7) >= 0.7
+        ? "Balanced"
+        : "Flexible";
+  const contextDepth =
+    (selectedAssistant?.top_k || 4) <= 3 ? "Focused" : (selectedAssistant?.top_k || 4) <= 6 ? "Balanced" : "Broad";
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden relative">
-      {/* Top Header: Clean & Minimalist data-terminal bar */}
-      <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-4 sm:px-6 shrink-0 bg-zinc-950/80 backdrop-blur-md">
-        <div className="flex items-center gap-3 min-w-0">
-          {hasAssistants ? (
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-mono font-bold text-zinc-400 shrink-0 hidden sm:inline uppercase">Assistant:</span>
-              <div className="w-48 sm:w-60 shrink-0">
+    <div className="space-y-5">
+      <PageHeader
+        title="Playground"
+        description="Try the same assistant your customers will use — with the knowledge you attached."
+        actions={
+          hasAssistants ? (
+            <>
+              <div className="w-full sm:w-64">
                 <CustomSelect
                   value={selectedAssistant?.id || ""}
-                  onChange={(val) => handleSelectAssistant(val)}
-                  triggerClassName="h-8 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 px-2.5 text-xs font-semibold text-foreground"
-                  options={assistants.map((a) => ({
-                    value: a.id,
-                    label: a.name,
-                    description: `${a.engine_mode === "search_only" ? "Semantic Search" : "AI Answer"} • ${a.model}`,
+                  onChange={handleSelectAssistant}
+                  options={assistants.map((assistant) => ({
+                    value: assistant.id,
+                    label: assistant.name,
+                    description:
+                      assistant.engine_mode === "search_only" ? "Search only" : "AI answers",
                   }))}
                 />
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-zinc-400 uppercase hidden sm:inline">
-                {selectedAssistant?.engine_mode === "search_only" ? "Search Only" : "AI Answer"}
-              </span>
-            </div>
-          ) : (
-            <span className="text-xs font-mono font-bold text-zinc-400 uppercase tracking-wider">Playground Terminal</span>
-          )}
+              {messages.length > 0 && (
+                <Button variant="outline" size="sm" onClick={clearConversation} className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  New conversation
+                </Button>
+              )}
+            </>
+          ) : undefined
+        }
+      />
+
+      {loadError && <div className="rounded-xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">{loadError}</div>}
+
+      {!hasAssistants ? (
+        <div className="flex min-h-[420px] flex-col items-center justify-center rounded-xl border border-border bg-card px-6 text-center shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
+            <Bot className="h-6 w-6" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-foreground">No assistant to test yet</h2>
+          <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
+            Create an assistant and attach knowledge, then come back to try real questions.
+          </p>
+          <Link
+            href="/assistants"
+            className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Create assistant
+          </Link>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMessages([]);
-                setConversationId(undefined);
-              }}
-              className="rounded-md border border-transparent hover:border-zinc-800 h-8 px-2.5 text-xs font-medium text-zinc-400 hover:text-white gap-1.5 transition-colors"
-              title="Clear chat"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Clear</span>
-            </Button>
+      ) : (
+        <div
+          className={cn(
+            "grid items-start gap-4",
+            showInspector ? "lg:grid-cols-[minmax(0,1fr)_20rem]" : "grid-cols-1"
           )}
-
-          {selectedAssistant && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowInspector(!showInspector)}
-              className={`rounded-md border h-8 px-2.5 text-xs font-medium gap-1.5 transition-colors ${
-                showInspector
-                  ? "text-[#46C7D6] bg-zinc-900 border-zinc-700"
-                  : "text-zinc-400 hover:text-white border-transparent hover:border-zinc-800"
-              }`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Settings</span>
-            </Button>
-          )}
-        </div>
-      </header>
-
-      {/* Main Studio Area */}
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Chat Stream & Floating Input */}
-        <div className="flex flex-1 flex-col overflow-hidden relative">
-          {/* Scrollable Message List */}
-          <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 space-y-6 max-w-3xl w-full mx-auto pb-36">
-            {/* Case 1: No Assistant Configured in Project (Single focused hero action) */}
-            {!hasAssistants ? (
-              <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-5 px-4 animate-in fade-in duration-150">
-                <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
-                  <Bot className="h-6 w-6" />
+        >
+          <section className="flex min-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:h-[calc(100dvh-15rem)]">
+            {/* Chat header */}
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                  <Bot className="h-4 w-4" />
                 </div>
-                <div className="space-y-1.5 max-w-sm">
-                  <h2 className="text-lg sm:text-xl font-bold text-foreground">
-                    No assistant configured yet
-                  </h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Configure an assistant with your model and instructions to start testing grounded responses.
-                  </p>
-                </div>
-
-                {/* Single, Primary Centered Action Button with Solid Clean Styling */}
-                <Link href={`/assistants`} className="pt-1">
-                  <Button variant="primary" size="lg" className="rounded-md px-6 h-9 text-xs sm:text-sm font-bold gap-2 shadow-xs">
-                    <Plus className="h-4 w-4" /> Create Assistant
-                  </Button>
-                </Link>
-              </div>
-            ) : messages.length === 0 ? (
-              /* Case 2: Assistant Ready, Empty State with Clickable Prompt Chips */
-              <div className="flex flex-col items-center justify-center min-h-[55vh] text-center space-y-6 px-4 animate-in fade-in duration-150">
-                <div className="flex h-12 w-12 items-center justify-center rounded-sm border border-zinc-800 bg-zinc-900 text-[#46C7D6]">
-                  <Bot className="h-6 w-6" />
-                </div>
-                <div className="space-y-1.5">
-                  <h2 className="text-xl font-bold tracking-tight text-foreground">
-                    {selectedAssistant ? selectedAssistant.name : "Grounding Playground"}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-muted-foreground max-w-md">
-                    Ask questions grounded directly in your uploaded knowledge sources.
-                  </p>
-                </div>
-
-                {/* Prompt Suggestions with Tactile Hover Affordance */}
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 justify-center max-w-lg pt-2">
-                  {promptSuggestions.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => handleSendMessage(prompt)}
-                      className="group rounded-md bg-zinc-900/40 hover:bg-zinc-900 hover:border-zinc-700 active:scale-98 px-3.5 py-2 text-xs text-zinc-300 hover:text-white transition-all duration-150 border border-zinc-800 text-left sm:text-center flex items-center justify-between sm:justify-center gap-2 cursor-pointer"
-                    >
-                      <span>{prompt}</span>
-                      <ArrowRight className="h-3 w-3 text-zinc-500 group-hover:text-[#46C7D6] transition-colors shrink-0" />
-                    </button>
-                  ))}
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">
+                    {selectedAssistant?.name}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {isSearchMode ? "Shows matching passages" : "Writes answers with sources"}
+                  </div>
                 </div>
               </div>
-            ) : (
-              /* Case 3: Message Flow */
-              messages.map((msg, idx) => {
-                const isSearchOnly = selectedAssistant?.engine_mode === "search_only";
 
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${
-                      msg.role === "user" ? "items-end" : "items-start"
-                    } space-y-2`}
+              <div className="flex shrink-0 items-center gap-1.5">
+                {voiceAvailable && !isSearchMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSpeakReplies((enabled) => {
+                        if (enabled) stopAudio();
+                        return !enabled;
+                      });
+                    }}
+                    aria-pressed={speakReplies}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                      speakReplies
+                        ? "border-accent/40 bg-accent-soft text-accent"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    )}
+                    title={speakReplies ? "Spoken replies on" : "Spoken replies off"}
+                    aria-label={speakReplies ? "Turn spoken replies off" : "Turn spoken replies on"}
                   >
+                    {speakReplies ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowInspector((visible) => !visible)}
+                  aria-pressed={showInspector}
+                  aria-label={showInspector ? "Hide details" : "Show details"}
+                  className={cn(
+                    "flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors",
+                    showInspector
+                      ? "border-accent/40 bg-accent-soft text-accent"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Details</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div
+              className="flex-1 space-y-5 overflow-y-auto px-4 py-6 sm:px-6"
+              role="log"
+              aria-live="polite"
+              aria-label="Conversation"
+            >
+              {messages.length === 0 ? (
+                <div className="flex h-full min-h-[340px] flex-col items-center justify-center px-2 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+                    {isSearchMode ? <Search className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+                  </div>
+                  <h2 className="mt-4 text-xl font-semibold tracking-tight text-foreground">
+                    Ask {selectedAssistant?.name} anything
+                  </h2>
+                  <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                    {isSearchMode
+                      ? "You'll see the exact passages that match your question."
+                      : "Answers come only from your knowledge, with the source beside them."}
+                  </p>
+
+                  <div className="mt-6 flex w-full max-w-lg flex-col gap-2">
+                    {promptSuggestions.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => handleSendMessage(prompt)}
+                        className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5 text-start text-[13px] text-foreground transition-colors hover:border-muted-foreground/30 hover:bg-card"
+                      >
+                        <span>{prompt}</span>
+                        <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-muted-foreground transition-colors group-hover:text-accent" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((message) => {
+                  const isUser = message.role === "user";
+                  const messageSources = message.sources || [];
+
+                  return (
                     <div
-                      className={`max-w-2xl text-sm leading-relaxed ${
-                        msg.role === "user"
-                          ? "bg-white text-black font-medium rounded-md px-4 py-2.5"
-                          : isSearchOnly
-                          ? "bg-zinc-950/40 border border-zinc-800 text-zinc-200 rounded-md p-4 w-full"
-                          : "bg-zinc-900/30 border border-zinc-800/80 text-zinc-200 rounded-md px-4 py-3"
-                      }`}
+                      key={message.id}
+                      className={cn("flex flex-col gap-2", isUser ? "items-end" : "items-start")}
                     >
-                      {/* For Search Only mode, display prominent search summary header */}
-                      {msg.role === "assistant" && isSearchOnly ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between pb-2 border-b border-border/30">
-                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Vector Similarity Results
+                      {isUser ? (
+                        <div className="max-w-[85%] rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                          {message.content}
+                        </div>
+                      ) : isSearchMode ? (
+                        <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background p-4">
+                          <div className="mb-3 flex items-center justify-between gap-3 border-b border-border/60 pb-2.5">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
+                              <Search className="h-3.5 w-3.5 text-accent" />
+                              Matching passages
                             </span>
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm border border-zinc-800 bg-zinc-900/40 text-zinc-400">
-                              {msg.sources?.length || 0} Chunks Matched
+                            <span className="text-[11px] tabular-nums text-muted-foreground">
+                              {messageSources.length} found
                             </span>
                           </div>
-
-                          {msg.sources && msg.sources.length > 0 ? (
-                            <div className="space-y-3">
-                              {msg.sources.map((s, idx) => (
-                                <div
-                                  key={idx}
-                                  className="rounded-md bg-zinc-900/60 p-3.5 text-xs border border-zinc-800 space-y-2"
-                                >
-                                  <div className="flex justify-between items-center text-foreground font-medium">
-                                    <span className="text-xs font-semibold">Passage #{s.rank || idx + 1}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-mono font-bold text-[#46C7D6]">
-                                        {(s.similarity_score * 100).toFixed(1)}% match
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCopyEvidence(s.content, idx)}
-                                        className="p-1 rounded-sm hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                                        title="Copy chunk text"
-                                      >
-                                        {copiedIndex === idx ? (
-                                          <Check className="h-3 w-3 text-white" />
-                                        ) : (
-                                          <Copy className="h-3 w-3" />
-                                        )}
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <p className="text-[12px] text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                                    {s.content}
-                                  </p>
-                                </div>
+                          {messageSources.length > 0 ? (
+                            <div className="space-y-2">
+                              {messageSources.map((source, index) => (
+                                <SourceQuote
+                                  key={`${message.id}-${index}`}
+                                  source={source}
+                                  index={index}
+                                  copied={copiedKey === `${message.id}-${index}`}
+                                  onCopy={() => handleCopy(source.content, `${message.id}-${index}`)}
+                                />
                               ))}
                             </div>
                           ) : (
-                            <p className="text-xs text-muted-foreground">No document chunks exceeded the cutoff threshold.</p>
+                            <p className="py-4 text-center text-[13px] text-muted-foreground">
+                              No passages matched. Try different words or add more knowledge.
+                            </p>
                           )}
                         </div>
                       ) : (
-                        /* Standard AI Answer mode */
-                        <>
-                          <div className="whitespace-pre-wrap leading-relaxed">
-                            {idx === messages.length - 1 ? (
-                              <ScrambleText text={msg.content} />
-                            ) : (
-                              msg.content
-                            )}
+                        <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background">
+                          <div className="whitespace-pre-wrap px-4 py-3.5 text-sm leading-relaxed text-foreground">
+                            {message.content}
                           </div>
 
-                          {/* Citations Box (Minimalist cards) */}
-                          {msg.sources && msg.sources.length > 0 && (
-                            <div className="mt-4 pt-3 border-t border-border/40 space-y-2.5">
-                              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Grounded Evidence ({msg.sources.length})
-                              </span>
-                              <div className="space-y-2">
-                                {msg.sources.map((s, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="rounded-md bg-zinc-900/60 p-3 text-xs border border-zinc-800 text-zinc-300"
-                                  >
-                                    <div className="flex justify-between items-center text-foreground font-medium mb-1">
-                                      <span className="text-[11px] font-mono">Chunk #{s.rank || idx + 1}</span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[11px] font-mono text-[#46C7D6] font-bold">
-                                          {(s.similarity_score * 100).toFixed(1)}% match
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleCopyEvidence(s.content, idx)}
-                                          className="p-1 rounded-sm hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                                          title="Copy quote"
-                                        >
-                                          {copiedIndex === idx ? (
-                                            <Check className="h-3 w-3 text-white" />
-                                          ) : (
-                                            <Copy className="h-3 w-3" />
-                                          )}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <p className="text-[12px] text-zinc-300 leading-relaxed italic line-clamp-3">
-                                      &quot;{s.content}&quot;
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
+                          {messageSources.length > 0 && (
+                            <div className="border-t border-border/60 px-4 py-3">
+                              <details className="group">
+                                <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-medium text-muted-foreground">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-accent" />
+                                    {messageSources.length} source
+                                    {messageSources.length === 1 ? "" : "s"}
+                                  </span>
+                                  <span className="transition-transform group-open:rotate-180">▾</span>
+                                </summary>
+                                <div className="mt-2 space-y-2">
+                                  {messageSources.map((source, index) => (
+                                    <SourceQuote
+                                      key={`${message.id}-${index}`}
+                                      source={source}
+                                      index={index}
+                                      copied={copiedKey === `${message.id}-${index}`}
+                                      onCopy={() => handleCopy(source.content, `${message.id}-${index}`)}
+                                    />
+                                  ))}
+                                </div>
+                              </details>
                             </div>
                           )}
-                        </>
+
+                          <div className="flex items-center justify-end gap-1 border-t border-border/60 px-3 py-1.5">
+                            {voiceAvailable && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  speakingId === message.id
+                                    ? stopAudio()
+                                    : speak(message.content, message.id)
+                                }
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                aria-label={speakingId === message.id ? "Stop reading" : "Read aloud"}
+                                title={speakingId === message.id ? "Stop" : "Read aloud"}
+                              >
+                                {speakingId === message.id ? (
+                                  <Square className="h-3 w-3" />
+                                ) : (
+                                  <Volume2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(message.content, message.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              aria-label="Copy answer"
+                            >
+                              {copiedKey === message.id ? (
+                                <Check className="h-3.5 w-3.5 text-success" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })
+              )}
 
-            {/* Chatting Loading indicator */}
-            {chatting && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
-                <span className="font-mono text-xs text-foreground/80">Synthesizing ground truth</span>
-                <CrystallineCursor />
-              </div>
-            )}
+              {chatting && (
+                <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  </span>
+                  Reading your knowledge…
+                </div>
+              )}
 
-            <div ref={messagesEndRef} />
-          </div>
+              <div ref={messagesEndRef} />
+            </div>
 
-          {/* Floating Pill Prompt Input Bar pinned at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background via-background/95 to-transparent pt-8">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage();
-              }}
-              className={`max-w-3xl mx-auto flex items-center bg-zinc-950/90 backdrop-blur-xl border border-zinc-800 rounded-md shadow-lg p-1.5 transition-all ${
-                !hasAssistants ? "opacity-50 cursor-not-allowed" : "focus-within:border-zinc-700"
-              }`}
-            >
-              <input
-                type="text"
-                value={inputQuery}
-                disabled={chatting || !hasAssistants}
-                onChange={(e) => setInputQuery(e.target.value)}
-                placeholder={
-                  hasAssistants && selectedAssistant
-                    ? `Message ${selectedAssistant.name}...`
-                    : "Configure an assistant first to start chatting..."
-                }
-                className="flex-1 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed"
-              />
+            {/* Composer */}
+            <div className="border-t border-border/70 bg-card p-3 sm:p-4">
+              {sendError && (
+                <div className="mb-2 flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{sendError}</span>
+                </div>
+              )}
 
-              {/* Only render send button when assistant exists */}
-              {hasAssistants && (
+              {voice.error && (
+                <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-[12px] text-warning">
+                  <span className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {voice.error}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={voice.clearError}
+                    className="rounded p-0.5 hover:bg-warning/10"
+                    aria-label="Dismiss voice error"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {voice.isActive && (
+                <div
+                  className={cn(
+                    "mb-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[12px]",
+                    voice.status === "listening"
+                      ? "border-signal/40 bg-signal/10 text-foreground"
+                      : "border-border bg-background text-muted-foreground"
+                  )}
+                  aria-live="polite"
+                >
+                  {voice.status === "listening" ? (
+                    <VoiceBars className="text-foreground" />
+                  ) : (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">
+                    {voice.status === "requesting"
+                      ? "Connecting microphone…"
+                      : voice.status === "processing"
+                        ? "Finishing transcript…"
+                        : voice.interim || "Listening… speak naturally"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={voice.cancel}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label="Cancel voice input"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {voiceHint && !voice.isActive && (
+                <div className="mb-2 text-[11px] text-muted-foreground" aria-live="polite">
+                  {voiceHint}
+                </div>
+              )}
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleSendMessage();
+                }}
+                className={cn(
+                  "flex items-end gap-2 rounded-xl border border-border bg-background p-1.5 transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/15",
+                  !selectedAssistant && "opacity-60"
+                )}
+              >
+                <textarea
+                  ref={composerRef}
+                  rows={1}
+                  value={inputQuery}
+                  disabled={chatting || voice.isActive}
+                  onChange={(event) => setInputQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder={
+                    selectedAssistant
+                      ? `Message ${selectedAssistant.name}…`
+                      : "Choose an assistant to start"
+                  }
+                  aria-label="Message"
+                  className="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:outline-none disabled:cursor-not-allowed"
+                />
+
+                {voice.supported && voiceAvailable && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (voice.status === "listening") {
+                        voice.stop();
+                      } else if (voice.status === "idle" || voice.status === "error") {
+                        setVoiceHint(null);
+                        voice.start();
+                      }
+                    }}
+                    disabled={chatting || voice.status === "requesting" || voice.status === "processing"}
+                    aria-label={
+                      voice.status === "listening"
+                        ? "Stop recording"
+                        : "Start voice input"
+                    }
+                    title={voice.status === "listening" ? "Stop and transcribe" : "Speak instead of typing"}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
+                      voice.status === "listening"
+                        ? "border-signal bg-signal text-signal-foreground"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {voice.status === "requesting" || voice.status === "processing" ? (
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                    ) : voice.status === "listening" ? (
+                      <Square className="h-3.5 w-3.5" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="submit"
-                  disabled={!inputQuery.trim() || chatting}
-                  className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-black disabled:opacity-30 disabled:pointer-events-none hover:bg-zinc-200 active:scale-95 transition-all shrink-0 mr-1"
+                  disabled={!inputQuery.trim() || chatting || voice.isActive}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-30"
                   aria-label="Send message"
                 >
                   <ArrowUp className="h-4 w-4" />
                 </button>
-              )}
-            </form>
-          </div>
-        </div>
+              </form>
 
-        {/* Right Parameters Drawer/Inspector */}
-        {showInspector && selectedAssistant && (
-          <aside className="w-72 border-l border-zinc-800 bg-zinc-950/80 backdrop-blur-md p-5 overflow-y-auto space-y-5 animate-in slide-in-from-right-10 duration-150">
-            <div>
-              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                Assistant Settings
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Inference configuration and thresholds
-              </p>
-            </div>
-
-            <div className="space-y-3 rounded-md bg-zinc-900/60 border border-zinc-800 p-4 text-xs">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Model</span>
-                <span className="font-semibold text-foreground font-mono">{selectedAssistant.model}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Temperature</span>
-                <span className="font-semibold text-foreground font-mono">{selectedAssistant.temperature}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Cutoff</span>
-                <span className="font-semibold text-foreground font-mono">{selectedAssistant.score_threshold}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Top K</span>
-                <span className="font-semibold text-foreground font-mono">{selectedAssistant.top_k}</span>
+              <div className="mt-1.5 flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+                <span className="hidden sm:inline">Enter to send · Shift+Enter for a new line</span>
+                <span className="sm:hidden">Tap the arrow to send</span>
+                {attachedSources.length > 0 && (
+                  <span className="tabular-nums">
+                    {attachedSources.length} source{attachedSources.length === 1 ? "" : "s"} connected
+                  </span>
+                )}
               </div>
             </div>
+          </section>
 
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-foreground">Instructions</span>
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3 text-xs text-zinc-300 line-clamp-6 leading-relaxed font-mono">
-                {selectedAssistant.system_instructions || "Default assistant instructions."}
+          {/* Inspector */}
+          {showInspector && selectedAssistant && (
+            <aside className="space-y-4 self-start rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Assistant details</h2>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">What this test uses</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowInspector(false)}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+                  aria-label="Close details"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-            </div>
 
-            <div className="space-y-2 pt-2 border-t border-zinc-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-foreground">Indexed Sources</span>
-                <span className="text-xs font-mono text-muted-foreground">{sources.length}</span>
-              </div>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {sources.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2 rounded-md border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-xs">
-                    <FileText className="h-3.5 w-3.5 text-[#46C7D6] shrink-0" />
-                    <span className="truncate text-foreground font-medium">{s.name}</span>
+              <div className="space-y-2.5 rounded-xl border border-border bg-background/60 p-3.5 text-[13px]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Mode</span>
+                  <span className="font-medium text-foreground">
+                    {isSearchMode ? "Search only" : "AI answers"}
+                  </span>
+                </div>
+                {!isSearchMode && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Model</span>
+                    <span className="font-medium text-foreground">{selectedAssistant.model}</span>
                   </div>
-                ))}
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Answer confidence</span>
+                  <span className="font-medium text-foreground">{confidence}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Context depth</span>
+                  <span className="font-medium text-foreground">{contextDepth}</span>
+                </div>
               </div>
-            </div>
 
-            <div className="pt-2">
-              <Link href={`/assistants/${selectedAssistant.id}`}>
-                <Button variant="outline" size="sm" className="w-full rounded-md text-xs font-medium border-zinc-800 hover:border-zinc-700">
-                  Full Configuration &rarr;
-                </Button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-medium text-foreground">Knowledge attached</span>
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {attachedSources.length}
+                  </span>
+                </div>
+                {attachedSources.length > 0 ? (
+                  <div className="max-h-44 space-y-1.5 overflow-y-auto">
+                    {attachedSources.map((source) => (
+                      <div
+                        key={source.id}
+                        className="flex items-center gap-2 rounded-lg border border-border/70 bg-background px-2.5 py-2 text-[12px]"
+                      >
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-accent" />
+                        <span className="truncate text-foreground">{source.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[12px] text-muted-foreground">
+                    No knowledge attached yet.
+                  </p>
+                )}
+              </div>
+
+              {selectedAssistant.system_instructions && (
+                <div className="space-y-1.5">
+                  <span className="text-[13px] font-medium text-foreground">Instructions</span>
+                  <p className="line-clamp-6 rounded-lg border border-border/70 bg-background p-2.5 text-[12px] leading-relaxed text-muted-foreground">
+                    {selectedAssistant.system_instructions}
+                  </p>
+                </div>
+              )}
+
+              <Link
+                href={`/assistants/${selectedAssistant.id}`}
+                className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted/70"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Open full settings
               </Link>
-            </div>
-          </aside>
-        )}
-      </div>
+            </aside>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function DedicatedPlaygroundPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-[520px]" />
+        </div>
+      }
+    >
+      <PlaygroundPage />
+    </Suspense>
   );
 }

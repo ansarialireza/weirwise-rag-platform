@@ -1,4 +1,6 @@
 import React from "react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
@@ -19,40 +21,41 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div className={cn("space-y-2 border-b border-border/60 pb-5 mb-6", className)}>
+    <header className={cn("mb-6 space-y-3 sm:mb-8", className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1" aria-label="Breadcrumb">
+        <nav
+          className="flex items-center gap-1 text-xs text-muted-foreground"
+          aria-label="Breadcrumb"
+        >
           {breadcrumbs.map((crumb, idx) => (
-            <React.Fragment key={idx}>
-              {idx > 0 && <span className="text-border">/</span>}
+            <React.Fragment key={`${crumb.label}-${idx}`}>
+              {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-border" aria-hidden="true" />}
               {crumb.href ? (
-                <a href={crumb.href} className="hover:text-foreground transition-colors">
+                <Link href={crumb.href} className="transition-colors hover:text-foreground">
                   {crumb.label}
-                </a>
+                </Link>
               ) : (
-                <span className="text-foreground font-medium">{crumb.label}</span>
+                <span className="font-medium text-foreground">{crumb.label}</span>
               )}
             </React.Fragment>
           ))}
         </nav>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[28px]">
               {title}
             </h1>
             {badge}
           </div>
           {description && (
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-              {description}
-            </p>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{description}</p>
           )}
         </div>
-        {actions && <div className="flex items-center gap-2.5 shrink-0">{actions}</div>}
+        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </div>
-    </div>
+    </header>
   );
 }

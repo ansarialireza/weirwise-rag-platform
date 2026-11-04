@@ -1,6 +1,6 @@
-import React, { useEffect } from "react";
-import { cn } from "@/lib/utils";
+import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ModalProps {
   isOpen: boolean;
@@ -11,79 +11,77 @@ interface ModalProps {
   maxWidth?: "sm" | "md" | "lg" | "xl";
 }
 
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  description,
-  children,
-  maxWidth = "md",
-}: ModalProps) {
+export function Modal({ isOpen, onClose, title, description, children, maxWidth = "md" }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") onClose();
-      };
-      window.addEventListener("keydown", handleKeyDown);
-      return () => {
-        document.body.style.overflow = "";
-        window.removeEventListener("keydown", handleKeyDown);
-      };
-    }
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key !== "Tab" || !panelRef.current) return;
+
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+      previous?.focus();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const maxWidths = {
-    sm: "max-w-sm",
-    md: "max-w-md",
-    lg: "max-w-lg",
-    xl: "max-w-xl",
-  };
+  const maxWidths = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl" };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
+      aria-label={title || "Dialog"}
     >
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
       <div
-        className="fixed inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
+        ref={panelRef}
+        tabIndex={-1}
         className={cn(
-          "relative w-full rounded-xl border border-zinc-800 bg-[#0c0d10] text-foreground shadow-2xl z-10 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150",
+          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card text-foreground shadow-lift outline-none animate-in sm:rounded-xl",
           maxWidths[maxWidth]
         )}
       >
-        {(title || description) && (
-          <div className="flex items-start justify-between border-b border-zinc-800/80 px-6 sm:px-8 py-5 shrink-0">
-            <div>
-              {title && (
-                <h3 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">
-                  {title}
-                </h3>
-              )}
-              {description && (
-                <p className="text-xs text-zinc-400 mt-1">
-                  {description}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800/60 hover:text-foreground transition-colors"
-              aria-label="Close dialog"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            {title && <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>}
+            {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
           </div>
-        )}
-        <div className="p-6 sm:p-8 overflow-y-auto flex-1">{children}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Close dialog"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6">{children}</div>
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface CustomSelectOption {
   value: string;
@@ -38,23 +38,16 @@ export function CustomSelect({
 
   const selectedOption = options.find((opt) => opt.value === value);
 
-  // Close on outside click
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleOutsideClick);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
+    if (isOpen) document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [isOpen]);
 
-  // Handle ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isOpen) {
@@ -62,23 +55,14 @@ export function CustomSelect({
         triggerRef.current?.focus();
       }
     };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    if (isOpen) window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
   return (
     <div className={cn("relative w-full space-y-1.5", className)} ref={containerRef}>
-      {label && (
-        <label className="block text-xs font-semibold text-foreground">
-          {label}
-        </label>
-      )}
+      {label && <label className="block text-[13px] font-medium text-foreground">{label}</label>}
 
-      {/* Custom Trigger */}
       <button
         ref={triggerRef}
         type="button"
@@ -87,65 +71,57 @@ export function CustomSelect({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         className={cn(
-          "w-full flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/40 px-3.5 py-2.5 text-xs sm:text-sm text-foreground transition-all duration-150 focus:outline-none focus:ring-1 focus:ring-white/20 focus:border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed",
-          isOpen && "border-zinc-600 ring-1 ring-white/20",
+          "flex h-10 w-full items-center justify-between rounded-lg border border-border bg-input px-3.5 text-sm text-foreground shadow-sm transition-colors hover:border-muted-foreground/35 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50",
+          isOpen && "border-accent",
           triggerClassName
         )}
       >
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex min-w-0 items-center gap-2.5">
           {selectedOption?.icon && (
-            <span className="text-zinc-400 shrink-0">{selectedOption.icon}</span>
+            <span className="shrink-0 text-muted-foreground">{selectedOption.icon}</span>
           )}
-          <span className={cn("truncate font-normal", !selectedOption && "text-zinc-500")}>
+          <span className={cn("truncate font-normal", !selectedOption && "text-muted-foreground/70")}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </div>
         <ChevronDown
           className={cn(
-            "h-4 w-4 text-zinc-500 transition-transform duration-200 shrink-0 ml-2",
+            "ms-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
             isOpen && "rotate-180 text-foreground"
           )}
+          aria-hidden="true"
         />
       </button>
 
-      {/* Custom Popover / Bottom Sheet Modal on mobile */}
       {isOpen && (
         <>
-          {/* Mobile backdrop for bottom-sheet feel */}
           <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs sm:hidden animate-in fade-in duration-150"
+            className="fixed inset-0 z-50 bg-onyx/40 animate-in sm:hidden"
             onClick={() => setIsOpen(false)}
             aria-hidden="true"
           />
 
-          {/* Desktop Dropdown & Mobile Bottom Sheet */}
           <div
             role="listbox"
-            className={cn(
-              "z-50 bg-[#0c0d10] text-foreground border border-zinc-800 shadow-2xl transition-all duration-150 select-none overflow-hidden",
-              // Mobile: Slide-up bottom sheet
-              "fixed inset-x-3 bottom-4 sm:inset-x-auto sm:bottom-auto rounded-md p-2 max-h-[60vh] sm:max-h-60 overflow-y-auto animate-in slide-in-from-bottom-5 duration-200",
-              // Desktop: Standard anchored popover
-              "sm:absolute sm:top-full sm:left-0 sm:right-0 sm:mt-1.5 sm:rounded-md sm:p-1 sm:animate-in sm:fade-in-50 sm:zoom-in-95"
-            )}
+            className="fixed inset-x-3 bottom-4 z-50 max-h-[60vh] select-none overflow-y-auto rounded-xl border border-border bg-popover p-2 text-foreground shadow-lift animate-in sm:absolute sm:inset-x-0 sm:bottom-auto sm:top-full sm:mt-1.5 sm:max-h-64 sm:p-1.5"
           >
-            {/* Mobile Sheet Drag Handle indicator */}
-            <div className="flex justify-center pb-2 pt-1 sm:hidden">
-              <div className="h-1 w-10 rounded-sm bg-zinc-700" />
+            <div className="mb-2 flex justify-center pb-1 pt-0.5 sm:hidden">
+              <div className="h-1 w-10 rounded-full bg-border" />
             </div>
 
             {label && (
-              <div className="px-3 py-1.5 text-[10px] font-mono tracking-wider text-zinc-400 sm:hidden">
+              <div className="px-3 py-1.5 text-[11px] font-medium text-muted-foreground sm:hidden">
                 {label}
               </div>
             )}
 
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {options.map((opt) => {
                 const isSelected = opt.value === value;
                 return (
-                  <div
+                  <button
                     key={opt.value}
+                    type="button"
                     role="option"
                     aria-selected={isSelected}
                     onClick={() => {
@@ -154,31 +130,29 @@ export function CustomSelect({
                       triggerRef.current?.focus();
                     }}
                     className={cn(
-                      "flex items-center justify-between rounded-md px-3 py-2 text-xs cursor-pointer transition-colors",
+                      "flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors sm:py-2",
                       isSelected
-                        ? "bg-zinc-800/80 text-white font-medium"
-                        : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                        ? "bg-accent-soft font-medium text-foreground"
+                        : "text-foreground hover:bg-muted"
                     )}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       {opt.icon && (
-                        <span className={cn("shrink-0", isSelected ? "text-white" : "text-zinc-400")}>
+                        <span className={cn("shrink-0", isSelected ? "text-accent" : "text-muted-foreground")}>
                           {opt.icon}
                         </span>
                       )}
-                      <div className="flex flex-col truncate">
+                      <div className="flex min-w-0 flex-col">
                         <span className="truncate">{opt.label}</span>
                         {opt.description && (
-                          <span className="text-[11px] text-zinc-500 font-normal truncate">
+                          <span className="truncate text-[11px] font-normal text-muted-foreground">
                             {opt.description}
                           </span>
                         )}
                       </div>
                     </div>
-                    {isSelected && (
-                      <Check className="h-3.5 w-3.5 text-white shrink-0 ml-2" />
-                    )}
-                  </div>
+                    {isSelected && <Check className="ms-2 h-4 w-4 shrink-0 text-accent" />}
+                  </button>
                 );
               })}
             </div>

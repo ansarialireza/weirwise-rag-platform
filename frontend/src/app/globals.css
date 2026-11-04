@@ -3,126 +3,271 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark Theme (Default) - graphite, silver, white, and cyan */
+  /*
+   * Weirwise design tokens.
+   * Signal = Electric Lime, interactive = Electric Blue, depth = Onyx,
+   * and a calm canvas as the default surface.
+   */
   :root,
-  .dark {
-    --background: 240 10% 4%;        /* #090A0C */
-    --foreground: 0 0% 98%;           /* #FAFAFA (high-contrast AAA text) */
-    --card: 240 12% 7%;               /* #101217 */
-    --card-foreground: 0 0% 98%;
-    --popover: 240 12% 7%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;              /* Clean solid primary white for dark backgrounds */
-    --primary-foreground: 240 10% 4%; /* Crisp dark text on primary button */
-    --brand-secondary: 187 62% 57%;   /* #46C7D6 Cyan */
-    --brand-secondary-foreground: 0 0% 100%;
-    --secondary: 220 18% 16%;         /* #222731 */
-    --secondary-foreground: 0 0% 94%;
-    --muted: 225 15% 12%;             /* #171A22 */
-    --muted-foreground: 220 15% 69%;  /* #A3ACBD (>8.2:1 WCAG AAA) */
-    --accent: 187 62% 57%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 4 90% 58%;         /* #FF453A */
-    --destructive-foreground: 0 0% 100%;
-    --border: 222 18% 22%;            /* #2E3444 */
-    --input: 220 16% 14%;             /* #1D212A */
-    --ring: 0 0% 98%;
-    --radius: 0.5rem;
-    --brand-glow: rgba(255, 255, 255, 0.08);
-    --brand-glow-secondary: rgba(70, 199, 214, 0.14);
-  }
-
-  /* Light Theme - white, silver, graphite, and accessible cyan */
   .light {
-    --background: 220 14% 96%;        /* #F3F4F6 */
-    --foreground: 240 10% 4%;         /* #090A0C Onyx */
-    --card: 0 0% 100%;                /* #FFFFFF */
-    --card-foreground: 240 10% 4%;
+    --background: 220 14% 96%;        /* #F3F4F6 Light Canvas */
+    --foreground: 225 20% 5%;         /* #0A0B0D Onyx */
+    --card: 0 0% 100%;
+    --card-foreground: 225 20% 5%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 240 10% 4%;            /* #090A0C Onyx solid */
-    --primary-foreground: 0 0% 98%;   /* White text on dark button */
-    --brand-secondary: 190 100% 28%;  /* #007E91 */
-    --brand-secondary-foreground: 0 0% 100%;
-    --secondary: 220 13% 91%;         /* #E2E8F0 */
-    --secondary-foreground: 240 10% 4%;
-    --muted: 220 14% 92%;             /* #E5E7EB */
-    --muted-foreground: 215 16% 37%;  /* #505D6E (>7:1) */
-    --accent: 190 100% 28%;
+    --popover-foreground: 225 20% 5%;
+    --primary: 225 22% 6%;            /* Onyx action */
+    --primary-foreground: 0 0% 100%;
+    --signal: 72 100% 50%;            /* #CCFF00 Electric Lime */
+    --signal-foreground: 72 100% 5%;
+    --accent: 223 100% 57%;           /* #2563FF Electric Blue */
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 56%;         /* #DC2626 */
+    --accent-soft: 223 100% 96%;
+    --secondary: 220 16% 93%;
+    --secondary-foreground: 225 20% 8%;
+    --muted: 220 16% 94%;
+    --muted-foreground: 220 9% 38%;   /* #5B6170, AA on canvas */
+    --destructive: 0 72% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 84%;            /* #C5D0DE */
-    --input: 220 14% 94%;             /* #EFF1F5 */
-    --ring: 240 10% 4%;
-    --radius: 0.5rem;
-    --brand-glow: rgba(9, 10, 12, 0.08);
-    --brand-glow-secondary: rgba(0, 126, 145, 0.12);
+    --success: 152 58% 33%;
+    --warning: 36 92% 38%;
+    --info: 223 100% 52%;
+    --border: 220 14% 88%;
+    --input: 0 0% 100%;
+    --ring: 223 100% 57%;
+    --brand-secondary: 223 100% 57%;
+    --brand-secondary-foreground: 0 0% 100%;
+    --radius: 0.75rem;
+    --brand-glow: rgba(37, 99, 255, 0.12);
+    --brand-glow-secondary: rgba(204, 255, 0, 0.22);
+    --shadow-soft: 0 1px 2px rgba(10, 11, 13, 0.04), 0 8px 24px -18px rgba(10, 11, 13, 0.28);
+    --shadow-lift: 0 2px 4px rgba(10, 11, 13, 0.05), 0 18px 44px -22px rgba(10, 11, 13, 0.34);
+    --grid-line: rgba(10, 11, 13, 0.055);
+  }
+
+  .dark {
+    --background: 228 14% 4%;         /* #090A0C Onyx */
+    --foreground: 210 20% 96%;
+    --card: 226 14% 7%;
+    --card-foreground: 210 20% 96%;
+    --popover: 226 14% 8%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 228 14% 4%;
+    --signal: 72 100% 50%;
+    --signal-foreground: 72 100% 5%;
+    --accent: 223 100% 66%;
+    --accent-foreground: 0 0% 100%;
+    --accent-soft: 223 45% 16%;
+    --secondary: 225 12% 12%;
+    --secondary-foreground: 210 18% 92%;
+    --muted: 225 12% 10%;
+    --muted-foreground: 220 10% 66%;
+    --destructive: 0 78% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 52%;
+    --warning: 38 92% 58%;
+    --info: 223 100% 70%;
+    --border: 225 12% 18%;
+    --input: 226 14% 9%;
+    --ring: 223 100% 70%;
+    --brand-secondary: 223 100% 70%;
+    --brand-secondary-foreground: 0 0% 100%;
+    --brand-glow: rgba(37, 99, 255, 0.24);
+    --brand-glow-secondary: rgba(204, 255, 0, 0.16);
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -20px rgba(0, 0, 0, 0.7);
+    --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.34), 0 24px 56px -24px rgba(0, 0, 0, 0.8);
+    --grid-line: rgba(255, 255, 255, 0.05);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+    font-family:
+      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+      "Noto Sans", sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color 0.18s ease, color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: #ccff00;
+    color: #0a0b0d;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+
+  p,
+  article,
+  pre,
+  code,
+  input,
+  textarea,
+  [data-selectable="true"],
+  .selectable-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.55);
+    background-clip: content-box;
   }
 }
 
-body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  overflow-x: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
+@layer components {
+  .surface {
+    @apply rounded-xl border border-border bg-card;
+    box-shadow: var(--shadow-soft);
+  }
 
-  /* Native Mobile App Touch Constraints */
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
+  .surface-flat {
+    @apply rounded-xl border border-border bg-card;
+  }
 
-/* Allow text selection only for readable content, inputs, code, and chat bubbles */
-p,
-article,
-pre,
-code,
-input,
-textarea,
-[data-selectable="true"],
-.selectable-text {
-  user-select: text;
-  -webkit-user-select: text;
-}
+  .surface-muted {
+    @apply rounded-xl border border-border bg-muted/50;
+  }
 
-/* Custom scrollbars matching active theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: hsl(var(--background));
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  .label {
+    @apply text-xs font-medium text-muted-foreground;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .flow-line {
+    stroke-dasharray: 5 9;
+    animation: flow-dash 7s linear infinite;
+  }
+
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground;
+  }
 }
 
-/* Reduced motion preference */
-@keyframes brutalist-shimmer {
-  0% {
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: ui-enter 0.28s cubic-bezier(0.22, 0.72, 0.3, 1) both;
+  }
+
+  .animate-signal {
+    animation: signal-pulse 2.4s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  .animate-voice-bar {
+    animation: voice-bar 1s ease-in-out infinite;
+  }
+}
+
+@keyframes ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -140;
+  }
+}
+
+@keyframes signal-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes shimmer {
+  from {
     transform: translateX(-100%);
   }
-  100% {
+  to {
     transform: translateX(200%);
   }
 }
 
-.animate-shimmer {
-  animation: brutalist-shimmer 1.5s infinite linear;
+@keyframes voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  ::before,
+  ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  }
+  .flow-line {
+    animation: none;
   }
 }

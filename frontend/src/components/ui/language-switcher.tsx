@@ -8,6 +8,11 @@ interface LanguageSwitcherProps {
   variant?: "header" | "sidebar" | "minimal";
 }
 
+const options = [
+  { value: "en" as const, label: "EN", title: "English", ariaLabel: "Switch to English" },
+  { value: "fa" as const, label: "FA", title: "فارسی (Persian)", ariaLabel: "تغییر به زبان فارسی" },
+];
+
 export function LanguageSwitcher({
   className,
   variant = "header",
@@ -16,85 +21,54 @@ export function LanguageSwitcher({
 
   if (variant === "minimal") {
     return (
-      <div
-        className={cn(
-          "inline-flex items-center gap-2 font-mono text-xs select-none tracking-wider",
-          className
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => setLocale("en")}
-          className={cn(
-            "transition-colors text-xs font-semibold py-0.5",
-            locale === "en"
-              ? "text-[#CCFF00] underline underline-offset-4 decoration-2 decoration-[#CCFF00]"
-              : "text-zinc-500 hover:text-zinc-300"
-          )}
-          title="English"
-          aria-label="Switch to English"
-        >
-          EN
-        </button>
-        <span className="text-zinc-600 select-none text-[11px]">/</span>
-        <button
-          type="button"
-          onClick={() => setLocale("fa")}
-          className={cn(
-            "transition-colors text-xs font-semibold py-0.5",
-            locale === "fa"
-              ? "text-[#CCFF00] underline underline-offset-4 decoration-2 decoration-[#CCFF00]"
-              : "text-zinc-500 hover:text-zinc-300"
-          )}
-          title="فارسی (Persian)"
-          aria-label="تغییر به زبان فارسی"
-        >
-          FA
-        </button>
+      <div className={cn("inline-flex select-none items-center gap-3 text-xs", className)}>
+        {options.map((option, index) => (
+          <span key={option.value} className="inline-flex items-center gap-3">
+            {index > 0 && <span className="text-border" aria-hidden="true">/</span>}
+            <button
+              type="button"
+              onClick={() => setLocale(option.value)}
+              className={cn(
+                "font-medium transition-colors",
+                locale === option.value
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={option.title}
+              aria-label={option.ariaLabel}
+              aria-pressed={locale === option.value}
+            >
+              {option.label}
+            </button>
+          </span>
+        ))}
       </div>
     );
   }
 
   if (variant === "sidebar") {
     return (
-      <div
-        className={cn(
-          "rounded-md border border-zinc-800/80 bg-zinc-900/30 p-1.5 flex items-center justify-between gap-2",
-          className
-        )}
-      >
-        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 ps-1">
-          Language
-        </span>
-        <div className="flex items-center gap-0.5 rounded-sm border border-zinc-800/90 bg-zinc-950/80 p-0.5 font-mono text-[11px]">
-          <button
-            type="button"
-            onClick={() => setLocale("en")}
-            className={cn(
-              "px-2 py-0.5 rounded-xs transition-colors font-medium",
-              locale === "en"
-                ? "bg-zinc-800 text-white shadow-xs"
-                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60"
-            )}
-            title="English"
-            aria-label="Switch to English"
-          >
-            EN
-          </button>
-          <button
-            type="button"
-            onClick={() => setLocale("fa")}
-            className={cn(
-              "px-2 py-0.5 rounded-xs transition-colors font-medium",
-              locale === "fa"
-                ? "bg-zinc-800 text-white shadow-xs"
-                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/60"
-            )}
-            title="فارسی (Persian)"
-            aria-label="تغییر به زبان فارسی"
-          >
-            FA
-          </button>
+      <div className={cn("flex items-center justify-between gap-2", className)}>
+        <span className="text-xs text-muted-foreground">Language</span>
+        <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setLocale(option.value)}
+              className={cn(
+                "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                locale === option.value
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={option.title}
+              aria-label={option.ariaLabel}
+              aria-pressed={locale === option.value}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -103,39 +77,28 @@ export function LanguageSwitcher({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-sm border border-zinc-800/80 bg-zinc-950/80 p-0.5 font-mono text-xs select-none",
+        "inline-flex select-none items-center rounded-lg border border-border bg-card p-0.5",
         className
       )}
     >
-      <button
-        type="button"
-        onClick={() => setLocale("en")}
-        className={cn(
-          "px-2 py-1 rounded-xs transition-colors text-[11px] font-medium leading-none",
-          locale === "en"
-            ? "bg-zinc-800 text-white shadow-xs"
-            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-        )}
-        title="English"
-        aria-label="Switch to English"
-      >
-        EN
-      </button>
-      <span className="text-zinc-700 text-[10px] select-none px-0.5">/</span>
-      <button
-        type="button"
-        onClick={() => setLocale("fa")}
-        className={cn(
-          "px-2 py-1 rounded-xs transition-colors text-[11px] font-medium leading-none",
-          locale === "fa"
-            ? "bg-zinc-800 text-white shadow-xs"
-            : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-        )}
-        title="فارسی (Persian)"
-        aria-label="تغییر به زبان فارسی"
-      >
-        FA
-      </button>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => setLocale(option.value)}
+          className={cn(
+            "rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+            locale === option.value
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          title={option.title}
+          aria-label={option.ariaLabel}
+          aria-pressed={locale === option.value}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
