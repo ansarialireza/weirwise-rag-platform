@@ -39,7 +39,7 @@ All three verification areas were subjected to automated integration suites and 
 In earlier revisions, producer-side `xadd(..., maxlen=100000, approximate=True)` risked evicting messages before slow or restarted consumer workers could process them. While unconditional trimming was removed from the ingestion path in `89e5747`, consumer-side trimming needed rigorous boundary enforcement to prevent deleting messages still needed by any consumer group.
 
 ### 2. Implementation: Safe Trimming Boundary Algorithm
-We implemented `calculate_safe_trim_boundary()` and `safe_trim()` in [`backend/app/services/behavioral_worker.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/behavioral_worker.py):
+We implemented `calculate_safe_trim_boundary()` and `safe_trim()` in [`backend/app/services/behavioral_worker.py`](../backend/app/services/behavioral_worker.py):
 ```python
 def parse_stream_id(sid: str) -> tuple[int, int]:
     parts = sid.split("-")
@@ -114,7 +114,7 @@ In `test_crash_recovery_between_db_commit_and_xack()`:
 If an API server blindly trusts `CF-IPCountry` or `CF-RAY` from incoming HTTP request headers, an attacker connecting directly to the host IP (port 8001) or traversing an unverified forward proxy can spoof their geographic location (e.g. injecting `CF-IPCountry: JP`).
 
 ### 2. Validation Architecture
-[`backend/app/services/geoip.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/geoip.py) enforces a strict trust chain:
+[`backend/app/services/geoip.py`](../backend/app/services/geoip.py) enforces a strict trust chain:
 1. **Network Boundary**: Inspects `request.client.host`.
 2. **CIDR Verification**: Checks whether `client_ip` belongs to:
    - Official Cloudflare IPv4 ranges (`173.245.48.0/20`, `103.21.244.0/22`, `104.16.0.0/13`, `172.64.0.0/13`, etc.)

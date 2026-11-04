@@ -15,7 +15,7 @@
 
 This independent audit conducted a forensic code review, live API penetration testing, and runtime data-path tracing of Phase 2 of Weirwise Behavioral Intelligence (WBI).
 
-The frontend telemetry SDK core modules ([`sanitizer.ts`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/sanitizer.ts), [`buffer.ts`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/buffer.ts), [`session.ts`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/session.ts), [`context.ts`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/context.ts)) and Next.js integration hooks ([`provider.tsx`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/provider.tsx)) are exceptionally well-engineered, performant, and privacy-conscious. The frontend strictly strips sensitive keywords, bounds buffer queues, normalizes URLs, and excludes `/admin/*` routes completely.
+The frontend telemetry SDK core modules ([`sanitizer.ts`](../frontend/src/lib/telemetry/sanitizer.ts), [`buffer.ts`](../frontend/src/lib/telemetry/buffer.ts), [`session.ts`](../frontend/src/lib/telemetry/session.ts), [`context.ts`](../frontend/src/lib/telemetry/context.ts)) and Next.js integration hooks ([`provider.tsx`](../frontend/src/lib/telemetry/provider.tsx)) are exceptionally well-engineered, performant, and privacy-conscious. The frontend strictly strips sensitive keywords, bounds buffer queues, normalizes URLs, and excludes `/admin/*` routes completely.
 
 However, deep end-to-end trace testing across the complete pipeline (**Browser $\to$ Ingestion Router $\to$ Redis Streams $\to$ Worker $\to$ PostgreSQL**) identified **three critical and high architectural vulnerabilities**:
 1. **[CRITICAL] Backend Session Hijack & Cross-User Reassignment (`WBI-AUDIT-01`)**: The PostgreSQL upsert query in `BehavioralStreamConsumer._persist_event_envelope()` blindly overrides `user_behavioral_sessions.user_id = user_id if user_id else UserBehavioralSession.user_id`. When User B submits any event tagged with User A's `session_id`, PostgreSQL silently overwrites the session's owner to User B, reassinging User A's session record to User B.
@@ -50,7 +50,7 @@ However, deep end-to-end trace testing across the complete pipeline (**Browser $
 | **Scenario E: Multiple Tabs** | Each tab uses independent `sessionStorage` session ID. Logging out in one tab rotates that tab's session without corrupting the other. | Verified in `session.ts`: `sessionStorage` provides native per-tab isolation. Window-level fallbacks isolate in-memory state. | **PASS** |
 
 #### Critical Finding WBI-AUDIT-01: Technical Analysis
-In [`backend/app/services/behavioral_worker.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/behavioral_worker.py#L295-L305):
+In [`backend/app/services/behavioral_worker.py`](../backend/app/services/behavioral_worker.py#L295-L305):
 ```python
 session_stmt = (
     pg_insert(UserBehavioralSession)
@@ -78,8 +78,8 @@ UPDATE user_behavioral_sessions SET user_id = 'user_b_uuid' WHERE session_id = '
 ### 3.2 Audit B: Transport Authentication and Delivery
 
 1. **Authentication Mode**:
-   - The backend dependency `get_optional_current_user` in [`backend/app/api/dependencies.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/dependencies.py#L66-L89) accepts **both** Bearer header and `access_token` HttpOnly cookie.
-   - The frontend [`BatchTransport.sendBatch()`](file:///home/agyops/weirwise-rag-platform/frontend/src/lib/telemetry/transport.ts#L71-L75) accurately checks `api.getToken()` and attaches `Authorization: Bearer <token>`, while setting `credentials: "include"` for cookie forwarding.
+   - The backend dependency `get_optional_current_user` in [`backend/app/api/dependencies.py`](../backend/app/api/dependencies.py#L66-L89) accepts **both** Bearer header and `access_token` HttpOnly cookie.
+   - The frontend [`BatchTransport.sendBatch()`](../frontend/src/lib/telemetry/transport.ts#L71-L75) accurately checks `api.getToken()` and attaches `Authorization: Bearer <token>`, while setting `credentials: "include"` for cookie forwarding.
 2. **Keepalive & Unload Handling**:
    - `fetch(endpoint, { method: "POST", keepalive: true, credentials: "include" })` is correctly utilized for unload flushes.
    - `navigator.sendBeacon` is relegated strictly to an unload fallback when `fetch` is unsupported.
@@ -153,7 +153,7 @@ A comprehensive verification of prohibited keys and data boundaries was executed
 ## 4. Recommended Remediation Plan
 
 ### Fix 1 (Address WBI-AUDIT-01): Enforce Session Immutability in PostgreSQL Upsert
-Modify [`backend/app/services/behavioral_worker.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/behavioral_worker.py#L301) using SQLAlchemy's `case()` construct:
+Modify [`backend/app/services/behavioral_worker.py`](../backend/app/services/behavioral_worker.py#L301) using SQLAlchemy's `case()` construct:
 ```python
 from sqlalchemy import case
 
@@ -175,7 +175,7 @@ set_={
 ```
 
 ### Fix 2 (Address WBI-AUDIT-02): Provision WBI Background Worker Service
-In [`docker-compose.dev.yml`](file:///home/agyops/weirwise-rag-platform/docker-compose.dev.yml), add a dedicated worker service:
+In [`docker-compose.dev.yml`](../docker-compose.dev.yml), add a dedicated worker service:
 ```yaml
   dev-wbi-worker:
     build:

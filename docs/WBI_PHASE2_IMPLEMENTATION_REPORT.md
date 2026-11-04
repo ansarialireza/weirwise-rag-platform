@@ -14,7 +14,7 @@
 Phase 2 of the **Weirwise Behavioral Intelligence (WBI)** platform has been successfully implemented, tested, and integrated into the Weirwise Next.js App Router application.
 
 The implementation delivers a lightweight, reliable, privacy-first Frontend Telemetry SDK that:
-1. Conforms to the backend Pydantic v2 event contracts in [`backend/app/schemas/behavioral.py`](file:///home/agyops/weirwise-rag-platform/backend/app/schemas/behavioral.py).
+1. Conforms to the backend Pydantic v2 event contracts in [`backend/app/schemas/behavioral.py`](../backend/app/schemas/behavioral.py).
 2. Maintains authoritative server-side identity (the frontend never generates or sets a `user_id`).
 3. Enforces a 30-minute sliding inactivity timeout and cryptographic UUIDv4 session identifiers.
 4. Safely rotates session identifiers on logout to prevent cross-user association.

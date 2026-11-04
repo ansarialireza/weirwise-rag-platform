@@ -3,7 +3,7 @@
 **Document Status:** Technical Contract (v1.0 Approved for Phase 2)  
 **Applicability:** Frontend Telemetry SDK $\to$ Backend Ingestion Endpoint  
 **Backend Endpoint:** `POST /api/v1/telemetry/events:batch`  
-**Backend Source of Truth:** [`backend/app/schemas/behavioral.py`](file:///home/agyops/weirwise-rag-platform/backend/app/schemas/behavioral.py)  
+**Backend Source of Truth:** [`backend/app/schemas/behavioral.py`](../backend/app/schemas/behavioral.py)  
 **Date:** November 3, 2026  
 
 ---

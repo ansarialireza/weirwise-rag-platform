@@ -20,28 +20,28 @@ The assessment is graded as **PASS WITH LIMITATIONS**, meaning Phase 1 is author
 
 ### Issue 1: Unconditional Stream Trimming Causing Potential Unprocessed Event Loss
 - **Severity:** High
-- **Location:** [`backend/app/services/behavioral_stream.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/behavioral_stream.py#L90-L96)
+- **Location:** [`backend/app/services/behavioral_stream.py`](../backend/app/services/behavioral_stream.py#L90-L96)
 - **Explanation:** In commit `114a01d`, `pipe.xadd(STREAM_KEY, {"data": rec}, maxlen=MAX_STREAM_LENGTH, approximate=True)` was executed unconditionally on every enqueue. If the background consumer worker was paused or crashed during high traffic, Redis would evict older unconsumed events or unacknowledged Pending Entries List (`PEL`) records purely because the stream reached 100,000 items.
 - **Actual Impact:** Silent event loss during worker downtime.
 - **Fix Applied:** Removed unconditional `maxlen` trimming from producer `xadd`. Trimming is now strictly coupled to consumer group acknowledgment sweeps (`XTRIM MINID`), ensuring only **acknowledged** events can be safely evicted. In addition, explicit backpressure rejects new requests (`HTTP 429`) when queue backlog exceeds 80,000 items.
 
 ### Issue 2: Spoofed `CF-IPCountry` Geolocation Without Trusted Proxy Verification
 - **Severity:** High
-- **Location:** [`backend/app/services/geoip.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/geoip.py#L32-L41)
+- **Location:** [`backend/app/services/geoip.py`](../backend/app/services/geoip.py#L32-L41)
 - **Explanation:** In commit `114a01d`, the endpoint accepted `CF-IPCountry` directly from incoming HTTP headers without verifying whether the immediate connecting IP was an authentic Cloudflare proxy or an internal docker gateway. An attacker connecting directly to port 8001 or through a non-Cloudflare path could inject forged country codes (`CF-IPCountry: JP`).
 - **Actual Impact:** Inaccurate or malicious geographic session metadata.
-- **Fix Applied:** Implemented [`is_trusted_proxy_or_cloudflare()`](file:///home/agyops/weirwise-rag-platform/backend/app/services/geoip.py#L37-L55) validating connecting IPs against official Cloudflare CIDR blocks and internal reverse proxy subnets (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`), accompanied by `CF-RAY` presence verification. Untrusted requests are marked with `geo_lookup_source: "unresolved_untrusted"` and country code `None`.
+- **Fix Applied:** Implemented [`is_trusted_proxy_or_cloudflare()`](../backend/app/services/geoip.py#L37-L55) validating connecting IPs against official Cloudflare CIDR blocks and internal reverse proxy subnets (`127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`), accompanied by `CF-RAY` presence verification. Untrusted requests are marked with `geo_lookup_source: "unresolved_untrusted"` and country code `None`.
 
 ### Issue 3: Incomplete Keyword-Matching for Sensitive Property Rejection
 - **Severity:** Medium
-- **Location:** [`backend/app/schemas/behavioral.py`](file:///home/agyops/weirwise-rag-platform/backend/app/schemas/behavioral.py#L96-L103)
+- **Location:** [`backend/app/schemas/behavioral.py`](../backend/app/schemas/behavioral.py#L96-L103)
 - **Explanation:** In commit `114a01d`, the validator used exact set membership `k.lower() in banned_keys` for property keys. A property named `auth_token` or `user_password` passed validation because `auth_token` was not in `{'token', 'password'}`.
 - **Actual Impact:** Accidental leaking of composite credentials into telemetry properties.
 - **Fix Applied:** Replaced exact set matching with recursive substring matching across prohibited patterns (`password`, `secret`, `token`, `auth`, `credit_card`, `ssn`, `cvv`, `api_key`, `private_key`). Tested and confirmed rejection with HTTP 422.
 
 ### Issue 4: Transient Redis Connection Overhead Under HTTP Concurrency
 - **Severity:** Medium
-- **Location:** [`backend/app/services/behavioral_stream.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/behavioral_stream.py#L33-L41)
+- **Location:** [`backend/app/services/behavioral_stream.py`](../backend/app/services/behavioral_stream.py#L33-L41)
 - **Explanation:** In commit `114a01d`, each incoming HTTP request created and closed a standalone Redis connection (`from_url`). Under high concurrent load, socket setup and teardown overhead caused P95 latency spikes up to 317ms.
 - **Actual Impact:** Sub-optimal ingestion latency and connection exhaustion under burst traffic.
 - **Fix Applied:** Replaced per-request connection creation with an async `ConnectionPool` (`max_connections=50`, pooled singleton). This dropped in-process stream enqueue latency to $1.4\text{ ms } P_{50}$ and $3.4\text{ ms } P_{95}$.
@@ -58,7 +58,7 @@ Inspection of the running development container (`weirwise-dev-redis`) revealed:
 - `maxmemory-policy`: `noeviction`.
 
 ### 2. Durability Hardening & docker-compose Specification
-To prevent data loss on container restart, runtime AOF was enabled via `CONFIG SET appendonly yes` and permanently codified in [`docker-compose.dev.yml`](file:///home/agyops/weirwise-rag-platform/docker-compose.dev.yml#L47):
+To prevent data loss on container restart, runtime AOF was enabled via `CONFIG SET appendonly yes` and permanently codified in [`docker-compose.dev.yml`](../docker-compose.dev.yml#L47):
 ```yaml
 command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "100mb", "--maxmemory-policy", "noeviction"]
 ```
