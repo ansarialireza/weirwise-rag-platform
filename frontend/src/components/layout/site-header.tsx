@@ -17,15 +17,22 @@ interface SiteHeaderProps {
 }
 
 export function SiteHeader({ className }: SiteHeaderProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { dict } = useI18n();
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
-  const dashboardUrl = user ? "/overview" : null;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isAuthenticated = mounted && !authLoading && Boolean(user);
+  const dashboardUrl = isAuthenticated ? "/overview" : null;
 
   // Listen for beforeinstallprompt event
   useEffect(() => {
@@ -122,17 +129,21 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             </Link>
           ))}
 
-          <Link
-            href={authOrDashboardLink.href}
-            className={cn(
-              "whitespace-nowrap transition-colors",
-              authOrDashboardLink.active
-                ? "text-white font-semibold"
-                : "text-zinc-400 hover:text-white"
-            )}
-          >
-            {authOrDashboardLink.label}
-          </Link>
+          {mounted && !authLoading ? (
+            <Link
+              href={authOrDashboardLink.href}
+              className={cn(
+                "whitespace-nowrap transition-colors",
+                authOrDashboardLink.active
+                  ? "text-white font-semibold"
+                  : "text-zinc-400 hover:text-white"
+              )}
+            >
+              {authOrDashboardLink.label}
+            </Link>
+          ) : (
+            <span className="inline-block w-12 h-3.5 bg-zinc-800/40 rounded-xs animate-pulse" />
+          )}
 
           <div className="ps-2 pe-1 border-s border-zinc-800 flex items-center gap-2">
             <LanguageSwitcher />
@@ -177,19 +188,48 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 </Link>
               ))}
 
-              <Link
-                href={dashboardUrl || "/login"}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "flex items-center justify-between text-2xl font-bold tracking-tight transition-colors text-left",
-                  authOrDashboardLink.active
-                    ? "text-white"
-                    : "text-zinc-400 hover:text-white"
-                )}
-              >
-                <span>{authOrDashboardLink.label}</span>
-                {authOrDashboardLink.active && <span className="h-2 w-2 rounded-none bg-[#CCFF00]" />}
-              </Link>
+              {mounted && !authLoading ? (
+                isAuthenticated ? (
+                  <Link
+                    href="/overview"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center justify-between text-2xl font-bold tracking-tight transition-colors text-left",
+                      pathname.startsWith("/overview")
+                        ? "text-white"
+                        : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    <span>{dict.common.overview}</span>
+                    {pathname.startsWith("/overview") && <span className="h-2 w-2 rounded-none bg-[#CCFF00]" />}
+                  </Link>
+                ) : (
+                  <div className="pt-2 flex flex-col gap-3">
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        "w-full flex items-center justify-center py-3 px-4 rounded-none border border-zinc-700 bg-transparent text-white font-bold text-base uppercase tracking-wider hover:bg-zinc-900 transition-colors active:scale-[0.99]",
+                        pathname === "/login" && "border-[#CCFF00] text-[#CCFF00]"
+                      )}
+                    >
+                      <span>{dict.common.signIn}</span>
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="w-full flex items-center justify-center py-3 px-4 rounded-none bg-[#CCFF00] text-black font-extrabold text-base uppercase tracking-wider hover:bg-[#b8e600] transition-colors active:scale-[0.99]"
+                    >
+                      <span>{dict.landing.ctaButton || "Get Started"}</span>
+                    </Link>
+                  </div>
+                )
+              ) : (
+                <div className="space-y-2 pt-2">
+                  <div className="w-full h-11 bg-zinc-900/60 animate-pulse" />
+                  <div className="w-full h-11 bg-zinc-800/40 animate-pulse" />
+                </div>
+              )}
             </div>
 
             {/* Language Switcher directly below links */}
