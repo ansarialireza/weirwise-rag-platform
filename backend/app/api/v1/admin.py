@@ -1,7 +1,8 @@
 """Super Admin API endpoints for Executive Control, AI Credentials, FinOps, and Auditing."""
 
+import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
@@ -15,6 +16,7 @@ from backend.app.models.admin import (
     FinancialInvoice,
     ProviderAccount,
     ProviderCredential,
+    RoutingEvent,
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
@@ -32,12 +34,15 @@ from backend.app.schemas.admin import (
     CredentialCreate,
     CredentialResponse,
     CredentialStatusUpdate,
+    CredentialUpdate,
+    CredentialUsageResponse,
     FinOpsSummaryResponse,
     ProviderAccountCreate,
     ProviderAccountResponse,
     ProviderAccountUpdate,
     ProviderTokensSaveRequest,
     ProviderTokenValidationRequest,
+    RoutingEventResponse,
     SubscriptionTierCreate,
     SubscriptionTierResponse,
     SubscriptionTierUpdate,
@@ -342,6 +347,7 @@ async def add_credential(
         monthly_budget_usd=payload.monthly_budget_usd,
         rate_limit_rpm=payload.rate_limit_rpm,
         rate_limit_tpm=payload.rate_limit_tpm,
+        last_health_check_at=datetime.now(UTC),
     )
     db.add(cred)
     await db.flush()
@@ -391,6 +397,7 @@ async def update_credential_status(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=validation.get("error", "Provider credential validation failed."),
             )
+        cred.last_health_check_at = datetime.now(UTC)
 
     cred.is_active = payload.is_active
     if payload.is_active:
@@ -440,6 +447,185 @@ async def delete_credential(
     await db.delete(cred)
     db.add(audit)
     await db.commit()
+
+
+_SECRET_LIKE = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{8,}|jina_[A-Za-z0-9]{8,}|AIza[A-Za-z0-9_\-]{10,}|Bearer\s+[A-Za-z0-9._\-]{8,}|Token\s+[A-Za-z0-9._\-]{8,})"
+)
+
+
+def _sanitize_error(message: Optional[str]) -> Optional[str]:
+    """Strip credential-shaped substrings before surfacing provider errors."""
+    if not message:
+        return message
+    return _SECRET_LIKE.sub("[redacted]", message)[:500]
+
+
+@router.patch("/credentials/{credential_id}", response_model=CredentialResponse)
+async def update_credential_metadata(
+    credential_id: uuid.UUID,
+    payload: CredentialUpdate,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Updates routing metadata/limits for a credential without touching its secret."""
+    cred = (
+        await db.execute(select(ProviderCredential).where(ProviderCredential.id == credential_id))
+    ).scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found.")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No fields supplied.")
+    before = {field: getattr(cred, field) for field in updates}
+    for field, value in updates.items():
+        setattr(cred, field, value)
+
+    db.add(
+        AdminAuditLog(
+            actor_id=current_admin.id,
+            actor_email=current_admin.email,
+            action="credential.metadata_updated",
+            target_entity="credential",
+            target_id=str(credential_id),
+            details={"before": {k: str(v) for k, v in before.items()}, "after": updates},
+        )
+    )
+    await db.commit()
+    await db.refresh(cred)
+    return cred
+
+
+@router.get("/credentials/{credential_id}/usage", response_model=CredentialUsageResponse)
+async def get_credential_usage(
+    credential_id: uuid.UUID,
+    days: int = Query(30, ge=1, le=365),
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Per-credential usage, cost provenance, latency, and recent routing events."""
+    cred = (
+        await db.execute(select(ProviderCredential).where(ProviderCredential.id == credential_id))
+    ).scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found.")
+
+    since = datetime.now(UTC) - timedelta(days=days)
+    ledger_rows = (
+        await db.execute(
+            select(TokenCostLedger).where(
+                TokenCostLedger.credential_id == credential_id,
+                TokenCostLedger.created_at >= since,
+            )
+        )
+    ).scalars().all()
+
+    # Terminal routing events are the request-attempt record (they also cover
+    # speech calls that never write a token ledger entry).
+    terminal_events = (
+        await db.execute(
+            select(RoutingEvent)
+            .where(
+                RoutingEvent.credential_id == credential_id,
+                RoutingEvent.created_at >= since,
+                RoutingEvent.outcome.in_(("success", "failure")),
+            )
+            .order_by(RoutingEvent.created_at.desc())
+        )
+    ).scalars().all()
+    recent_events = terminal_events[:20]
+    for event in recent_events:
+        event.error_message = _sanitize_error(event.error_message)
+
+    request_count = len(terminal_events)
+    success_count = sum(1 for event in terminal_events if event.outcome == "success")
+    total_cost = float(sum((row.cost_usd or 0) for row in ledger_rows))
+    estimated_cost = float(sum((row.cost_usd or 0) for row in ledger_rows if row.cost_source != "provider"))
+    billed_cost = float(sum((row.cost_usd or 0) for row in ledger_rows if row.cost_source == "provider"))
+    avg_latency = (
+        sum(event.latency_ms or 0 for event in terminal_events) / request_count if request_count else 0.0
+    )
+
+    cost_by_model: dict[str, float] = {}
+    daily_cost: dict[str, float] = {}
+    for row in ledger_rows:
+        cost_by_model[row.model_name] = cost_by_model.get(row.model_name, 0.0) + float(row.cost_usd or 0)
+        day = row.created_at.date().isoformat()
+        daily_cost[day] = daily_cost.get(day, 0.0) + float(row.cost_usd or 0)
+
+    budget = float(cred.monthly_budget_usd or 0)
+    spend = float(cred.current_month_spend_usd or 0)
+    return CredentialUsageResponse(
+        credential_id=cred.id,
+        window_days=days,
+        request_count=request_count,
+        success_count=success_count,
+        failure_count=request_count - success_count,
+        success_rate_pct=round(success_count / request_count * 100.0, 1) if request_count else 0.0,
+        input_tokens=sum(row.input_tokens or 0 for row in ledger_rows),
+        output_tokens=sum(row.output_tokens or 0 for row in ledger_rows),
+        total_tokens=sum(row.total_tokens or 0 for row in ledger_rows),
+        total_cost_usd=round(total_cost, 6),
+        estimated_cost_usd=round(estimated_cost, 6),
+        provider_billed_cost_usd=round(billed_cost, 6),
+        avg_latency_ms=round(avg_latency, 1),
+        monthly_budget_usd=budget,
+        monthly_spend_usd=round(spend, 6),
+        budget_used_pct=round(spend / budget * 100.0, 1) if budget > 0 else 0.0,
+        cost_by_model={key: round(value, 6) for key, value in cost_by_model.items()},
+        daily_cost_usd={key: round(value, 6) for key, value in sorted(daily_cost.items())},
+        recent_events=recent_events,
+    )
+
+
+@router.get("/routing/events", response_model=List[RoutingEventResponse])
+async def list_routing_events(
+    provider_name: Optional[str] = Query(None, max_length=50),
+    credential_id: Optional[uuid.UUID] = Query(None),
+    outcome: Optional[str] = Query(None, max_length=20),
+    failures_only: bool = Query(False),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Chronological routing decision/failover trail without exposing secrets."""
+    filters = []
+    if provider_name:
+        filters.append(RoutingEvent.provider_name == provider_name.strip().lower())
+    if credential_id:
+        filters.append(RoutingEvent.credential_id == credential_id)
+    if outcome:
+        filters.append(RoutingEvent.outcome == outcome)
+    if failures_only:
+        filters.append(RoutingEvent.outcome.in_(("failure", "no_credential")))
+
+    events = (
+        await db.execute(
+            select(RoutingEvent)
+            .where(*filters)
+            .order_by(RoutingEvent.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).scalars().all()
+    for event in events:
+        event.error_message = _sanitize_error(event.error_message)
+    return events
+
+
+@router.get("/routing/explain")
+async def explain_routing_selection(
+    provider_name: str = Query(..., min_length=2, max_length=50),
+    model_name: Optional[str] = Query(None, max_length=100),
+    current_admin: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Dry-run the router: which credential would serve the next request and why."""
+    from backend.app.services.routing_engine import IntelligentRoutingEngine
+
+    return await IntelligentRoutingEngine.explain_selection(db, provider_name.strip().lower(), model_name)
 
 
 # --- FinOps & Audit Trails ---

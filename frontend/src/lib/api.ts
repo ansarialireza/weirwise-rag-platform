@@ -403,6 +403,131 @@ class ApiClient {
     });
   }
 
+  /**
+   * Streams a grounded answer over SSE. Resolves once the stream finishes or
+   * the caller aborts; partial text is still reported through ``onDelta``.
+   */
+  async streamAssistantChat(
+    assistantId: string,
+    message: string,
+    options: {
+      conversationId?: string;
+      signal?: AbortSignal;
+      onMeta?: (meta: Record<string, any>) => void;
+      onDelta?: (text: string) => void;
+      onDone?: (done: Record<string, any>) => void;
+      onError?: (detail: string) => void;
+    } = {}
+  ): Promise<{
+    content: string;
+    conversationId?: string;
+    messageId?: string;
+    sources: any[];
+    done?: Record<string, any>;
+    error?: string;
+  }> {
+    const send = async () => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      };
+      if (this.token) headers.Authorization = `Bearer ${this.token}`;
+      return fetch(`${API_BASE}/assistants/${assistantId}/chat/stream`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        signal: options.signal,
+        body: JSON.stringify({ message, conversation_id: options.conversationId }),
+      });
+    };
+
+    let response = await send();
+    if (response.status === 401) {
+      const refreshed = await this.refreshToken();
+      if (refreshed) response = await send();
+    }
+
+    if (!response.ok) {
+      let detail = "The assistant couldn't respond just now.";
+      try {
+        const data = await response.json();
+        detail = data.detail || detail;
+      } catch {
+        // Ignore non-JSON error bodies
+      }
+      throw new ApiError(detail, response.status);
+    }
+    if (!response.body) {
+      throw new ApiError("Streaming is not supported in this browser.", 500);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let content = "";
+    let donePayload: Record<string, any> | undefined;
+    let streamError: string | undefined;
+
+    const handleEvent = (event: Record<string, any>) => {
+      if (event.type === "delta" && typeof event.text === "string") {
+        content += event.text;
+        options.onDelta?.(event.text);
+      } else if (event.type === "meta") {
+        options.onMeta?.(event);
+      } else if (event.type === "error") {
+        const detail: string = event.message || "The assistant could not finish this response.";
+        streamError = detail;
+        options.onError?.(detail);
+      } else if (event.type === "done") {
+        donePayload = event;
+        if (typeof event.content === "string" && event.content) content = event.content;
+        options.onDone?.(event);
+      }
+    };
+
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary >= 0) {
+          const frame = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          const data = frame
+            .split("\n")
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trimStart())
+            .join("\n");
+          if (data) {
+            try {
+              handleEvent(JSON.parse(data));
+            } catch {
+              // Ignore malformed frames rather than killing the stream
+            }
+          }
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
+    } finally {
+      try {
+        await reader.cancel();
+      } catch {
+        // Reader may already be closed
+      }
+    }
+
+    return {
+      content,
+      conversationId: donePayload?.conversation_id,
+      messageId: donePayload?.message_id,
+      sources: donePayload?.sources || [],
+      done: donePayload,
+      error: streamError,
+    };
+  }
+
   async getDeployments(assistantId: string): Promise<Deployment[]> {
     return this.request<Deployment[]>(`/assistants/${assistantId}/deployments`);
   }
@@ -582,11 +707,58 @@ class ApiClient {
     });
   }
 
-  async updateAdminCredentialStatus(credentialId: string, isActive: boolean): Promise<any> {
-    return this.request<any>(`/admin/credentials/${credentialId}/status`, {
+  async updateAdminCredentialStatus(credentialId: string, isActive: boolean): Promise<AdminCredential> {
+    return this.request<AdminCredential>(`/admin/credentials/${credentialId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ is_active: isActive }),
     });
+  }
+
+  async updateAdminCredential(
+    credentialId: string,
+    data: {
+      label?: string;
+      priority?: number;
+      routing_weight?: number;
+      models_allowed?: string[];
+      monthly_budget_usd?: number;
+      warning_threshold_pct?: number;
+      rate_limit_rpm?: number;
+      rate_limit_tpm?: number;
+    }
+  ): Promise<AdminCredential> {
+    return this.request<AdminCredential>(`/admin/credentials/${credentialId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminCredentialUsage(credentialId: string, days = 30): Promise<AdminCredentialUsage> {
+    return this.request<AdminCredentialUsage>(`/admin/credentials/${credentialId}/usage?days=${days}`);
+  }
+
+  async getAdminRoutingEvents(params: {
+    provider_name?: string;
+    credential_id?: string;
+    outcome?: string;
+    failures_only?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<AdminRoutingEvent[]> {
+    const search = new URLSearchParams();
+    if (params.provider_name) search.set("provider_name", params.provider_name);
+    if (params.credential_id) search.set("credential_id", params.credential_id);
+    if (params.outcome) search.set("outcome", params.outcome);
+    if (params.failures_only) search.set("failures_only", "true");
+    search.set("limit", String(params.limit ?? 50));
+    search.set("offset", String(params.offset ?? 0));
+    return this.request<AdminRoutingEvent[]>(`/admin/routing/events?${search.toString()}`);
+  }
+
+  async explainAdminRouting(providerName: string, modelName?: string): Promise<AdminRoutingExplanation> {
+    const search = new URLSearchParams({ provider_name: providerName });
+    if (modelName) search.set("model_name", modelName);
+    return this.request<AdminRoutingExplanation>(`/admin/routing/explain?${search.toString()}`);
   }
 
   async getFinOpsSummary(): Promise<any> {
@@ -680,4 +852,88 @@ export interface AdminProviderAccount {
   supported_models: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface AdminCredential {
+  id: string;
+  provider_id: string;
+  label: string;
+  key_prefix: string;
+  is_active: boolean;
+  health_status: string;
+  remaining_balance: string | null;
+  priority: number;
+  routing_weight: number;
+  models_allowed: string[];
+  monthly_budget_usd: number;
+  current_month_spend_usd: number;
+  warning_threshold_pct: number;
+  rate_limit_rpm: number;
+  rate_limit_tpm: number;
+  total_requests_served: number;
+  total_tokens_served: number;
+  consecutive_failures: number;
+  last_error_reason: string | null;
+  last_used_at: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_health_check_at: string | null;
+  cooling_down_until: string | null;
+  created_at: string;
+}
+
+export interface AdminRoutingEvent {
+  id: string;
+  routing_id: string;
+  workspace_id: string | null;
+  provider_name: string;
+  model_name: string | null;
+  credential_id: string | null;
+  credential_label: string | null;
+  key_prefix: string | null;
+  routing_mode: string;
+  strategy: string;
+  decision_reason: string | null;
+  attempt_number: number;
+  is_failover: boolean;
+  outcome: string;
+  error_category: string | null;
+  error_message: string | null;
+  retry_after_seconds: number | null;
+  latency_ms: number;
+  created_at: string;
+}
+
+export interface AdminCredentialUsage {
+  credential_id: string;
+  window_days: number;
+  request_count: number;
+  success_count: number;
+  failure_count: number;
+  success_rate_pct: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  total_cost_usd: number;
+  estimated_cost_usd: number;
+  provider_billed_cost_usd: number;
+  avg_latency_ms: number;
+  monthly_budget_usd: number;
+  monthly_spend_usd: number;
+  budget_used_pct: number;
+  cost_by_model: Record<string, number>;
+  daily_cost_usd: Record<string, number>;
+  recent_events: AdminRoutingEvent[];
+}
+
+export interface AdminRoutingExplanation {
+  available: boolean;
+  reason?: string;
+  mode?: string;
+  strategy?: string;
+  credential_id?: string;
+  credential_label?: string;
+  key_prefix?: string;
+  health_status?: string;
+  eligible_count?: number;
 }

@@ -8,6 +8,7 @@ expired/unauthorized credentials (401, 403), or provider server degradation (503
 import logging
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -163,6 +164,7 @@ class TokenManager:
                 existing_cred.is_active = is_valid
                 existing_cred.health_status = health
                 existing_cred.remaining_balance = balance
+                existing_cred.last_health_check_at = datetime.now(UTC)
                 val_res["id"] = str(existing_cred.id)
             else:
                 cred = ProviderCredential(
@@ -175,6 +177,7 @@ class TokenManager:
                     is_active=is_valid,
                     health_status=health,
                     remaining_balance=balance,
+                    last_health_check_at=datetime.now(UTC),
                 )
                 db.add(cred)
                 await db.flush()

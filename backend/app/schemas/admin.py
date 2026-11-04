@@ -68,9 +68,9 @@ class ProviderAccountCreate(BaseModel):
     provider_name: str = Field(..., min_length=2, max_length=50)
     display_name: str = Field(..., min_length=2, max_length=100)
     is_enabled: bool = True
-    default_routing_strategy: Literal["priority", "round_robin", "weighted", "least_recently_used", "lowest_cost"] = (
-        "round_robin"
-    )
+    default_routing_strategy: Literal[
+        "priority", "round_robin", "weighted", "least_recently_used", "least_loaded", "lowest_cost"
+    ] = "round_robin"
     global_monthly_budget_usd: float = Field(5000.0, ge=0)
     supported_models: list[str] = Field(default_factory=list)
 
@@ -88,7 +88,7 @@ class ProviderAccountUpdate(BaseModel):
     display_name: Optional[str] = Field(None, min_length=2, max_length=100)
     is_enabled: Optional[bool] = None
     default_routing_strategy: Optional[
-        Literal["priority", "round_robin", "weighted", "least_recently_used", "lowest_cost"]
+        Literal["priority", "round_robin", "weighted", "least_recently_used", "least_loaded", "lowest_cost"]
     ] = None
     global_monthly_budget_usd: Optional[float] = Field(None, ge=0)
     supported_models: Optional[list[str]] = None
@@ -139,6 +139,9 @@ class CredentialResponse(BaseModel):
     consecutive_failures: int
     last_error_reason: Optional[str]
     last_used_at: Optional[datetime]
+    last_success_at: Optional[datetime] = None
+    last_failure_at: Optional[datetime] = None
+    last_health_check_at: Optional[datetime] = None
     cooling_down_until: Optional[datetime]
     created_at: datetime
 
@@ -227,17 +230,78 @@ class CredentialStatusUpdate(BaseModel):
     is_active: bool
 
 
+class CredentialUpdate(BaseModel):
+    """Mutable non-secret metadata for a vault credential."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: Optional[str] = Field(None, min_length=2, max_length=100)
+    priority: Optional[int] = Field(None, ge=1)
+    routing_weight: Optional[int] = Field(None, ge=1)
+    models_allowed: Optional[list[str]] = None
+    monthly_budget_usd: Optional[float] = Field(None, ge=0)
+    warning_threshold_pct: Optional[int] = Field(None, ge=1, le=100)
+    rate_limit_rpm: Optional[int] = Field(None, ge=1)
+    rate_limit_tpm: Optional[int] = Field(None, ge=1)
+
+
+class RoutingEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    routing_id: uuid.UUID
+    workspace_id: Optional[uuid.UUID]
+    provider_name: str
+    model_name: Optional[str]
+    credential_id: Optional[uuid.UUID]
+    credential_label: Optional[str]
+    key_prefix: Optional[str]
+    routing_mode: str
+    strategy: str
+    decision_reason: Optional[str]
+    attempt_number: int
+    is_failover: bool
+    outcome: str
+    error_category: Optional[str]
+    error_message: Optional[str]
+    retry_after_seconds: Optional[int]
+    latency_ms: int
+    created_at: datetime
+
+
+class CredentialUsageResponse(BaseModel):
+    credential_id: uuid.UUID
+    window_days: int
+    request_count: int
+    success_count: int
+    failure_count: int
+    success_rate_pct: float
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    total_cost_usd: float
+    estimated_cost_usd: float
+    provider_billed_cost_usd: float
+    avg_latency_ms: float
+    monthly_budget_usd: float
+    monthly_spend_usd: float
+    budget_used_pct: float
+    cost_by_model: dict[str, float]
+    daily_cost_usd: dict[str, float]
+    recent_events: list[RoutingEventResponse]
+
+
 class ProviderTokenValidationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider: Literal["jina", "openai", "anthropic", "gemini", "deepgram", "resend"]
+    provider: Literal["jina", "openai", "anthropic", "gemini", "deepgram", "openrouter", "resend"]
     token: SecretStr = Field(..., min_length=8)
 
 
 class ProviderTokensSaveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    provider_name: Literal["jina", "openai", "anthropic", "gemini", "deepgram", "resend"]
+    provider_name: Literal["jina", "openai", "anthropic", "gemini", "deepgram", "openrouter", "resend"]
     tokens_raw: SecretStr = Field(..., min_length=8)
 
 

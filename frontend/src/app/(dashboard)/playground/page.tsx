@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useVoiceInput } from "@/lib/use-voice-input";
+import { useVoiceConversation } from "@/lib/use-voice-conversation";
 import { cn } from "@/lib/utils";
 
 function VoiceBars({ className }: { className?: string }) {
@@ -94,7 +94,6 @@ function PlaygroundPage() {
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [sendError, setSendError] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [voiceHint, setVoiceHint] = useState<string | null>(null);
 
   const [showInspector, setShowInspector] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
@@ -103,16 +102,19 @@ function PlaygroundPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
+  const speakRepliesRef = useRef(speakReplies);
+  speakRepliesRef.current = speakReplies;
 
-  const voice = useVoiceInput({
+  const handleBargeIn = useCallback(() => {
+    streamAbortRef.current?.abort();
+  }, []);
+
+  const voice = useVoiceConversation({
     language: selectedAssistant?.language || "en",
-    onFinalTranscript: (text) => {
-      setInputQuery((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-      setVoiceHint("Transcript added. Press Enter to send.");
-      requestAnimationFrame(() => composerRef.current?.focus());
-    },
+    onUtterance: (text) => sendMessageRef.current(text),
+    onBargeIn: handleBargeIn,
   });
 
   useEffect(() => {
@@ -138,17 +140,12 @@ function PlaygroundPage() {
       .catch(() => setVoiceAvailable(false));
   }, []);
 
+  const stopSpeaking = voice.stopSpeaking;
+  const speakText = voice.speak;
   const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
+    stopSpeaking();
     setSpeakingId(null);
-  }, []);
+  }, [stopSpeaking]);
 
   useEffect(() => {
     return () => {
@@ -165,45 +162,51 @@ function PlaygroundPage() {
   const handleSelectAssistant = (assistantId: string) => {
     const found = assistants.find((assistant) => assistant.id === assistantId);
     if (!found) return;
-    voice.cancel();
+    voice.stop();
     stopAudio();
     setSelectedAssistant(found);
     setMessages([]);
     setConversationId(undefined);
     setSendError(null);
-    setVoiceHint(null);
   };
 
   const speak = useCallback(
-    async (text: string, messageId: string) => {
+    (text: string, messageId: string) => {
       if (!voiceAvailable || !text.trim()) return;
-      stopAudio();
-      try {
-        const blob = await api.synthesizeSpeech(text);
-        const url = URL.createObjectURL(blob);
-        audioUrlRef.current = url;
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        setSpeakingId(messageId);
-        audio.onended = () => stopAudio();
-        audio.onerror = () => stopAudio();
-        await audio.play();
-      } catch {
-        stopAudio();
-      }
+      setSpeakingId(messageId);
+      speakText(text);
     },
-    [stopAudio, voiceAvailable]
+    [speakText, voiceAvailable]
   );
 
-  const handleSendMessage = async (textOverride?: string) => {
-    const query = (textOverride ?? inputQuery).trim();
-    if (!query || chatting || !selectedAssistant) return;
+  useEffect(() => {
+    if (voice.status === "idle" || voice.status === "listening" || voice.status === "error") {
+      setSpeakingId(null);
+    }
+  }, [voice.status]);
 
-    voice.cancel();
-    stopAudio();
+  const handleSendMessage = async (
+    textOverride?: string,
+    options: { fromVoice?: boolean } = {}
+  ) => {
+    const query = (textOverride ?? inputQuery).trim();
+    if (!query || !selectedAssistant) return;
+
+    // A new voice turn always supersedes the previous generation; typed sends
+    // simply queue after the in-flight answer.
+    if (chatting && !options.fromVoice) return;
+    if (chatting && options.fromVoice) {
+      streamAbortRef.current?.abort();
+    }
+
     setInputQuery("");
     setSendError(null);
-    setVoiceHint(null);
+    if (!options.fromVoice) {
+      stopAudio();
+    }
+
+    const controller = new AbortController();
+    streamAbortRef.current = controller;
 
     const userMessage: ChatMessage = {
       id: `local-${Date.now()}`,
@@ -211,43 +214,91 @@ function PlaygroundPage() {
       content: query,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMessage]);
+    const assistantId = `stream-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      { id: assistantId, role: "assistant", content: "", created_at: new Date().toISOString() },
+    ]);
     setChatting(true);
 
+    let answerText = "";
+    let streamedDeltas = false;
+    const speakDeltas = speakRepliesRef.current && selectedAssistant.engine_mode !== "search_only";
+    if (speakDeltas) setSpeakingId(assistantId);
+
     try {
-      const response = await api.chatWithAssistant(
-        selectedAssistant.id,
-        query,
-        conversationId
-      );
-      setConversationId(response.conversation_id);
+      const result = await api.streamAssistantChat(selectedAssistant.id, query, {
+        conversationId,
+        signal: controller.signal,
+        onDelta: (delta) => {
+          answerText += delta;
+          streamedDeltas = true;
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId ? { ...message, content: answerText } : message
+            )
+          );
+          if (speakDeltas) voice.feedAnswer(delta);
+        },
+        onDone: (done) => {
+          setConversationId(done.conversation_id);
+          if (typeof done.content === "string" && done.content) answerText = done.content;
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    content: answerText,
+                    sources: done.sources || [],
+                    latency_ms: done.latency_ms,
+                  }
+                : message
+            )
+          );
+          // Some providers (and the extractive fallback) send the whole answer
+          // in `done` with no deltas; speak it instead of staying silent.
+          if (speakDeltas && !streamedDeltas && answerText.trim()) {
+            voice.feedAnswer(answerText);
+          }
+        },
+      });
 
-      const assistantMessage: ChatMessage = {
-        id: response.message_id,
-        role: "assistant",
-        content: response.content,
-        sources: response.sources,
-        created_at: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      if (speakReplies && selectedAssistant.engine_mode !== "search_only") {
-        speak(response.content, response.message_id);
+      if (result.error) {
+        setSendError(result.error);
       }
     } catch (err: any) {
-      setSendError(err.message || "The assistant couldn't respond just now.");
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: "assistant",
-          content: "I couldn't reach the knowledge base just now. Please try again.",
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      if (controller.signal.aborted) {
+        // Barge-in: the user took the turn; drop an empty placeholder.
+        setMessages((prev) =>
+          prev.filter((message) => message.id !== assistantId || message.content.trim().length > 0)
+        );
+      } else {
+        setSendError(err.message || "The assistant couldn't respond just now.");
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantId && !message.content.trim()
+              ? {
+                  ...message,
+                  content: "I couldn't reach the knowledge base just now. Please try again.",
+                }
+              : message
+          )
+        );
+      }
     } finally {
+      if (!controller.signal.aborted) {
+        voice.finishAnswer();
+      }
+      if (streamAbortRef.current === controller) {
+        streamAbortRef.current = null;
+      }
       setChatting(false);
     }
+  };
+
+  sendMessageRef.current = (text: string) => {
+    void handleSendMessage(text, { fromVoice: true });
   };
 
   const handleCopy = (text: string, key: string) => {
@@ -257,12 +308,11 @@ function PlaygroundPage() {
   };
 
   const clearConversation = () => {
-    voice.cancel();
+    streamAbortRef.current?.abort();
     stopAudio();
     setMessages([]);
     setConversationId(undefined);
     setSendError(null);
-    setVoiceHint(null);
   };
 
   if (loading) {
@@ -452,6 +502,9 @@ function PlaygroundPage() {
                 messages.map((message) => {
                   const isUser = message.role === "user";
                   const messageSources = message.sources || [];
+                  if (!isUser && !message.content && messageSources.length === 0) {
+                    return null;
+                  }
 
                   return (
                     <div
@@ -563,14 +616,17 @@ function PlaygroundPage() {
                 })
               )}
 
-              {chatting && (
-                <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                  </span>
-                  Reading your knowledge…
-                </div>
-              )}
+              {chatting &&
+                (messages.length === 0 ||
+                  messages[messages.length - 1].role !== "assistant" ||
+                  !messages[messages.length - 1].content.trim()) && (
+                  <div className="flex items-center gap-2.5 text-[13px] text-muted-foreground">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                    </span>
+                    Reading your knowledge…
+                  </div>
+                )}
 
               <div ref={messagesEndRef} />
             </div>
@@ -619,24 +675,21 @@ function PlaygroundPage() {
                   <span className="min-w-0 flex-1 truncate">
                     {voice.status === "requesting"
                       ? "Connecting microphone…"
-                      : voice.status === "processing"
-                        ? "Finishing transcript…"
-                        : voice.interim || "Listening… speak naturally"}
+                      : voice.status === "thinking"
+                        ? "Thinking…"
+                        : voice.status === "speaking"
+                          ? "Assistant is speaking — just start talking to interrupt"
+                          : voice.interim || "Listening… speak naturally"}
                   </span>
                   <button
                     type="button"
-                    onClick={voice.cancel}
+                    onClick={voice.stop}
                     className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label="Cancel voice input"
+                    aria-label="End voice conversation"
+                    title="End voice conversation"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              )}
-
-              {voiceHint && !voice.isActive && (
-                <div className="mb-2 text-[11px] text-muted-foreground" aria-live="polite">
-                  {voiceHint}
                 </div>
               )}
 
@@ -675,30 +728,32 @@ function PlaygroundPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (voice.status === "listening") {
+                      if (voice.isActive) {
                         voice.stop();
-                      } else if (voice.status === "idle" || voice.status === "error") {
-                        setVoiceHint(null);
-                        voice.start();
+                      } else {
+                        setSpeakReplies(true);
+                        void voice.start();
                       }
                     }}
-                    disabled={chatting || voice.status === "requesting" || voice.status === "processing"}
+                    disabled={voice.status === "requesting"}
                     aria-label={
-                      voice.status === "listening"
-                        ? "Stop recording"
-                        : "Start voice input"
+                      voice.isActive ? "End voice conversation" : "Start voice conversation"
                     }
-                    title={voice.status === "listening" ? "Stop and transcribe" : "Speak instead of typing"}
+                    title={
+                      voice.isActive
+                        ? "End voice conversation"
+                        : "Talk to the assistant — replies are spoken and you can interrupt"
+                    }
                     className={cn(
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
-                      voice.status === "listening"
+                      voice.isActive
                         ? "border-signal bg-signal text-signal-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {voice.status === "requesting" || voice.status === "processing" ? (
+                    {voice.status === "requesting" ? (
                       <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                    ) : voice.status === "listening" ? (
+                    ) : voice.isActive ? (
                       <Square className="h-3.5 w-3.5" />
                     ) : (
                       <Mic className="h-4 w-4" />

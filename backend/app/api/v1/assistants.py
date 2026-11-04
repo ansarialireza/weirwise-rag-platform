@@ -1,5 +1,6 @@
 """Comprehensive Assistant Lifecycle, Conversations, Citations, Golden Evaluations, and Knowledge Gap Analytics."""
 
+import json
 import time
 import uuid
 from datetime import UTC, datetime
@@ -50,6 +51,7 @@ from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,8 +71,67 @@ async def verify_project_access(project_id: uuid.UUID, user_id: uuid.UUID, db: A
     return proj
 
 
-# --- Assistant Management & Creation Wizard ---
+async def _retrieve_citations(
+    db: AsyncSession, assistant: Assistant, query: str
+) -> list[CitationItem]:
+    """Query every linked Core knowledge base and merge citations by similarity."""
+    core_client = CoreApiClient()
+    citations: list[CitationItem] = []
 
+    sources_stmt = (
+        select(KnowledgeSource)
+        .join(AssistantKnowledgeSource, AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id)
+        .where(AssistantKnowledgeSource.assistant_id == assistant.id)
+        .order_by(AssistantKnowledgeSource.priority.desc())
+    )
+    s_res = await db.execute(sources_stmt)
+    linked_sources = s_res.scalars().all()
+
+    for ks in linked_sources:
+        if not ks.core_kb_id:
+            continue
+        try:
+            search_data = await core_client.search(
+                kb_id=ks.core_kb_id,
+                query=query,
+                top_k=assistant.top_k,
+                score_threshold=assistant.score_threshold,
+            )
+            for item in search_data.get("results", []):
+                metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+                citations.append(
+                    CitationItem(
+                        chunk_id=str(item.get("chunk_id")),
+                        content=item.get("content", ""),
+                        similarity_score=item.get("similarity_score", 0.0),
+                        rank=item.get("rank", 1),
+                        document_name=metadata.get("document_name") or metadata.get("filename"),
+                    )
+                )
+        except CoreApiException as e:
+            logger.warning(f"Vector search failed: {e!s}")
+
+    citations.sort(key=lambda x: x.similarity_score, reverse=True)
+    return citations[: assistant.top_k]
+
+
+async def _conversation_history(db: AsyncSession, conversation_id: uuid.UUID) -> list[dict[str, str]]:
+    stmt = (
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.desc())
+        .limit(6)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [{"role": m.role, "content": m.content} for m in reversed(rows)]
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event, default=str)}\n\n"
+
+
+
+# --- Assistant Management & Creation Wizard ---
 
 @router.post("/projects/{project_id}/assistants", response_model=AssistantResponse, status_code=status.HTTP_201_CREATED)
 async def create_assistant(
@@ -596,6 +657,7 @@ async def studio_playground_chat(
         await db.flush()
 
     # 2. Record User Message
+    history = await _conversation_history(db, conv.id)
     user_msg = Message(
         conversation_id=conv.id,
         role="user",
@@ -605,42 +667,7 @@ async def studio_playground_chat(
     await db.flush()
 
     # 3. Retrieve Context via Core Adapter
-    core_client = CoreApiClient()
-    citations: list[CitationItem] = []
-    retrieved_contexts: list[str] = []
-
-    sources_stmt = (
-        select(KnowledgeSource)
-        .join(AssistantKnowledgeSource, AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id)
-        .where(AssistantKnowledgeSource.assistant_id == assistant.id)
-        .order_by(AssistantKnowledgeSource.priority.desc())
-    )
-    s_res = await db.execute(sources_stmt)
-    linked_sources = s_res.scalars().all()
-
-    for ks in linked_sources:
-        if ks.core_kb_id:
-            try:
-                search_data = await core_client.search(
-                    kb_id=ks.core_kb_id,
-                    query=payload.message,
-                    top_k=assistant.top_k,
-                    score_threshold=assistant.score_threshold,
-                )
-                for item in search_data.get("results", []):
-                    c_item = CitationItem(
-                        chunk_id=str(item.get("chunk_id")),
-                        content=item.get("content", ""),
-                        similarity_score=item.get("similarity_score", 0.0),
-                        rank=item.get("rank", 1),
-                    )
-                    citations.append(c_item)
-                    retrieved_contexts.append(item.get("content", ""))
-            except CoreApiException as e:
-                logger.warning(f"Vector search failed: {e!s}")
-
-    citations.sort(key=lambda x: x.similarity_score, reverse=True)
-    citations = citations[: assistant.top_k]
+    citations = await _retrieve_citations(db, assistant, payload.message)
 
     # Handle Mode 1: Semantic Search (Retrieval Only - bypass LLM)
     if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
@@ -681,6 +708,7 @@ async def studio_playground_chat(
             query=payload.message,
             passages=[c.content for c in citations],
             workspace_id=project.workspace_id,
+            history=history,
         )
         assistant_reply = answer.content
     else:
@@ -709,6 +737,182 @@ async def studio_playground_chat(
         sources=citations,
         latency_ms=latency_ms,
         is_grounded=bool(citations),
+    )
+
+
+@router.post("/assistants/{assistant_id}/chat/stream")
+async def studio_playground_chat_stream(
+    assistant_id: uuid.UUID,
+    payload: ChatMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """Stream grounded answers as Server-Sent Events for live voice and chat UIs.
+
+    Events: ``meta`` (routing/provider), ``delta`` (token text), ``error``,
+    and ``done`` (persisted message id, citations, latency, usage).
+    """
+    start_time = time.perf_counter()
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = a_res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    project = await verify_project_access(assistant.project_id, current_user.id, db)
+    await metering_service.check_and_increment_chat_turn(
+        db=db,
+        workspace_id=project.workspace_id,
+        project_id=assistant.project_id,
+        assistant_id=assistant.id,
+    )
+
+    conv = None
+    if payload.conversation_id:
+        conv = (
+            await db.execute(
+                select(Conversation).where(
+                    Conversation.id == payload.conversation_id, Conversation.assistant_id == assistant.id
+                )
+            )
+        ).scalar_one_or_none()
+    if not conv:
+        conv = Conversation(assistant_id=assistant.id, user_id=current_user.id, title=payload.message[:60])
+        db.add(conv)
+        await db.flush()
+
+    history = await _conversation_history(db, conv.id)
+    db.add(Message(conversation_id=conv.id, role="user", content=payload.message))
+    await db.commit()
+
+    citations = await _retrieve_citations(db, assistant, payload.message)
+
+    async def event_stream():
+        if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            summary = (
+                f"Semantic Search Mode: Retrieved {len(citations)} relevant document passages matching your query."
+                if citations
+                else "Semantic Search Mode: No matching document passages found above threshold."
+            )
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=summary,
+                citations=[c.model_dump(mode="json") for c in citations],
+                latency_ms=latency_ms,
+                is_grounded=bool(citations),
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+            yield _sse({"type": "delta", "text": summary})
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": summary,
+                    "sources": [c.model_dump(mode="json") for c in citations],
+                    "latency_ms": latency_ms,
+                    "is_grounded": bool(citations),
+                    "truncated": False,
+                }
+            )
+            return
+
+        if not citations:
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            content = assistant.fallback_message
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=content,
+                citations=[],
+                latency_ms=latency_ms,
+                is_grounded=False,
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+            yield _sse({"type": "delta", "text": content})
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": content,
+                    "sources": [],
+                    "latency_ms": latency_ms,
+                    "is_grounded": False,
+                    "truncated": False,
+                }
+            )
+            return
+
+        collected: list[str] = []
+        done_payload: dict | None = None
+        try:
+            async for event in llm_service.stream_grounded_answer(
+                db=db,
+                assistant=assistant,
+                query=payload.message,
+                passages=[c.content for c in citations],
+                workspace_id=project.workspace_id,
+                history=history,
+            ):
+                if event.get("type") == "delta":
+                    collected.append(event["text"])
+                    yield _sse(event)
+                elif event.get("type") == "done":
+                    done_payload = event
+                    break
+                else:
+                    yield _sse(event)
+
+            content = (done_payload or {}).get("content") or "".join(collected)
+            latency_ms = int((done_payload or {}).get("latency_ms") or (time.perf_counter() - start_time) * 1000)
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=content,
+                citations=[c.model_dump(mode="json") for c in citations],
+                latency_ms=latency_ms,
+                is_grounded=bool(citations),
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": content,
+                    "sources": [c.model_dump(mode="json") for c in citations],
+                    "latency_ms": latency_ms,
+                    "is_grounded": bool(citations),
+                    "used_llm": bool((done_payload or {}).get("used_llm")),
+                    "truncated": bool((done_payload or {}).get("truncated")),
+                    "provider_name": (done_payload or {}).get("provider_name"),
+                    "model_name": (done_payload or {}).get("model_name"),
+                    "input_tokens": (done_payload or {}).get("input_tokens", 0),
+                    "output_tokens": (done_payload or {}).get("output_tokens", 0),
+                    "cost_usd": (done_payload or {}).get("cost_usd", 0.0),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - stream errors must reach the client as an event
+            logger.exception("Streaming answer generation failed: %s", type(exc).__name__)
+            yield _sse({"type": "error", "message": "The assistant could not finish this response."})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

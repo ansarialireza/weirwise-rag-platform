@@ -41,7 +41,15 @@ class ProviderRoutingStrategy(str, enum.Enum):
     ROUND_ROBIN = "round_robin"
     WEIGHTED = "weighted"
     LEAST_RECENTLY_USED = "least_recently_used"
+    LEAST_LOADED = "least_loaded"
     LOWEST_COST = "lowest_cost"
+
+
+class RoutingEventOutcome(str, enum.Enum):
+    SELECTED = "selected"
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NO_CREDENTIAL = "no_credential"
 
 
 class AdminUserRole(Base):
@@ -144,6 +152,9 @@ class ProviderCredential(Base):
     consecutive_failures = Column(Integer, default=0, nullable=False)
     last_error_reason = Column(String(255), nullable=True)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_failure_at = Column(DateTime(timezone=True), nullable=True)
+    last_health_check_at = Column(DateTime(timezone=True), nullable=True)
     cooling_down_until = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
@@ -166,14 +177,52 @@ class TokenCostLedger(Base):
     output_tokens = Column(Integer, default=0, nullable=False)
     total_tokens = Column(Integer, default=0, nullable=False)
     cost_usd = Column(Numeric(12, 6), default=0.000000, nullable=False)  # 6 decimal precision for microcents
+    cost_source = Column(String(20), default="estimated", nullable=False)  # "estimated" or "provider"
     latency_ms = Column(Integer, default=0, nullable=False)
     is_success = Column(Boolean, default=True, nullable=False)
     error_type = Column(String(100), nullable=True)
+    routing_id = Column(GUID, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
     __table_args__ = (
         Index("ix_ledger_workspace_time", "workspace_id", "created_at"),
         Index("ix_ledger_provider_model_time", "provider_name", "model_name", "created_at"),
+    )
+
+
+class RoutingEvent(Base):
+    """Immutable observability record for every credential selection attempt.
+
+    One row is created when a credential is selected and is updated with the
+    terminal outcome (success/failure). Failed-over attempts each get their own
+    row so the full failover chain can be reconstructed without guessing.
+    """
+
+    __tablename__ = "admin_routing_events"
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    routing_id = Column(GUID, nullable=False, index=True)
+    workspace_id = Column(GUID, nullable=True, index=True)
+    provider_name = Column(String(50), nullable=False, index=True)
+    model_name = Column(String(100), nullable=True)
+    credential_id = Column(GUID, nullable=True, index=True)
+    credential_label = Column(String(100), nullable=True)
+    key_prefix = Column(String(32), nullable=True)
+    routing_mode = Column(String(16), nullable=False)  # "manual" or "automatic"
+    strategy = Column(String(50), nullable=False)
+    decision_reason = Column(String(255), nullable=True)
+    attempt_number = Column(Integer, default=1, nullable=False)
+    is_failover = Column(Boolean, default=False, nullable=False)
+    outcome = Column(String(20), default=RoutingEventOutcome.SELECTED.value, nullable=False, index=True)
+    error_category = Column(String(50), nullable=True)  # auth, rate_limit, timeout, provider, unknown
+    error_message = Column(String(500), nullable=True)
+    retry_after_seconds = Column(Integer, nullable=True)
+    latency_ms = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_routing_provider_time", "provider_name", "created_at"),
+        Index("ix_routing_credential_time", "credential_id", "created_at"),
     )
 
 

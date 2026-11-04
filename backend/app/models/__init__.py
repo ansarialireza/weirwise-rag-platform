@@ -11,6 +11,8 @@ from backend.app.models.admin import (
     ProviderAccount,
     ProviderCredential,
     ProviderRoutingStrategy,
+    RoutingEvent,
+    RoutingEventOutcome,
     TokenCostLedger,
 )
 from backend.app.models.assistant import (
@@ -105,6 +107,8 @@ __all__ = [
     "ProviderAccount",
     "ProviderCredential",
     "ProviderRoutingStrategy",
+    "RoutingEvent",
+    "RoutingEventOutcome",
     "SourceProcessingStatus",
     "SubscriptionTier",
     "TokenCostLedger",

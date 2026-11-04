@@ -2,6 +2,13 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api, type AdminProviderAccount } from "@/lib/api";
+import type {
+  AdminControlSettings,
+  AdminCredential,
+  AdminCredentialUsage,
+  AdminRoutingEvent,
+  AdminRoutingExplanation,
+} from "@/lib/api";
 import {
   Key,
   Trash2,
@@ -14,6 +21,12 @@ import {
   Info,
   ShieldCheck,
   Zap,
+  ChevronDown,
+  ChevronRight,
+  Activity,
+  Route as RouteIcon,
+  Pencil,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -90,7 +103,7 @@ export default function AdminProvidersPage() {
     openrouter: "",
     resend: "",
   });
-  const [credentials, setCredentials] = useState<any[]>([]);
+  const [credentials, setCredentials] = useState<AdminCredential[]>([]);
   const [providerAccount, setProviderAccount] = useState<AdminProviderAccount | null>(null);
   const [providerForm, setProviderForm] = useState({
     displayName: "Jina AI (Embeddings)",
@@ -103,6 +116,29 @@ export default function AdminProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
+
+  // Routing observability
+  const [controlSettings, setControlSettings] = useState<AdminControlSettings | null>(null);
+  const [explanation, setExplanation] = useState<AdminRoutingExplanation | null>(null);
+  const [explaining, setExplaining] = useState(false);
+  const [routingEvents, setRoutingEvents] = useState<AdminRoutingEvent[]>([]);
+  const [eventsFailuresOnly, setEventsFailuresOnly] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  // Per-credential drill-down
+  const [expandedCredentialId, setExpandedCredentialId] = useState<string | null>(null);
+  const [usage, setUsage] = useState<AdminCredentialUsage | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [editingCredentialId, setEditingCredentialId] = useState<string | null>(null);
+  const [credentialEditForm, setCredentialEditForm] = useState({
+    label: "",
+    priority: "1",
+    routing_weight: "10",
+    monthly_budget_usd: "1000",
+    warning_threshold_pct: "85",
+    rate_limit_rpm: "500",
+  });
+  const [savingCredential, setSavingCredential] = useState(false);
   
   // Custom Alert dialog state for destructive token purge
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
@@ -143,6 +179,122 @@ export default function AdminProvidersPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const loadObservability = useCallback(async () => {
+    setEventsLoading(true);
+    try {
+      const [settings, events] = await Promise.all([
+        api.getAdminControlSettings(),
+        api.getAdminRoutingEvents({
+          provider_name: activeTab,
+          failures_only: eventsFailuresOnly,
+          limit: 25,
+        }),
+      ]);
+      setControlSettings(settings);
+      setRoutingEvents(events);
+    } catch (err: any) {
+      toast({ message: err.message || "Failed to load routing observability.", type: "error" });
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [activeTab, eventsFailuresOnly, toast]);
+
+  useEffect(() => {
+    setExplanation(null);
+    setExpandedCredentialId(null);
+    setUsage(null);
+    setEditingCredentialId(null);
+    void loadObservability();
+  }, [loadObservability]);
+
+  const handleExplainSelection = async () => {
+    setExplaining(true);
+    try {
+      const firstModel = providerForm.supportedModels
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean)[0];
+      setExplanation(await api.explainAdminRouting(activeTab, firstModel));
+    } catch (err: any) {
+      setExplanation(null);
+      toast({ message: err.message || "Could not evaluate routing selection.", type: "error" });
+    } finally {
+      setExplaining(false);
+    }
+  };
+
+  const handleExpandCredential = async (credential: AdminCredential) => {
+    if (expandedCredentialId === credential.id) {
+      setExpandedCredentialId(null);
+      setUsage(null);
+      setEditingCredentialId(null);
+      return;
+    }
+    setExpandedCredentialId(credential.id);
+    setEditingCredentialId(null);
+    setUsage(null);
+    setUsageLoading(true);
+    try {
+      setUsage(await api.getAdminCredentialUsage(credential.id, 30));
+    } catch (err: any) {
+      toast({ message: err.message || "Could not load credential usage.", type: "error" });
+    } finally {
+      setUsageLoading(false);
+    }
+  };
+
+  const handleStartCredentialEdit = (credential: AdminCredential) => {
+    setEditingCredentialId(credential.id);
+    setCredentialEditForm({
+      label: credential.label,
+      priority: String(credential.priority),
+      routing_weight: String(credential.routing_weight),
+      monthly_budget_usd: String(credential.monthly_budget_usd),
+      warning_threshold_pct: String(credential.warning_threshold_pct),
+      rate_limit_rpm: String(credential.rate_limit_rpm),
+    });
+  };
+
+  const handleSaveCredentialEdit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingCredentialId) return;
+    const numbers = {
+      priority: Number(credentialEditForm.priority),
+      routing_weight: Number(credentialEditForm.routing_weight),
+      monthly_budget_usd: Number(credentialEditForm.monthly_budget_usd),
+      warning_threshold_pct: Number(credentialEditForm.warning_threshold_pct),
+      rate_limit_rpm: Number(credentialEditForm.rate_limit_rpm),
+    };
+    if (
+      !credentialEditForm.label.trim() ||
+      Object.values(numbers).some((value) => !Number.isFinite(value) || value < 0) ||
+      numbers.priority < 1 ||
+      numbers.routing_weight < 1 ||
+      numbers.rate_limit_rpm < 1 ||
+      numbers.warning_threshold_pct < 1 ||
+      numbers.warning_threshold_pct > 100
+    ) {
+      toast({ message: "Enter a label and valid positive routing limits.", type: "error" });
+      return;
+    }
+
+    setSavingCredential(true);
+    try {
+      const updated = await api.updateAdminCredential(editingCredentialId, {
+        label: credentialEditForm.label.trim(),
+        ...numbers,
+      });
+      setCredentials((current) => current.map((credential) => (credential.id === updated.id ? updated : credential)));
+      setEditingCredentialId(null);
+      setUsage(await api.getAdminCredentialUsage(updated.id, 30));
+      toast({ message: "Credential routing metadata updated.", type: "success" });
+    } catch (err: any) {
+      toast({ message: err.message || "Could not update credential metadata.", type: "error" });
+    } finally {
+      setSavingCredential(false);
+    }
+  };
 
   const handleSaveTokens = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,6 +445,79 @@ export default function AdminProvidersPage() {
         })}
       </div>
 
+      {/* Routing policy summary + selection explainer */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="px-4 py-2.5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5 font-medium text-foreground">
+              <RouteIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              Routing policy
+            </span>
+            <span>
+              Mode:{" "}
+              <strong className="text-foreground uppercase font-mono">
+                {controlSettings?.management_mode ?? "unknown"}
+              </strong>
+            </span>
+            <span>
+              Auto failover:{" "}
+              <strong className="text-foreground font-mono">
+                {controlSettings ? (controlSettings.automatic_failover ? "on" : "off") : "unknown"}
+              </strong>
+            </span>
+            {controlSettings?.emergency_stop && (
+              <span className="font-semibold text-rose-400 uppercase">Emergency stop active</span>
+            )}
+            <a href="/admin/operations" className="underline underline-offset-2 hover:text-foreground">
+              Manage policy
+            </a>
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExplainSelection}
+            disabled={explaining}
+            className="h-7 px-2.5 text-xs font-medium border-border/80 self-start sm:self-auto"
+          >
+            <Activity className={`h-3 w-3 mr-1 ${explaining ? "animate-pulse" : ""}`} />
+            Explain next selection
+          </Button>
+        </div>
+
+        {explanation && (
+          <div role="status" className="border-t border-border/60 bg-muted/20 px-4 py-2.5 text-[11px]">
+            {explanation.available ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-foreground font-medium">
+                  {explanation.credential_label} ({explanation.key_prefix})
+                </span>
+                <span className="text-muted-foreground">
+                  mode=<span className="font-mono">{explanation.mode}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  strategy=<span className="font-mono">{explanation.strategy}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  why=<span className="font-mono">{explanation.reason}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  eligible=<span className="font-mono">{explanation.eligible_count}</span>
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                <span>
+                  No credential would be selected: <span className="font-mono">{explanation.reason}</span>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Provider Settings Card */}
       <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
         <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex items-center justify-between">
@@ -336,10 +561,12 @@ export default function AdminProvidersPage() {
                 onChange={(event) => setProviderForm((current) => ({ ...current, routingStrategy: event.target.value }))}
                 className="w-full rounded-md border border-border/70 bg-background px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
               >
-                <option value="priority">Priority (Highest order first)</option>
-                <option value="round_robin">Least Recently Used (Round-robin)</option>
+                <option value="priority">Priority (highest priority first)</option>
+                <option value="round_robin">Round Robin (even request distribution)</option>
+                <option value="least_recently_used">Least Recently Used</option>
+                <option value="least_loaded">Least Loaded (lowest in-flight)</option>
                 <option value="weighted">Weighted Distribution</option>
-                <option value="lowest_cost">Lowest Cost Optimization</option>
+                <option value="lowest_cost">Lowest Cost Utilization</option>
               </select>
             </div>
 
@@ -505,81 +732,331 @@ export default function AdminProvidersPage() {
         ) : (
           <div className="divide-y divide-border/60">
             {credentials.map((c, idx) => {
-              const isHealthy = c.is_active && c.health_status === "healthy";
+              const isActive = c.is_active;
+              const isCooling = c.cooling_down_until ? new Date(c.cooling_down_until) > new Date() : false;
+              const isHealthy = isActive && !isCooling && (c.health_status === "healthy" || c.health_status === "degraded");
+              const expanded = expandedCredentialId === c.id;
+              const budgetPct =
+                c.monthly_budget_usd > 0
+                  ? Math.min(100, (Number(c.current_month_spend_usd) / Number(c.monthly_budget_usd)) * 100)
+                  : 0;
+              const dotClass = !isActive ? "bg-zinc-500" : isHealthy ? "bg-emerald-500" : "bg-amber-500";
+
               return (
-                <div
-                  key={c.id}
-                  className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                        isHealthy ? "bg-emerald-500" : "bg-rose-500"
-                      }`}
-                      title={isHealthy ? "Token Healthy" : "Token Inactive or Exhausted"}
-                    />
+                <div key={c.id}>
+                  <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full shrink-0 ${dotClass}`}
+                        title={`Health: ${c.health_status}`}
+                      />
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-foreground">
-                          {c.label || `Token #${idx + 1}`}
-                        </span>
-                        <span className="font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border/60">
-                          {c.key_prefix}
-                        </span>
-                        <span className="text-[11px] font-mono text-muted-foreground">
-                          Priority #{c.priority || idx + 1}
-                        </span>
-                      </div>
+                      <div className="min-w-0 space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-foreground">
+                            {c.label || `Token #${idx + 1}`}
+                          </span>
+                          <span className="font-mono text-[11px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border/60">
+                            {c.key_prefix}
+                          </span>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            Priority #{c.priority || idx + 1}
+                          </span>
+                          <span
+                            className={`text-[10px] font-mono uppercase px-1.5 py-0.2 rounded border ${
+                              isActive
+                                ? isCooling
+                                  ? "border-amber-500/40 text-amber-400 bg-amber-500/10"
+                                  : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
+                                : "border-border/60 text-muted-foreground bg-muted"
+                            }`}
+                          >
+                            {isActive ? (isCooling ? "rate limited" : c.health_status) : "disabled"}
+                          </span>
+                        </div>
 
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
-                        <span className={isHealthy ? "text-emerald-400 font-mono font-medium" : "text-rose-400 font-mono font-medium"}>
-                          {c.remaining_balance || (isHealthy ? "Active & Ready" : "Inactive / Exhausted")}
-                        </span>
-                        <span>•</span>
-                        <span className="font-mono">{c.total_requests_served || 0} reqs served</span>
-                        {c.last_error_reason && (
-                          <>
-                            <span>•</span>
-                            <span className="text-rose-400 font-mono text-[10px]">
-                              {c.last_error_reason}
+                        <div className="flex items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground flex-wrap">
+                          <span className="font-mono">
+                            {c.total_requests_served || 0} reqs
+                          </span>
+                          <span>�</span>
+                          <span className="font-mono">
+                            ${Number(c.current_month_spend_usd || 0).toFixed(2)} / $
+                            {Number(c.monthly_budget_usd || 0).toFixed(2)}
+                          </span>
+                          <span>�</span>
+                          <span className="font-mono">
+                            last ok: {c.last_success_at ? new Date(c.last_success_at).toLocaleTimeString() : "never"}
+                          </span>
+                          {c.last_failure_at && (
+                            <>
+                              <span>�</span>
+                              <span className="font-mono text-amber-400">
+                                last err: {new Date(c.last_failure_at).toLocaleTimeString()}
+                              </span>
+                            </>
+                          )}
+                          {c.last_error_reason && (
+                            <>
+                              <span>�</span>
+                              <span className="text-rose-400 font-mono text-[10px] max-w-[22rem] truncate" title={c.last_error_reason}>
+                                {c.last_error_reason}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {budgetPct >= 0 && c.monthly_budget_usd > 0 && (
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <div className="h-1 w-36 rounded-full bg-muted overflow-hidden" aria-hidden="true">
+                              <div
+                                className={`h-full ${budgetPct >= 100 ? "bg-rose-500" : budgetPct >= 85 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                style={{ width: `${budgetPct}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono text-muted-foreground">
+                              {budgetPct.toFixed(0)}% budget
                             </span>
-                          </>
+                          </div>
                         )}
                       </div>
                     </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleExpandCredential(c)}
+                        className="h-7 px-2.5 text-xs font-medium border-border/80"
+                        aria-expanded={expanded}
+                      >
+                        {expanded ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                        Details
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStartCredentialEdit(c)}
+                        className="h-7 px-2.5 text-xs font-medium border-border/80"
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleCredential(c.id, c.is_active)}
+                        className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
+                          c.is_active
+                            ? "hover:bg-amber-500/10 hover:text-amber-400"
+                            : "hover:bg-emerald-500/10 hover:text-emerald-400"
+                        }`}
+                      >
+                        <Power className="h-3 w-3 mr-1" />
+                        {c.is_active ? "Disable" : "Enable"}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteTarget({ id: c.id, label: c.label || c.key_prefix })}
+                        className="h-7 px-2.5 text-xs font-medium border-border/80 hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleToggleCredential(c.id, c.is_active)}
-                      className={`h-7 px-2.5 text-xs font-medium border-border/80 ${
-                        c.is_active
-                          ? "hover:bg-amber-500/10 hover:text-amber-400"
-                          : "hover:bg-emerald-500/10 hover:text-emerald-400"
-                      }`}
-                    >
-                      <Power className="h-3 w-3 mr-1" />
-                      {c.is_active ? "Disable" : "Enable"}
-                    </Button>
+                  {expanded && (
+                    <div className="px-4 pb-4 space-y-3 bg-muted/20 border-t border-border/40">
+                      {usageLoading ? (
+                        <p className="pt-3 text-[11px] text-muted-foreground flex items-center gap-2">
+                          <RefreshCw className="h-3 w-3 animate-spin" /> Loading usage from the cost ledger...
+                        </p>
+                      ) : usage ? (
+                        <>
+                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-3 text-[11px]">
+                            <Metric label="Attempts (30d)" value={String(usage.request_count)} />
+                            <Metric label="Success rate" value={`${usage.success_rate_pct}%`} />
+                            <Metric label="Tokens" value={usage.total_tokens.toLocaleString()} />
+                            <Metric label="Avg latency" value={`${usage.avg_latency_ms} ms`} />
+                            <Metric label="Estimated cost" value={`$${usage.estimated_cost_usd.toFixed(4)}`} />
+                            <Metric label="Billed cost" value={`$${usage.provider_billed_cost_usd.toFixed(4)}`} />
+                          </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteTarget({ id: c.id, label: c.label || c.key_prefix })}
-                      className="h-7 px-2.5 text-xs font-medium border-border/80 hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Month-to-date spend{" "}
+                            <span className="font-mono text-foreground">
+                              ${usage.monthly_spend_usd.toFixed(4)}
+                            </span>{" "}
+                            of <span className="font-mono">${usage.monthly_budget_usd.toFixed(2)}</span> ({usage.budget_used_pct}%)
+                            {" � "}health probe{" "}
+                            <span className="font-mono">
+                              {c.last_health_check_at ? new Date(c.last_health_check_at).toLocaleString() : "never"}
+                            </span>
+                          </div>
+
+                          <div>
+                            <h4 className="text-[11px] font-semibold text-foreground mb-1.5">Recent routing events</h4>
+                            {usage.recent_events.length === 0 ? (
+                              <p className="text-[11px] text-muted-foreground">No routing events recorded for this credential yet.</p>
+                            ) : (
+                              <ul className="space-y-1">
+                                {usage.recent_events.slice(0, 8).map((event) => (
+                                  <li key={event.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-mono text-muted-foreground">
+                                    <span className="text-foreground">{new Date(event.created_at).toLocaleTimeString()}</span>
+                                    <OutcomeBadge outcome={event.outcome} />
+                                    {event.is_failover && <span className="text-amber-400">failover#{event.attempt_number}</span>}
+                                    <span>strategy={event.strategy}</span>
+                                    {event.decision_reason && <span>why={event.decision_reason}</span>}
+                                    {event.error_category && <span className="text-rose-400">{event.error_category}</span>}
+                                    {event.latency_ms > 0 && <span>{event.latency_ms}ms</span>}
+                                    {event.error_message && (
+                                      <span className="text-rose-400/80 max-w-full truncate" title={event.error_message}>
+                                        {event.error_message}
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <p className="pt-3 text-[11px] text-muted-foreground">No usage data available.</p>
+                      )}
+
+                      {editingCredentialId === c.id && (
+                        <form onSubmit={handleSaveCredentialEdit} className="rounded-md border border-border/70 bg-card p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-[11px] font-semibold text-foreground">Edit routing metadata</h4>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCredentialId(null)}
+                              className="text-muted-foreground hover:text-foreground"
+                              aria-label="Cancel editing"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <EditField label="Label">
+                              <input
+                                required
+                                minLength={2}
+                                maxLength={100}
+                                value={credentialEditForm.label}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, label: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                            </EditField>
+                            <EditField label="Priority">
+                              <input type="number" min={1} required value={credentialEditForm.priority}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, priority: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </EditField>
+                            <EditField label="Routing weight">
+                              <input type="number" min={1} required value={credentialEditForm.routing_weight}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, routing_weight: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </EditField>
+                            <EditField label="Monthly budget (USD)">
+                              <input type="number" min={0} step="0.01" required value={credentialEditForm.monthly_budget_usd}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, monthly_budget_usd: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </EditField>
+                            <EditField label="Warning threshold (%)">
+                              <input type="number" min={1} max={100} required value={credentialEditForm.warning_threshold_pct}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, warning_threshold_pct: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </EditField>
+                            <EditField label="Rate limit (RPM)">
+                              <input type="number" min={1} required value={credentialEditForm.rate_limit_rpm}
+                                onChange={(event) => setCredentialEditForm((current) => ({ ...current, rate_limit_rpm: event.target.value }))}
+                                className="w-full rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                            </EditField>
+                          </div>
+                          <div className="flex justify-end">
+                            <Button type="submit" size="sm" disabled={savingCredential} className="h-7 text-xs">
+                              {savingCredential ? <RefreshCw className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                              Save metadata
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+        )}
+      </div>
+
+      {/* Provider-level routing decision log */}
+      <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
+        <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-xs font-semibold text-foreground">Routing decision log</h3>
+            <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-muted border border-border/60 text-muted-foreground">
+              {routingEvents.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={eventsFailuresOnly}
+                onChange={(event) => setEventsFailuresOnly(event.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
+              />
+              Failures only
+            </label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadObservability}
+              disabled={eventsLoading}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${eventsLoading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {routingEvents.length === 0 ? (
+          <p className="px-4 py-5 text-[11px] text-muted-foreground">
+            No routing decisions recorded for {activeProvider.displayName} yet. Events appear once the provider serves a request.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/60 max-h-80 overflow-y-auto">
+            {routingEvents.map((event) => (
+              <li key={event.id} className="px-4 py-2 text-[10px] font-mono flex flex-col sm:flex-row sm:items-center gap-x-2 gap-y-1 hover:bg-muted/20">
+                <span className="text-muted-foreground shrink-0">{new Date(event.created_at).toLocaleString()}</span>
+                <OutcomeBadge outcome={event.outcome} />
+                <span className="text-foreground shrink-0">{event.model_name || "any model"}</span>
+                <span className="text-muted-foreground shrink-0">
+                  {event.credential_label || "�"} ({event.key_prefix || "n/a"})
+                </span>
+                <span className="text-muted-foreground">mode={event.routing_mode}</span>
+                <span className="text-muted-foreground">strategy={event.strategy}</span>
+                {event.is_failover && <span className="text-amber-400">failover#{event.attempt_number}</span>}
+                {event.decision_reason && <span className="text-muted-foreground truncate">why={event.decision_reason}</span>}
+                {event.error_category && <span className="text-rose-400">{event.error_category}</span>}
+                {event.retry_after_seconds != null && (
+                  <span className="text-amber-400">retry-after={event.retry_after_seconds}s</span>
+                )}
+                {event.latency_ms > 0 && <span className="text-muted-foreground">{event.latency_ms}ms</span>}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -602,4 +1079,32 @@ export default function AdminProvidersPage() {
       />
     </div>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card px-2.5 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="font-mono text-xs text-foreground mt-0.5">{value}</div>
+    </div>
+  );
+}
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="space-y-1">
+      <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function OutcomeBadge({ outcome }: { outcome: string }) {
+  const tone =
+    outcome === "success"
+      ? "text-emerald-400 border-emerald-500/30"
+      : outcome === "selected"
+        ? "text-cyan-400 border-cyan-500/30"
+        : "text-rose-400 border-rose-500/30";
+  return <span className={`px-1 py-0.2 rounded border ${tone}`}>{outcome}</span>;
 }
