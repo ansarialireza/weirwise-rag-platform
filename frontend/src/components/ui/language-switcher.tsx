@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 interface LanguageSwitcherProps {
   className?: string;
-  variant?: "header" | "sidebar";
+  variant?: "header" | "sidebar" | "minimal";
 }
 
 export function LanguageSwitcher({
@@ -13,6 +13,47 @@ export function LanguageSwitcher({
   variant = "header",
 }: LanguageSwitcherProps) {
   const { locale, setLocale } = useI18n();
+
+  if (variant === "minimal") {
+    return (
+      <div
+        className={cn(
+          "inline-flex items-center gap-2 font-mono text-xs select-none tracking-wider",
+          className
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setLocale("en")}
+          className={cn(
+            "transition-colors text-xs font-semibold py-0.5",
+            locale === "en"
+              ? "text-[#CCFF00] underline underline-offset-4 decoration-2 decoration-[#CCFF00]"
+              : "text-zinc-500 hover:text-zinc-300"
+          )}
+          title="English"
+          aria-label="Switch to English"
+        >
+          EN
+        </button>
+        <span className="text-zinc-600 select-none text-[11px]">/</span>
+        <button
+          type="button"
+          onClick={() => setLocale("fa")}
+          className={cn(
+            "transition-colors text-xs font-semibold py-0.5",
+            locale === "fa"
+              ? "text-[#CCFF00] underline underline-offset-4 decoration-2 decoration-[#CCFF00]"
+              : "text-zinc-500 hover:text-zinc-300"
+          )}
+          title="فارسی (Persian)"
+          aria-label="تغییر به زبان فارسی"
+        >
+          FA
+        </button>
+      </div>
+    );
+  }
 
   if (variant === "sidebar") {
     return (
