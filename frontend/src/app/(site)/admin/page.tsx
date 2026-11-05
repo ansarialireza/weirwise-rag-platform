@@ -191,7 +191,7 @@ export default function AdminOverviewPage() {
           </div>
           <Link
             href="/admin/audit"
-            className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
+            className="text-xs text-accent-strong hover:underline flex items-center gap-1 font-medium"
           >
             <span>View audit logs</span>
             <ArrowRight className="h-3 w-3" />

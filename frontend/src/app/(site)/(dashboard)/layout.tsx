@@ -8,18 +8,13 @@ import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
-import { StoryStageProvider } from "@/lib/story-stage-context";
-import { ContinuousThreadStage } from "@/components/layout/continuous-thread-stage";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <StoryStageProvider>
-      <ToastProvider>
-        <ContinuousThreadStage />
-        <DashboardShell>{children}</DashboardShell>
-        <CommandPalette />
-      </ToastProvider>
-    </StoryStageProvider>
+    <ToastProvider>
+      <DashboardShell>{children}</DashboardShell>
+      <CommandPalette />
+    </ToastProvider>
   );
 }
 
@@ -32,7 +27,12 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/login");
+    if (authLoading || user) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      router.replace("/offline");
+      return;
+    }
+    router.push("/login");
   }, [user, authLoading, router]);
 
   useEffect(() => {
@@ -60,6 +60,30 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const openSearch = () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+  };
+
+  const closeMenu = () => {
+    setMobileMenuOpen(false);
+    menuTriggerRef.current?.focus();
+  };
+
+  const trapDrawerFocus = (e: React.KeyboardEvent) => {
+    if (e.key !== "Tab") return;
+    const root = drawerRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   };
 
   if (authLoading) {
@@ -98,17 +122,18 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         >
           <div
             className="absolute inset-0 bg-onyx/50 backdrop-blur-[2px] animate-in"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={closeMenu}
             aria-hidden="true"
           />
           <div
             ref={drawerRef}
             tabIndex={-1}
+            onKeyDown={trapDrawerFocus}
             className="relative z-10 flex h-full w-[86vw] max-w-[300px] flex-col border-r border-border bg-card shadow-lift outline-none animate-in"
           >
             <Sidebar
-              onItemClick={() => setMobileMenuOpen(false)}
-              onClose={() => setMobileMenuOpen(false)}
+              onItemClick={closeMenu}
+              onClose={closeMenu}
               isMobileDrawer
             />
           </div>

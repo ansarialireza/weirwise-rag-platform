@@ -67,6 +67,7 @@ export default function AssistantConfigurePage() {
     Promise.all([api.getAssistant(assistantId), api.getSources(), api.getDeployments(assistantId)])
       .then(([a, sList, deployments]) => {
         setAssistant(a);
+        document.title = `${a.name} · Weirwise`;
         setName(a.name);
         setInstructions(a.system_instructions || "");
         setModel(a.model);
@@ -264,7 +265,7 @@ export default function AssistantConfigurePage() {
         ]}
         activeTab={tab}
         onChange={setTab}
-        className="w-full sm:w-auto"
+        className="w-full sm:w-fit"
       />
 
       {tab === "setup" && (
@@ -658,7 +659,7 @@ export default function AssistantConfigurePage() {
 
               <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-signal" />
-                Only domains you allow can load this assistant.
+                Share this link with anyone who should use the assistant.
               </div>
             </section>
           ) : (

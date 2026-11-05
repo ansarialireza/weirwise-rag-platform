@@ -518,7 +518,7 @@ function PlaygroundPage() {
                       className={cn("flex flex-col gap-2", isUser ? "items-end" : "items-start")}
                     >
                       {isUser ? (
-                        <div className="max-w-[85%] rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-ee-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
                           {message.content}
                         </div>
                       ) : isSearchMode ? (

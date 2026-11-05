@@ -23,7 +23,6 @@ import { useTheme } from "@/lib/theme-context";
 import { useI18n } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { SignalDot } from "@/components/brand/signal-flow";
 
 interface SidebarProps {
   onItemClick?: () => void;
@@ -67,13 +66,21 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
     { label: dict.common.playground, href: "/playground", icon: MessageSquare, active: pathname.startsWith("/playground") },
   ];
 
+  const planLabels: Record<string, string> = {
+    free: dict.common.freePlan,
+    starter: dict.common.starterPlan,
+    pro: dict.common.proPlan,
+    enterprise: dict.common.businessPlan,
+  };
+  const planLabel = planTier ? planLabels[planTier] || planTier : dict.common.workspace;
+
   return (
     <aside
       className={cn(
         "flex select-none flex-col border-border bg-card transition-colors",
         isMobileDrawer ? "h-full w-full" : "h-screen w-[248px] border-r"
       )}
-      aria-label="Main navigation"
+      aria-label={dict.common.mainNavigation}
     >
       <div className="flex h-16 shrink-0 items-center justify-between px-4">
         <Link href="/overview" onClick={() => onItemClick?.()} className="group flex items-center gap-2.5">
@@ -88,7 +95,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Close navigation"
+            aria-label={dict.common.closeNavigation}
           >
             <X className="h-4 w-4" />
           </button>
@@ -105,8 +112,8 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
               <div className="truncate text-[13px] font-medium leading-tight text-foreground">
                 {workspaceName || dict.common.workspace}
               </div>
-              <div className="text-[11px] capitalize leading-tight text-muted-foreground">
-                {planTier ? `${planTier} plan` : dict.common.workspace}
+              <div className="truncate text-[11px] leading-tight text-muted-foreground">
+                {planLabel}
               </div>
             </div>
           </div>
@@ -205,9 +212,9 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
           <LanguageSwitcher variant="sidebar" />
           <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5" role="group" aria-label={dict.common.theme}>
             {[
-              { id: "light" as const, icon: Sun, label: "Light" },
-              { id: "dark" as const, icon: Moon, label: "Dark" },
-              { id: "system" as const, icon: Laptop, label: "System" },
+              { id: "light" as const, icon: Sun, label: dict.common.lightTheme, short: "Light" },
+              { id: "dark" as const, icon: Moon, label: dict.common.darkTheme, short: "Dark" },
+              { id: "system" as const, icon: Laptop, label: dict.common.systemTheme, short: "System" },
             ].map((option) => {
               const Icon = option.icon;
               return (
@@ -221,8 +228,8 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   )}
-                  title={`${option.label} theme`}
-                  aria-label={`${option.label} theme`}
+                  title={option.label}
+                  aria-label={option.label}
                   aria-pressed={theme === option.id}
                 >
                   <Icon className="h-3 w-3" />
@@ -230,11 +237,6 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
               );
             })}
           </div>
-        </div>
-
-        <div className="mt-3 flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground/70">
-          <SignalDot />
-          <span>{dict.common.brand} Studio</span>
         </div>
       </div>
     </aside>

@@ -64,7 +64,7 @@ export function CompactThemeMenu({ className }: CompactThemeMenuProps) {
                 }}
                 className={cn(
                   "flex items-center justify-between w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-secondary",
-                  isSelected ? "text-primary font-semibold" : "text-foreground"
+                  isSelected ? "text-accent-strong font-semibold" : "text-foreground"
                 )}
               >
                 <div className="flex items-center gap-2">

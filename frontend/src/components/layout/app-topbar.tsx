@@ -13,12 +13,12 @@ interface AppTopbarProps {
   onOpenSearch: () => void;
 }
 
-function getPageLabel(pathname: string) {
-  if (pathname.startsWith("/assistants/")) return "Assistant";
-  if (pathname.startsWith("/assistants")) return "Assistants";
-  if (pathname.startsWith("/sources")) return "Knowledge";
-  if (pathname.startsWith("/playground")) return "Test assistant";
-  return "Overview";
+function getPageLabel(pathname: string, dict: ReturnType<typeof useI18n>["dict"]) {
+  if (pathname.startsWith("/assistants/")) return dict.common.assistant;
+  if (pathname.startsWith("/assistants")) return dict.common.assistants;
+  if (pathname.startsWith("/sources")) return dict.common.knowledge;
+  if (pathname.startsWith("/playground")) return dict.common.playground;
+  return dict.common.overview;
 }
 
 export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
@@ -44,7 +44,7 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
     };
   }, [menuOpen]);
 
-  const pageLabel = getPageLabel(pathname);
+  const pageLabel = getPageLabel(pathname, dict);
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md sm:h-16 sm:px-6">
@@ -53,12 +53,12 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
           type="button"
           onClick={onOpenMenu}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-          aria-label="Open navigation"
+          aria-label={dict.common.openNavigation}
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <nav className="hidden items-center gap-1.5 text-[13px] text-muted-foreground md:flex" aria-label="Breadcrumb">
+        <nav className="hidden items-center gap-1.5 text-[13px] text-muted-foreground md:flex" aria-label={dict.common.breadcrumb}>
           <span>{dict.common.workspace}</span>
           <span className="text-border">/</span>
           <span className="font-medium text-foreground">{pageLabel}</span>
@@ -80,7 +80,7 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
           type="button"
           onClick={onOpenSearch}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:hidden"
-          aria-label="Search"
+          aria-label={dict.common.search}
         >
           <Search className="h-4 w-4" />
         </button>
@@ -92,7 +92,7 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
             className="flex h-9 items-center gap-2 rounded-lg px-1.5 text-sm transition-colors hover:bg-muted"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            aria-label="Account menu"
+            aria-label={dict.common.accountMenu}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-onyx text-[11px] font-semibold text-white">
               {user?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}

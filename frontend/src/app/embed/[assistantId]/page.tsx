@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Send, Bot, User, AlertCircle, FileText } from "lucide-react";
 import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
@@ -32,6 +32,8 @@ export default function AssistantWidgetPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
   const widgetHeaders: Record<string, string> = widgetKey ? { "X-Widget-Key": widgetKey } : {};
@@ -52,6 +54,7 @@ export default function AssistantWidgetPage() {
       })
       .then((data) => {
         setConfig(data);
+        document.title = data.name ? `${data.name} · Weirwise` : "Weirwise Assistant";
         setMessages([
           {
             role: "assistant",
@@ -65,10 +68,22 @@ export default function AssistantWidgetPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assistantId, widgetKey]);
 
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [input]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, loading]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
-
     const userText = input.trim();
     setInput("");
     setError(null);
@@ -127,7 +142,7 @@ export default function AssistantWidgetPage() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background text-foreground font-sans">
+    <div className="flex h-dvh w-full flex-col bg-background text-foreground font-sans">
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
           <WeirwiseSymbol className="h-8 w-auto" priority />
@@ -140,7 +155,13 @@ export default function AssistantWidgetPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        ref={listRef}
+        role="log"
+        aria-live="polite"
+        aria-label="Conversation"
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+      >
         {messages.map((m, idx) => (
           <div
             key={idx}
@@ -164,7 +185,7 @@ export default function AssistantWidgetPage() {
 
               {m.citations && m.citations.length > 0 && (
                 <div className="mt-3 pt-2.5 border-t border-border/50 space-y-1.5">
-                  <div className="flex items-center gap-1 text-[10px] font-semibold text-primary">
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-accent-strong">
                     <FileText className="h-3 w-3" /> Sources
                   </div>
                   {m.citations.map((c, cIdx) => (
@@ -199,25 +220,37 @@ export default function AssistantWidgetPage() {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive">
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-2 text-[11px] text-destructive"
+          >
             <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t border-border bg-card p-3 flex gap-2">
-        <input
-          type="text"
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 border-t border-border bg-card p-3">
+        <textarea
+          ref={inputRef}
+          rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder={config.placeholder_text || "Ask a question..."}
-          className="flex-1 rounded-xl border border-border bg-input px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+          aria-label="Message"
+          className="max-h-32 min-h-[34px] flex-1 resize-none rounded-xl border border-border bg-input px-3.5 py-2 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
         />
         <button
           type="submit"
           disabled={!input.trim() || loading}
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+          aria-label="Send message"
+          className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
         >
           <Send className="h-3.5 w-3.5" />
         </button>

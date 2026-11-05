@@ -29,7 +29,6 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
-import { useStoryStage } from "@/lib/story-stage-context";
 
 const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
 
@@ -52,7 +51,6 @@ export default function SourcesKnowledgePage() {
   const uploadWorkflow = useWorkflow("wf_upload_documents");
   const createSourceWorkflow = useWorkflow("wf_create_source");
   const { trackFriction } = useTelemetry();
-  const { triggerChunkDrop } = useStoryStage();
 
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<KnowledgeSource | null>(null);
@@ -132,13 +130,20 @@ export default function SourcesKnowledgePage() {
       try {
         const docs = await api.getDocuments(selectedSource.id);
         setDocuments(docs);
+        const stillPending = docs.some(
+          (d) => d.status === "pending" || d.status === "processing"
+        );
+        if (!stillPending) {
+          clearInterval(interval);
+          loadSources();
+        }
       } catch {
         // Background refresh failure is non-critical
       }
     }, 2500);
 
     return () => clearInterval(interval);
-  }, [documents, selectedSource]);
+  }, [documents, selectedSource, loadSources]);
 
   const handleCreateSource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,7 +205,6 @@ export default function SourcesKnowledgePage() {
 
     setUploading(true);
     setUploadCount(valid.length);
-    triggerChunkDrop(valid.length);
 
     try {
       await api.uploadDocuments(selectedSource.id, valid);
@@ -302,6 +306,12 @@ export default function SourcesKnowledgePage() {
   const filteredDocuments = documents.filter((doc) =>
     doc.filename.toLowerCase().includes(docFilter.toLowerCase())
   );
+
+  const totalDocs = documents.length;
+  const readyDocs = documents.filter((d) => d.status === "ready").length;
+  const failedDocs = documents.filter((d) => d.status === "failed").length;
+  const pendingDocs = totalDocs - readyDocs - failedDocs;
+  const progressPct = totalDocs ? Math.round(((readyDocs + failedDocs) / totalDocs) * 100) : 0;
 
   if (loading) {
     return (
@@ -495,14 +505,15 @@ export default function SourcesKnowledgePage() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={cn(
-                      "mt-5 rounded-xl border border-dashed p-6 text-center transition-colors",
+                      "mt-5 rounded-xl border border-dashed transition-colors",
                       isDragging
                         ? "border-accent bg-accent-soft"
-                        : "border-border bg-background/60"
+                        : "border-border bg-background/60",
+                      documents.length > 0 && !uploading ? "px-4 py-3" : "p-6 text-center"
                     )}
                   >
                     {uploading ? (
-                      <div className="space-y-2">
+                      <div className="space-y-2 text-center">
                         <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
                           <Upload className="h-4 w-4 animate-pulse" />
                         </div>
@@ -512,6 +523,27 @@ export default function SourcesKnowledgePage() {
                         <p className="text-xs text-muted-foreground">
                           Keep this tab open while we prepare them.
                         </p>
+                      </div>
+                    ) : documents.length > 0 ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                          <Upload className="h-4 w-4" />
+                          {isDragging ? "Drop to add these files" : "Add more files to this collection"}
+                        </span>
+                        <label className="inline-flex cursor-pointer">
+                          <input
+                            type="file"
+                            multiple
+                            className="sr-only"
+                            accept={ACCEPTED_EXTENSIONS.join(",")}
+                            onChange={handleFileInput}
+                            disabled={uploading}
+                          />
+                          <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
+                            <Plus className="h-3.5 w-3.5" />
+                            Choose files
+                          </span>
+                        </label>
                       </div>
                     ) : (
                       <div className="space-y-2">
@@ -571,6 +603,49 @@ export default function SourcesKnowledgePage() {
                       </div>
                     )}
                   </div>
+
+                  {totalDocs > 0 && (pendingDocs > 0 || failedDocs > 0) && (
+                    <div className="border-b border-border/70 px-5 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
+                        <span className="text-muted-foreground">
+                          {pendingDocs > 0
+                            ? `Preparing ${pendingDocs} file${pendingDocs === 1 ? "" : "s"}…`
+                            : `${failedDocs} file${failedDocs === 1 ? "" : "s"} need${failedDocs === 1 ? "s" : ""} attention.`}
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {readyDocs} of {totalDocs} ready
+                        </span>
+                      </div>
+                      <div
+                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={progressPct}
+                        aria-label="File preparation progress"
+                      >
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-[width] duration-700 ease-out",
+                            failedDocs > 0 ? "bg-warning" : "bg-accent"
+                          )}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      {pendingDocs > 0 && (
+                        <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          You can keep working — this updates on its own.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {totalDocs > 0 && pendingDocs === 0 && failedDocs === 0 && (
+                    <div className="flex items-center gap-1.5 border-b border-border/70 px-5 py-2.5 text-[11px] text-muted-foreground">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
+                      All {totalDocs} file{totalDocs === 1 ? "" : "s"} ready to answer from.
+                    </div>
+                  )}
 
                   {loadingDocs ? (
                     <div className="space-y-2 p-4">

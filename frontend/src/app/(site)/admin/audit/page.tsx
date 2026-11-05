@@ -590,7 +590,7 @@ export default function AdminAuditPage() {
                           setInspectLog(log);
                           setInspectorTab("structured");
                         }}
-                        className="h-6 px-1.5 text-[11px] font-mono text-primary hover:text-primary/90"
+                        className="h-6 px-1.5 text-[11px] font-mono text-accent-strong hover:text-accent-strong/90"
                       >
                         <Eye className="h-3 w-3 mr-1" />
                         Inspect

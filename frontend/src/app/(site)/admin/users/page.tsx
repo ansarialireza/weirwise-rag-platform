@@ -315,7 +315,7 @@ export default function AdminUsersPage() {
               type="button"
               onClick={() => handleToggleSort("email")}
               className={`hover:text-foreground inline-flex items-center gap-1 ${
-                sortField === "email" ? "text-primary font-semibold" : ""
+                sortField === "email" ? "text-accent-strong font-semibold" : ""
               }`}
             >
               <span>Email</span>
@@ -325,7 +325,7 @@ export default function AdminUsersPage() {
               type="button"
               onClick={() => handleToggleSort("workspaces_count")}
               className={`hover:text-foreground hidden sm:inline-flex items-center gap-1 ${
-                sortField === "workspaces_count" ? "text-primary font-semibold" : ""
+                sortField === "workspaces_count" ? "text-accent-strong font-semibold" : ""
               }`}
             >
               <span>Workspaces</span>
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
               type="button"
               onClick={() => handleToggleSort("created_at")}
               className={`hover:text-foreground inline-flex items-center gap-1 ${
-                sortField === "created_at" ? "text-primary font-semibold" : ""
+                sortField === "created_at" ? "text-accent-strong font-semibold" : ""
               }`}
             >
               <span>Joined</span>
@@ -376,7 +376,7 @@ export default function AdminUsersPage() {
                           {u.full_name || u.email.split("@")[0]}
                         </span>
                         {isSelf && (
-                          <span className="px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 text-[10px] font-mono">
+                          <span className="px-1.5 py-0.2 rounded bg-primary/10 text-accent-strong border border-primary/20 text-[10px] font-mono">
                             You
                           </span>
                         )}
