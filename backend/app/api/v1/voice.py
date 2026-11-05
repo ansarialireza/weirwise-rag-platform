@@ -66,10 +66,14 @@ def _tts_client() -> httpx.AsyncClient:
 
 
 async def _warm_speak_connection(raw_key: str) -> None:
-    """Prime the pooled TTS TLS connection ahead of the first spoken chunk."""
+    """Prime the pooled TTS TLS connection ahead of the first spoken chunk.
+
+    The pool is keyed by origin, so a cheap HEAD to the API host warms the same
+    connection without sending an invalid request to /v1/speak.
+    """
     try:
-        response = await _tts_client().get(
-            DEEPGRAM_SPEAK_URL, headers={"Authorization": f"Token {raw_key}"}
+        response = await _tts_client().head(
+            "https://api.deepgram.com/", headers={"Authorization": f"Token {raw_key}"}
         )
         await response.aclose()
     except Exception:  # noqa: BLE001 - warm-up is best-effort
