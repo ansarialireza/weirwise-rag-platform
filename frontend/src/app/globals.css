@@ -4,78 +4,93 @@
 
 @layer base {
   /*
-   * Weirwise design tokens.
-   * Silver/charcoal neutral scale with a single Signal Cyan accent sampled
-   * from the logo. Dark and Light are both first-class themes.
-   * `primary`, `accent`, and `signal` intentionally resolve to the same cyan:
-   * primary actions, interactive emphasis, and brand signal are one system.
+   * Weirwise design tokens — Intelligent Flow Control.
+   *
+   * Official palette:
+   *   Electric Lime  #CCFF00  volt / brand signal on onyx surfaces
+   *   Electric Blue  #2563FF  primary action and interactive emphasis
+   *   Onyx           #090A0C  dark canvas
+   *   Light Canvas   #F3F4F6  light canvas
+   *
+   * Lime is a light colour, so it is only used for fills or on dark
+   * surfaces where it can carry onyx text. `signal` adapts per theme:
+   * blue for legible marks on the light canvas, lime on onyx. On-onyx
+   * blocks re-pin the signal to lime so the brand moment stays intact.
    */
   :root,
   .light {
     color-scheme: light;
-    --background: 210 10% 96%;        /* #F4F5F6 Soft White */
-    --foreground: 225 11% 7%;         /* #101114 Deep Onyx */
+    --background: 220 14% 96%;        /* #F3F4F6 Light Canvas */
+    --foreground: 220 14% 4%;         /* #090A0C Onyx */
     --card: 0 0% 100%;
-    --card-foreground: 225 11% 7%;
+    --card-foreground: 220 14% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 225 11% 7%;
-    --primary: 186 81% 29%;           /* #0E7A86 Deep Cyan */
+    --popover-foreground: 220 14% 4%;
+    --primary: 223 100% 57%;          /* #2563FF Electric Blue */
     --primary-foreground: 0 0% 100%;
-    --signal: 186 81% 29%;
+    --signal: 223 100% 57%;
     --signal-foreground: 0 0% 100%;
-    --accent: 186 81% 29%;
+    --accent: 223 100% 57%;
     --accent-foreground: 0 0% 100%;
-    --accent-soft: 186 54% 92%;       /* #DFF4F6 */
-    --secondary: 216 12% 92%;
-    --secondary-foreground: 225 11% 7%;
-    --muted: 210 12% 93%;
-    --muted-foreground: 212 7% 38%;   /* #5B6168, AA on canvas */
+    --accent-strong: 223 100% 40%;    /* #0040CC, AA text on Light Canvas */
+    --accent-soft: 224 100% 96%;      /* #EDF1FF */
+    --volt: 72 100% 50%;              /* #CCFF00 Electric Lime */
+    --volt-foreground: 220 14% 4%;
+    --onyx: 220 14% 4%;
+    --secondary: 220 17% 92%;
+    --secondary-foreground: 220 14% 8%;
+    --muted: 220 19% 94%;
+    --muted-foreground: 214 7% 38%;   /* #5A6068, AA on canvas */
     --destructive: 356 72% 47%;       /* #CF222E */
     --destructive-foreground: 0 0% 100%;
-    --success: 137 66% 30%;           /* #1A7F37 */
+    --success: 137 66% 27%;           /* #17722F, AA text on tinted chips */
     --warning: 39 100% 27%;           /* #8A5A00 */
-    --info: 186 81% 29%;
-    --border: 213 12% 85%;
-    --border-strong: 214 7% 52%;
+    --info: 223 100% 57%;
+    --border: 220 15% 87%;
+    --border-strong: 218 7% 57%;
     --input: 0 0% 100%;
-    --ring: 186 81% 29%;
-    --radius: 0.75rem;
-    --shadow-soft: 0 1px 2px rgba(16, 17, 20, 0.04), 0 8px 24px -18px rgba(16, 17, 20, 0.28);
-    --shadow-lift: 0 2px 4px rgba(16, 17, 20, 0.05), 0 18px 44px -22px rgba(16, 17, 20, 0.34);
-    --grid-line: rgba(16, 17, 20, 0.055);
+    --ring: 223 100% 57%;
+    --radius: 0.625rem;
+    --shadow-soft: 0 1px 2px rgba(9, 10, 12, 0.04), 0 8px 24px -18px rgba(9, 10, 12, 0.28);
+    --shadow-lift: 0 2px 4px rgba(9, 10, 12, 0.05), 0 18px 44px -22px rgba(9, 10, 12, 0.34);
+    --grid-line: rgba(9, 10, 12, 0.06);
   }
 
   .dark {
     color-scheme: dark;
-    --background: 225 11% 7%;         /* #101114 Deep Onyx */
-    --foreground: 210 10% 96%;        /* #F4F5F6 Soft White */
-    --card: 220 12% 10%;              /* #16181D */
-    --card-foreground: 210 10% 96%;
-    --popover: 225 6% 13%;            /* #1F2023 */
-    --popover-foreground: 210 10% 96%;
-    --primary: 184 68% 55%;           /* #3FD0DA Signal Cyan */
-    --primary-foreground: 225 11% 7%;
-    --signal: 184 68% 55%;
-    --signal-foreground: 225 11% 7%;
-    --accent: 184 68% 55%;
-    --accent-foreground: 225 11% 7%;
-    --accent-soft: 186 38% 15%;
-    --secondary: 213 11% 17%;
-    --secondary-foreground: 210 10% 94%;
-    --muted: 220 10% 12%;
+    --background: 220 14% 4%;         /* #090A0C Onyx */
+    --foreground: 220 14% 96%;        /* #F3F4F6 */
+    --card: 225 11% 7%;               /* #101114 */
+    --card-foreground: 220 14% 96%;
+    --popover: 223 14% 10%;           /* #16181D */
+    --popover-foreground: 220 14% 96%;
+    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime */
+    --primary-foreground: 220 14% 4%; /* Onyx text on lime */
+    --signal: 72 100% 50%;
+    --signal-foreground: 220 14% 4%;
+    --accent: 223 100% 74%;           /* #7C9BFF, AA on onyx */
+    --accent-foreground: 220 14% 4%;
+    --accent-strong: 72 100% 50%;     /* Electric Lime, AA on onyx */
+    --accent-soft: 224 45% 16%;
+    --volt: 72 100% 50%;
+    --volt-foreground: 220 14% 4%;
+    --onyx: 220 14% 4%;
+    --secondary: 223 11% 12%;
+    --secondary-foreground: 220 14% 94%;
+    --muted: 220 14% 9%;
     --muted-foreground: 213 7% 67%;   /* #A5AAB0 */
     --destructive: 3 93% 63%;         /* #F85149 */
-    --destructive-foreground: 225 11% 7%;
-    --success: 131 55% 40%;           /* #2EA043 */
+    --destructive-foreground: 220 14% 4%;
+    --success: 131 55% 50%;           /* #3BC958, AA text on tinted chips */
     --warning: 41 72% 48%;            /* #D29922 */
-    --info: 184 68% 55%;
-    --border: 220 5% 22%;
-    --border-strong: 217 6% 45%;
-    --input: 225 6% 13%;
-    --ring: 184 68% 55%;
+    --info: 223 100% 74%;
+    --border: 220 10% 18%;
+    --border-strong: 218 9% 32%;
+    --input: 223 14% 10%;
+    --ring: 72 100% 50%;
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -20px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.34), 0 24px 56px -24px rgba(0, 0, 0, 0.8);
-    --grid-line: rgba(244, 245, 246, 0.05);
+    --grid-line: rgba(243, 244, 246, 0.055);
   }
 
   * {
@@ -175,19 +190,66 @@
   }
 
   /*
-   * Hardcoded onyx surfaces (auth panel, CTA blocks) keep the dark-theme
-   * signal so accent text stays legible when the page theme is light.
+   * Hardcoded onyx surfaces (auth panel, hero console, CTA blocks) re-pin
+   * the palette so lime signal and onyx text stay correct in light mode.
    */
   .on-onyx {
-    --signal: 184 68% 55%;
-    --signal-foreground: 225 11% 7%;
-    --accent: 184 68% 55%;
-    --accent-foreground: 225 11% 7%;
+    --background: 220 14% 4%;
+    --foreground: 220 14% 96%;
+    --card: 225 11% 7%;
+    --card-foreground: 220 14% 96%;
+    --popover: 223 14% 10%;
+    --popover-foreground: 220 14% 96%;
+    --primary: 72 100% 50%;
+    --primary-foreground: 220 14% 4%;
+    --signal: 72 100% 50%;
+    --signal-foreground: 220 14% 4%;
+    --accent: 223 100% 74%;
+    --accent-foreground: 220 14% 4%;
+    --accent-soft: 224 45% 16%;
+    --secondary: 223 11% 12%;
+    --secondary-foreground: 220 14% 94%;
+    --muted: 220 14% 9%;
+    --muted-foreground: 213 7% 67%;
+    --border: 220 10% 18%;
+    --border-strong: 218 9% 32%;
+    --input: 223 14% 10%;
+    --ring: 72 100% 50%;
   }
 
   .flow-line {
     stroke-dasharray: 5 9;
     animation: flow-dash 7s linear infinite;
+  }
+
+  .flow-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .onyx-grid {
+    --grid-line: rgba(243, 244, 246, 0.055);
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .flow-panel {
+    @apply relative overflow-hidden rounded-2xl border border-white/10;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37, 99, 255, 0.18), transparent 70%),
+      #090a0c;
+  }
+
+  .lime-underline {
+    background-image: linear-gradient(transparent 72%, hsl(var(--volt) / 0.5) 72%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 
   .skip-link {
@@ -214,6 +276,22 @@
 
   .animate-voice-bar {
     animation: voice-bar 1s ease-in-out infinite;
+  }
+
+  .animate-orbit {
+    animation: orbit 18s linear infinite;
+  }
+
+  .animate-orbit-reverse {
+    animation: orbit 26s linear infinite reverse;
+  }
+
+  .animate-trace {
+    animation: trace 9s linear infinite;
+  }
+
+  .animate-soft-pulse {
+    animation: soft-pulse 4s ease-in-out infinite;
   }
 }
 
@@ -262,6 +340,33 @@
   }
   50% {
     transform: scaleY(1);
+  }
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes trace {
+  from {
+    stroke-dashoffset: 180;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.03);
   }
 }
 

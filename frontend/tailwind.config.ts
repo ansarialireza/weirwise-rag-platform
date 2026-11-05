@@ -45,6 +45,7 @@ const config: Config = {
         accent: {
           DEFAULT: "hsl(var(--accent) / <alpha-value>)",
           foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
+          strong: "hsl(var(--accent-strong) / <alpha-value>)",
           soft: "hsl(var(--accent-soft) / <alpha-value>)",
         },
         secondary: {
@@ -66,8 +67,12 @@ const config: Config = {
         "border-strong": "hsl(var(--border-strong) / <alpha-value>)",
         input: "hsl(var(--input) / <alpha-value>)",
         ring: "hsl(var(--ring) / <alpha-value>)",
+        volt: {
+          DEFAULT: "hsl(var(--volt) / <alpha-value>)",
+          foreground: "hsl(var(--volt-foreground) / <alpha-value>)",
+        },
         onyx: {
-          DEFAULT: "#101114",
+          DEFAULT: "hsl(var(--onyx) / <alpha-value>)",
         },
       },
       borderRadius: {
@@ -86,6 +91,7 @@ const config: Config = {
       },
       maxWidth: {
         content: "72rem",
+        wide: "80rem",
         prose: "44rem",
       },
     },

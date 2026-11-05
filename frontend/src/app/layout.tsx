@@ -12,23 +12,21 @@ const inter = Inter({
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F4F5F6" },
-    { media: "(prefers-color-scheme: dark)", color: "#101114" },
+    { media: "(prefers-color-scheme: light)", color: "#F3F4F6" },
+    { media: "(prefers-color-scheme: dark)", color: "#090A0C" },
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
   title: {
-    default: "Weirwise",
+    default: "Weirwise — Intelligent flow control",
     template: "%s | Weirwise",
   },
   description:
-    "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+    "Weirwise routes your documents, pages, and notes through one controlled flow — publishing assistants that answer from your business, with the source beside every claim.",
   keywords: [
     "AI assistant",
     "business AI",
@@ -50,23 +48,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: baseUrl,
     siteName: "Weirwise",
-    title: "Weirwise",
+    title: "Weirwise — Intelligent flow control",
     description:
-      "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+      "Route your documents, pages, and notes through one controlled flow. Publish assistants that answer from your business, with the source beside every claim.",
     images: [
       {
         url: "/weirwise-og.png",
         width: 1200,
         height: 630,
-        alt: "Weirwise — Simple by default. Powerful by design.",
+        alt: "Weirwise — intelligent flow control for business knowledge.",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Weirwise",
+    title: "Weirwise — Intelligent flow control",
     description:
-      "Build, manage, and deploy AI assistants powered by your own business knowledge. Simple by default. Powerful by design.",
+      "Route your documents, pages, and notes through one controlled flow. Publish assistants that answer from your business, with the source beside every claim.",
     images: ["/weirwise-og.png"],
   },
   icons: {
@@ -83,6 +81,9 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
     title: "Weirwise",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 

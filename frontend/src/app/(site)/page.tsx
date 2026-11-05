@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { LandingExperience } from "@/components/home/landing-experience";
 
 export const metadata: Metadata = {
-  title: "Weirwise",
+  title: { absolute: "Weirwise — Intelligent flow control for business knowledge" },
   description:
-    "AI assistants that answer from your own documents, with the exact source beside every answer.",
+    "Weirwise routes documents, pages, and notes through one controlled flow, so every answer comes from your business with the source beside it.",
   alternates: {
     canonical: "https://dev.weirwise.com/",
   },
@@ -19,7 +19,7 @@ export default function RootPage() {
     name: "Weirwise Inc.",
     url: baseUrl,
     logo: `${baseUrl}/weirwise-horizontal.svg`,
-    description: "AI answers from your own documents, with sources you can check.",
+    description: "Answers from your business knowledge, with the source beside every claim.",
     sameAs: ["https://github.com/ansarialireza/weirwise-rag-platform"],
   };
 
@@ -35,7 +35,7 @@ export default function RootPage() {
       priceCurrency: "USD",
     },
     description:
-      "Create an AI assistant from your own documents and share answers with the exact source attached.",
+      "Create an assistant from your own knowledge and publish answers with the exact source attached.",
     url: baseUrl,
   };
 

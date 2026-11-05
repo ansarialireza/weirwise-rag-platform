@@ -12,7 +12,7 @@ export default function NotFound() {
         </div>
         
         <div className="space-y-2">
-          <div className="inline-block px-3 py-1 rounded-sm border border-border bg-muted text-xs font-mono font-semibold text-primary">
+          <div className="inline-block px-3 py-1 rounded-sm border border-border bg-muted text-xs font-mono font-semibold text-accent-strong">
             404 — PAGE NOT FOUND
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
