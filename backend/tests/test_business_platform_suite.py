@@ -101,7 +101,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     # 2. Check Publish Readiness (Should report missing knowledge source)
     readiness = client.get(f"/api/v1/assistants/{ast_id}/publish-readiness", headers=headers).json()
     assert readiness["is_ready"] is False
-    assert "No knowledge sources are attached" in readiness["issues"][0]
+    assert "This assistant has no knowledge yet" in readiness["issues"][0]
 
     # 3. Create KnowledgeSource & attach to assistant
     ks_resp = client.post(
