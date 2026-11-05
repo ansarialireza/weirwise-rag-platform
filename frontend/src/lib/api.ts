@@ -672,6 +672,9 @@ class ApiClient {
     default_routing_strategy?: string;
     global_monthly_budget_usd?: number;
     supported_models?: string[];
+    account_rate_limit_rpm?: number;
+    account_rate_limit_tpm?: number;
+    account_max_concurrency?: number;
   }): Promise<AdminProviderAccount> {
     return this.request<AdminProviderAccount>("/admin/providers", {
       method: "POST",
@@ -687,6 +690,9 @@ class ApiClient {
       default_routing_strategy?: string;
       global_monthly_budget_usd?: number;
       supported_models?: string[];
+      account_rate_limit_rpm?: number;
+      account_rate_limit_tpm?: number;
+      account_max_concurrency?: number;
     }
   ): Promise<AdminProviderAccount> {
     return this.request<AdminProviderAccount>(`/admin/providers/${providerId}`, {
@@ -756,6 +762,7 @@ class ApiClient {
       warning_threshold_pct?: number;
       rate_limit_rpm?: number;
       rate_limit_tpm?: number;
+      max_concurrency?: number;
     }
   ): Promise<AdminCredential> {
     return this.request<AdminCredential>(`/admin/credentials/${credentialId}`, {
@@ -790,6 +797,23 @@ class ApiClient {
     const search = new URLSearchParams({ provider_name: providerName });
     if (modelName) search.set("model_name", modelName);
     return this.request<AdminRoutingExplanation>(`/admin/routing/explain?${search.toString()}`);
+  }
+
+  async getAdminRoutingOverview(windowHours = 24): Promise<AdminRoutingOverview> {
+    return this.request<AdminRoutingOverview>(`/admin/routing/overview?window_hours=${windowHours}`);
+  }
+
+  async healthCheckAdminProvider(providerId: string): Promise<{
+    provider_name: string;
+    results: Array<{
+      credential_id: string;
+      label: string;
+      key_prefix: string;
+      status: "healthy" | "disabled" | "rate_limited" | "degraded" | "unknown" | "skipped";
+      error: string | null;
+    }>;
+  }> {
+    return this.request(`/admin/providers/${providerId}/health-check`, { method: "POST" });
   }
 
   async getFinOpsSummary(): Promise<any> {
@@ -883,6 +907,9 @@ export interface AdminProviderAccount {
   global_monthly_budget_usd: number;
   current_month_spend_usd: number;
   supported_models: string[];
+  account_rate_limit_rpm: number;
+  account_rate_limit_tpm: number;
+  account_max_concurrency: number;
   created_at: string;
   updated_at: string;
 }
@@ -903,6 +930,7 @@ export interface AdminCredential {
   warning_threshold_pct: number;
   rate_limit_rpm: number;
   rate_limit_tpm: number;
+  max_concurrency: number;
   total_requests_served: number;
   total_tokens_served: number;
   consecutive_failures: number;
@@ -969,4 +997,76 @@ export interface AdminRoutingExplanation {
   key_prefix?: string;
   health_status?: string;
   eligible_count?: number;
+}
+
+export interface AdminRoutingOverviewProvider {
+  provider_name: string;
+  requests: number;
+  successes: number;
+  failures: number;
+  no_credential_events: number;
+  rate_limit_events: number;
+  failovers: number;
+  success_rate_pct: number;
+  avg_latency_ms: number;
+  total_tokens: number;
+  cost_usd: number;
+}
+
+export interface AdminRoutingOverviewCredential {
+  credential_id: string;
+  label: string;
+  key_prefix: string;
+  provider_name: string;
+  is_active: boolean;
+  health_status: string;
+  cooling_down_until: string | null;
+  requests: number;
+  successes: number;
+  failures: number;
+  rate_limit_events: number;
+  success_rate_pct: number;
+  avg_latency_ms: number;
+  total_tokens: number;
+  cost_usd: number;
+  monthly_spend_usd: number;
+  monthly_budget_usd: number;
+  remaining_quota_tokens: number | null;
+  in_flight: number;
+  max_concurrency: number;
+  rpm_used: number;
+  rpm_limit: number;
+  rpm_utilization_pct: number;
+  tpm_used: number;
+  tpm_limit: number;
+  tpm_utilization_pct: number;
+}
+
+export interface AdminRoutingOverview {
+  window_hours: number;
+  generated_at: string;
+  totals: {
+    requests: number;
+    successes: number;
+    failures: number;
+    no_credential_events: number;
+    rate_limit_events: number;
+    failovers: number;
+    success_rate_pct: number;
+    total_tokens: number;
+    cost_usd: number;
+  };
+  providers: AdminRoutingOverviewProvider[];
+  credentials: AdminRoutingOverviewCredential[];
+  account_utilization: Record<
+    string,
+    {
+      in_flight: number;
+      account_rpm_used: number;
+      account_rpm_limit: number;
+      account_tpm_used: number;
+      account_tpm_limit: number;
+      account_max_concurrency: number;
+    }
+  >;
 }

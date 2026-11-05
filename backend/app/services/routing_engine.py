@@ -44,6 +44,7 @@ class RoutingResolution:
         decision_reason: str,
         attempt_number: int = 1,
         is_failover: bool = False,
+        limiter_keys: tuple[str, ...] = (),
     ):
         self.credential = credential
         self.raw_secret = raw_secret
@@ -53,6 +54,7 @@ class RoutingResolution:
         self.decision_reason = decision_reason
         self.attempt_number = attempt_number
         self.is_failover = is_failover
+        self.limiter_keys = limiter_keys
 
 
 def _ensure_utc(dt: Optional[datetime.datetime]) -> Optional[datetime.datetime]:
@@ -83,6 +85,41 @@ def _classify_health(cred: ProviderCredential, now: datetime.datetime, automatic
     return ""
 
 
+def _credential_state_key(credential_id: object) -> str:
+    return f"cred:{credential_id}"
+
+
+def _account_state_key(provider_id: object) -> str:
+    return f"acct:{provider_id}"
+
+
+def _normalize_failure_category(error_category: Optional[str], error_type: Optional[str], is_rate_limit: bool) -> str:
+    raw = f"{error_category or ''} {error_type or ''}".strip().lower()
+    if is_rate_limit or "rate_limit" in raw or "ratelimit" in raw or "429" in raw:
+        return "rate_limit"
+    if "quota" in raw or "exhaust" in raw or "insufficient" in raw or "billing" in raw or "credit" in raw:
+        return "quota"
+    if "auth" in raw or "401" in raw or "403" in raw or "permission" in raw or "forbidden" in raw:
+        return "auth"
+    if "invalid" in raw or "bad_request" in raw or "400" in raw or "404" in raw or "422" in raw:
+        return "invalid_request"
+    if "timeout" in raw or "timed out" in raw or "408" in raw or "504" in raw:
+        return "timeout"
+    if "connection" in raw or "network" in raw or "503" in raw:
+        return "connection"
+    if "empty_response" in raw:
+        return "empty_response"
+    if "provider" in raw or "server" in raw or raw.startswith("5"):
+        return "provider"
+    return "unknown"
+
+
+def _jittered_seconds(seconds: int, ratio: float = 0.2) -> int:
+    """Spread cooldown expiry so a recovered pool does not stampede the provider."""
+    base = max(int(seconds), 1)
+    return max(1, int(base * (1.0 + random.uniform(-ratio, ratio))))
+
+
 class IntelligentRoutingEngine:
     """Selects optimal healthy credentials based on configured policy, health, budgets, and rates."""
 
@@ -96,8 +133,15 @@ class IntelligentRoutingEngine:
         exclude_ids: Optional[set[str]] = None,
         attempt_number: int = 1,
         is_failover: bool = False,
+        estimated_tokens: int = 0,
+        reserve_slot: bool = False,
     ) -> Optional[RoutingResolution]:
-        """Resolves the best available credential under current health, cooldown, and routing policies."""
+        """Resolves the best available credential under current health, cooldown, and routing policies.
+
+        When ``reserve_slot`` is true, the selected credential's concurrency slot
+        and rate windows are reserved atomically. Callers must release
+        ``resolution.limiter_keys`` when the provider call finishes.
+        """
         now = datetime.datetime.now(datetime.timezone.utc)
         exclude = exclude_ids or set()
 
@@ -138,6 +182,26 @@ class IntelligentRoutingEngine:
             logger.error(f"Global monthly budget exceeded for provider {provider_name}.")
             await IntelligentRoutingEngine._record_no_credential(
                 db, provider_name, model_name, workspace_id, "global_budget_exceeded"
+            )
+            return None
+
+        # 2b. Account-wide limits are shared by every token. They are checked
+        # before token selection so rotation can never bypass them.
+        account_key = _account_state_key(provider.id)
+        account_rpm = int(provider.account_rate_limit_rpm or 0)
+        account_tpm = int(provider.account_rate_limit_tpm or 0)
+        account_max_concurrency = int(provider.account_max_concurrency or 0)
+        account_block_reason = ""
+        if account_rpm > 0 and routing_state.rate_limit_retry_after(account_key, account_rpm) > 0:
+            account_block_reason = "provider_account_rpm_limit"
+        elif account_tpm > 0 and routing_state.token_limit_retry_after(account_key, account_tpm, estimated_tokens) > 0:
+            account_block_reason = "provider_account_tpm_limit"
+        elif not routing_state.concurrency_available(account_key, account_max_concurrency):
+            account_block_reason = "provider_account_concurrency_limit"
+        if account_block_reason:
+            logger.warning(f"Provider account-wide limit blocked routing for {provider_name}.")
+            await IntelligentRoutingEngine._record_no_credential(
+                db, provider_name, model_name, workspace_id, account_block_reason
             )
             return None
 
@@ -209,16 +273,24 @@ class IntelligentRoutingEngine:
             )
             return None
 
-        # 5. Respect per-token request limits before selection.
-        rate_limited: list[ProviderCredential] = []
+        # 5. Respect per-token RPM/TPM and concurrency limits before selection.
         rate_safe: list[ProviderCredential] = []
         for cred in eligible:
-            retry_after = routing_state.rate_limit_retry_after(str(cred.id), int(cred.rate_limit_rpm or 0))
-            if retry_after == 0:
-                rate_safe.append(cred)
-            else:
-                rate_limited.append(cred)
-                skipped.append(f"{cred.label}:local_rpm_limit(retry_after={retry_after}s)")
+            cred_key = _credential_state_key(cred.id)
+            rpm_retry_after = routing_state.rate_limit_retry_after(cred_key, int(cred.rate_limit_rpm or 0))
+            tpm_retry_after = routing_state.token_limit_retry_after(
+                cred_key, int(cred.rate_limit_tpm or 0), estimated_tokens
+            )
+            if rpm_retry_after > 0:
+                skipped.append(f"{cred.label}:local_rpm_limit(retry_after={rpm_retry_after}s)")
+                continue
+            if tpm_retry_after > 0:
+                skipped.append(f"{cred.label}:local_tpm_limit(retry_after={tpm_retry_after}s)")
+                continue
+            if not routing_state.concurrency_available(cred_key, int(cred.max_concurrency or 0)):
+                skipped.append(f"{cred.label}:concurrency_limit")
+                continue
+            rate_safe.append(cred)
         if not rate_safe:
             await IntelligentRoutingEngine._record_no_credential(
                 db, provider_name, model_name, workspace_id, "all_credentials_rate_limited"
@@ -229,70 +301,142 @@ class IntelligentRoutingEngine:
         strategy = _strategy_label(provider, control, automatic_mode)
         selected: ProviderCredential
         reason: str
+        limiter_keys: tuple[str, ...] = ()
 
-        # Manual mode honors the configured priority but does not rotate to another key.
-        if not automatic_mode:
-            selected = min(eligible, key=lambda credential: credential.priority)
-            reason = f"manual_priority={selected.priority}"
-        elif control and not control.automatic_failover:
-            selected = min(request_candidates, key=lambda credential: credential.priority)
-            if selected not in eligible:
-                logger.warning("Automatic failover is disabled and the primary credential is unavailable.")
+        while True:
+            # Manual mode pins the highest-priority token and never rotates:
+            # if it is unhealthy or reserved, routing fails rather than silently
+            # spending a different account token.
+            if not automatic_mode:
+                manual_pool = [
+                    credential
+                    for credential in candidates
+                    if (not model_name or not credential.models_allowed or model_name in credential.models_allowed)
+                    and credential.current_month_spend_usd < credential.monthly_budget_usd
+                ]
+                selected = min(manual_pool, key=lambda credential: credential.priority)
+                if selected not in eligible or str(selected.id) in exclude:
+                    logger.warning("Manual mode pinned token is unavailable; no automatic rotation performed.")
+                    await IntelligentRoutingEngine._record_no_credential(
+                        db,
+                        provider_name,
+                        model_name,
+                        workspace_id,
+                        "primary_unavailable_manual_mode",
+                    )
+                    return None
+                reason = f"manual_priority={selected.priority}"
+            elif control and not control.automatic_failover:
+                selected = min(request_candidates, key=lambda credential: credential.priority)
+                if selected not in eligible:
+                    logger.warning("Automatic failover is disabled and the primary credential is unavailable.")
+                    await IntelligentRoutingEngine._record_no_credential(
+                        db,
+                        provider_name,
+                        model_name,
+                        workspace_id,
+                        "primary_unavailable_automatic_failover_disabled",
+                    )
+                    return None
+                reason = f"priority_no_failover={selected.priority}"
+            elif strategy == ProviderRoutingStrategy.ROUND_ROBIN.value:
+                eligible.sort(
+                    key=lambda c: (
+                        c.total_requests_served,
+                        _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    )
+                )
+                selected = eligible[0]
+                reason = f"round_robin(served={selected.total_requests_served})"
+            elif strategy == ProviderRoutingStrategy.LEAST_RECENTLY_USED.value:
+                eligible.sort(
+                    key=lambda c: (
+                        _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+                    )
+                )
+                selected = eligible[0]
+                reason = "least_recently_used"
+            elif strategy == ProviderRoutingStrategy.WEIGHTED.value:
+                weights = [max(c.routing_weight, 1) for c in eligible]
+                selected = random.choices(eligible, weights=weights, k=1)[0]
+                reason = f"weighted(weight={selected.routing_weight})"
+            elif strategy == ProviderRoutingStrategy.LEAST_LOADED.value:
+                eligible.sort(
+                    key=lambda c: (
+                        routing_state.in_flight(_credential_state_key(c.id)),
+                        c.priority,
+                        _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    )
+                )
+                selected = eligible[0]
+                reason = f"least_loaded(in_flight={routing_state.in_flight(_credential_state_key(selected.id))})"
+            elif strategy == ProviderRoutingStrategy.LOWEST_COST.value:
+                eligible.sort(key=lambda c: c.current_month_spend_usd / max(float(c.monthly_budget_usd), 1.0))
+                selected = eligible[0]
+                reason = "lowest_spend_utilization"
+            else:
+                highest_priority = eligible[0].priority
+                top_tier = [c for c in eligible if c.priority == highest_priority]
+                top_tier.sort(
+                    key=lambda c: (
+                        _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+                    )
+                )
+                selected = top_tier[0]
+                reason = f"priority={selected.priority}"
+
+            if not reserve_slot:
+                break
+
+            cred_key = _credential_state_key(selected.id)
+            rpm_limits: dict[str, int] = {}
+            tpm_limits: dict[str, tuple[int, int]] = {}
+            if int(selected.rate_limit_rpm or 0) > 0:
+                rpm_limits[cred_key] = int(selected.rate_limit_rpm)
+            if account_rpm > 0:
+                rpm_limits[account_key] = account_rpm
+            if int(selected.rate_limit_tpm or 0) > 0:
+                tpm_limits[cred_key] = (int(selected.rate_limit_tpm), estimated_tokens)
+            if account_tpm > 0:
+                tpm_limits[account_key] = (account_tpm, estimated_tokens)
+
+            reserved, limit_reason = routing_state.reserve(
+                concurrency_limits={
+                    cred_key: int(selected.max_concurrency or 0),
+                    account_key: account_max_concurrency,
+                },
+                rpm_limits=rpm_limits,
+                tpm_limits=tpm_limits,
+            )
+            if reserved:
+                limiter_keys = (cred_key, account_key)
+                break
+
+            skipped.append(f"{selected.label}:reservation_{limit_reason}")
+            eligible = [credential for credential in eligible if credential.id != selected.id]
+            if not automatic_mode or (control and not control.automatic_failover):
                 await IntelligentRoutingEngine._record_no_credential(
                     db,
                     provider_name,
                     model_name,
                     workspace_id,
-                    "primary_unavailable_automatic_failover_disabled",
+                    f"primary_{limit_reason}_limit_manual_no_rotation",
                 )
                 return None
-            reason = f"priority_no_failover={selected.priority}"
-        elif strategy == ProviderRoutingStrategy.ROUND_ROBIN.value:
-            eligible.sort(
-                key=lambda c: (
-                    c.total_requests_served,
-                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+            if not eligible:
+                await IntelligentRoutingEngine._record_no_credential(
+                    db, provider_name, model_name, workspace_id, f"all_credentials_{limit_reason}_limited"
                 )
-            )
-            selected = eligible[0]
-            reason = f"round_robin(served={selected.total_requests_served})"
-        elif strategy == ProviderRoutingStrategy.LEAST_RECENTLY_USED.value:
-            eligible.sort(
-                key=lambda c: _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-            )
-            selected = eligible[0]
-            reason = "least_recently_used"
-        elif strategy == ProviderRoutingStrategy.WEIGHTED.value:
-            weights = [max(c.routing_weight, 1) for c in eligible]
-            selected = random.choices(eligible, weights=weights, k=1)[0]
-            reason = f"weighted(weight={selected.routing_weight})"
-        elif strategy == ProviderRoutingStrategy.LEAST_LOADED.value:
-            eligible.sort(
-                key=lambda c: (
-                    routing_state.in_flight(str(c.id)),
-                    c.priority,
-                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
-                )
-            )
-            selected = eligible[0]
-            reason = f"least_loaded(in_flight={routing_state.in_flight(str(selected.id))})"
-        elif strategy == ProviderRoutingStrategy.LOWEST_COST.value:
-            eligible.sort(key=lambda c: c.current_month_spend_usd / max(float(c.monthly_budget_usd), 1.0))
-            selected = eligible[0]
-            reason = "lowest_spend_utilization"
-        else:
-            highest_priority = eligible[0].priority
-            top_tier = [c for c in eligible if c.priority == highest_priority]
-            top_tier.sort(
-                key=lambda c: _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-            )
-            selected = top_tier[0]
-            reason = f"priority={selected.priority}"
+                return None
+
+        if not reserve_slot:
+            routing_state.record_request(_credential_state_key(selected.id))
+            if account_rpm > 0:
+                routing_state.record_request(account_key)
 
         routing_id = str(uuid.uuid4())
         selected.last_used_at = now
         selected.total_requests_served += 1
-        routing_state.record_request(str(selected.id))
         db.add(
             RoutingEvent(
                 routing_id=routing_id,
@@ -322,6 +466,7 @@ class IntelligentRoutingEngine:
             decision_reason=reason,
             attempt_number=attempt_number,
             is_failover=is_failover,
+            limiter_keys=limiter_keys,
         )
 
     @staticmethod
@@ -371,6 +516,31 @@ class IntelligentRoutingEngine:
                 "reason": "global_budget_exceeded",
             }
 
+        account_key = _account_state_key(provider.id)
+        account_rpm = int(provider.account_rate_limit_rpm or 0)
+        account_tpm = int(provider.account_rate_limit_tpm or 0)
+        if account_rpm > 0 and routing_state.rate_limit_retry_after(account_key, account_rpm) > 0:
+            return {
+                "available": False,
+                "mode": "automatic" if automatic else "manual",
+                "strategy": strategy,
+                "reason": "provider_account_rpm_limit",
+            }
+        if account_tpm > 0 and routing_state.token_limit_retry_after(account_key, account_tpm, 0) > 0:
+            return {
+                "available": False,
+                "mode": "automatic" if automatic else "manual",
+                "strategy": strategy,
+                "reason": "provider_account_tpm_limit",
+            }
+        if not routing_state.concurrency_available(account_key, int(provider.account_max_concurrency or 0)):
+            return {
+                "available": False,
+                "mode": "automatic" if automatic else "manual",
+                "strategy": strategy,
+                "reason": "provider_account_concurrency_limit",
+            }
+
         creds = (
             (
                 await db.execute(
@@ -392,7 +562,12 @@ class IntelligentRoutingEngine:
                 continue
             if cred.current_month_spend_usd >= cred.monthly_budget_usd:
                 continue
-            if routing_state.rate_limit_retry_after(str(cred.id), int(cred.rate_limit_rpm or 0)) > 0:
+            cred_key = _credential_state_key(cred.id)
+            if routing_state.rate_limit_retry_after(cred_key, int(cred.rate_limit_rpm or 0)) > 0:
+                continue
+            if routing_state.token_limit_retry_after(cred_key, int(cred.rate_limit_tpm or 0), 0) > 0:
+                continue
+            if not routing_state.concurrency_available(cred_key, int(cred.max_concurrency or 0)):
                 continue
             if cred.health_status in (
                 CredentialHealthStatus.HEALTHY.value,
@@ -431,8 +606,11 @@ class IntelligentRoutingEngine:
             )
             reason = "least_recently_used"
         elif strategy == ProviderRoutingStrategy.LEAST_LOADED.value:
-            candidate = min(healthy, key=lambda c: (routing_state.in_flight(str(c.id)), c.priority))
-            reason = f"least_loaded(in_flight={routing_state.in_flight(str(candidate.id))})"
+            candidate = min(
+                healthy,
+                key=lambda c: (routing_state.in_flight(_credential_state_key(c.id)), c.priority),
+            )
+            reason = f"least_loaded(in_flight={routing_state.in_flight(_credential_state_key(candidate.id))})"
         elif strategy == ProviderRoutingStrategy.LOWEST_COST.value:
             candidate = min(
                 healthy,
@@ -512,28 +690,62 @@ class IntelligentRoutingEngine:
             await db.execute(select(AdminControlSettings).where(AdminControlSettings.id == 1))
         ).scalar_one_or_none()
         automatic = bool(control and control.management_mode == "automatic")
+        category = _normalize_failure_category(error_category, error_type, is_rate_limit)
 
         if cred:
             cred.last_failure_at = now
             cred.last_health_check_at = now
             if control is None or not automatic:
                 logger.warning("Credential failure observed in manual mode; no automatic health changes applied.")
+            elif category == "invalid_request":
+                # A malformed request or missing model is not a token fault, so
+                # the credential stays in rotation and is never penalized.
+                cred.last_error_reason = _redact(reason)[:255]
             elif not control.auto_disable_unhealthy:
                 cred.consecutive_failures += 1
                 cred.last_error_reason = _redact(reason)[:255]
                 cred.health_status = CredentialHealthStatus.DEGRADED.value
+            elif category == "auth":
+                cred.consecutive_failures += 1
+                cred.last_error_reason = _redact(reason)[:255]
+                cred.health_status = CredentialHealthStatus.FAILED.value
+                cred.cooling_down_until = None
+                cred.is_active = False
+                logger.error("A provider credential was rejected by the provider and disabled pending admin review.")
+            elif category == "quota":
+                cred.consecutive_failures += 1
+                cred.last_error_reason = _redact(reason)[:255]
+                cred.health_status = CredentialHealthStatus.EXHAUSTED.value
+                if retry_after_seconds:
+                    cooldown = max(int(retry_after_seconds), control.rate_limit_cooldown_seconds)
+                    cred.cooling_down_until = now + datetime.timedelta(
+                        seconds=max(int(retry_after_seconds), _jittered_seconds(cooldown))
+                    )
+                    logger.warning(
+                        "A provider credential exhausted its quota and is cooling down until the reset window."
+                    )
+                else:
+                    cred.cooling_down_until = None
+                    cred.is_active = False
+                    logger.error("A provider credential exhausted its quota with no reset window and was disabled.")
+            elif category == "rate_limit":
+                cred.consecutive_failures += 1
+                cred.last_error_reason = _redact(reason)[:255]
+                cooldown = max(control.rate_limit_cooldown_seconds, retry_after_seconds or 0)
+                cred.health_status = CredentialHealthStatus.RATE_LIMITED.value
+                cred.cooling_down_until = now + datetime.timedelta(
+                    seconds=max(retry_after_seconds or 0, _jittered_seconds(cooldown))
+                )
+                logger.warning("A provider credential was rate limited and placed on a temporary cooldown.")
             else:
                 cred.consecutive_failures += 1
                 cred.last_error_reason = _redact(reason)[:255]
-                if is_rate_limit:
-                    cooldown = max(control.rate_limit_cooldown_seconds, retry_after_seconds or 0)
-                    cred.health_status = CredentialHealthStatus.RATE_LIMITED.value
-                    cred.cooling_down_until = now + datetime.timedelta(seconds=cooldown)
-                    logger.warning("A provider credential was rate limited and placed on a temporary cooldown.")
-                elif cred.consecutive_failures >= control.circuit_breaker_failure_threshold:
+                if cred.consecutive_failures >= control.circuit_breaker_failure_threshold:
                     cooldown = max(control.circuit_breaker_cooldown_seconds, retry_after_seconds or 0)
                     cred.health_status = CredentialHealthStatus.FAILED.value
-                    cred.cooling_down_until = now + datetime.timedelta(seconds=cooldown)
+                    cred.cooling_down_until = now + datetime.timedelta(
+                        seconds=max(retry_after_seconds or 0, _jittered_seconds(cooldown))
+                    )
                     logger.error("A provider credential exceeded its failure threshold and entered cooldown.")
                 else:
                     cred.health_status = CredentialHealthStatus.DEGRADED.value
@@ -544,7 +756,7 @@ class IntelligentRoutingEngine:
             )
             for event in events:
                 event.outcome = RoutingEventOutcome.FAILURE.value
-                event.error_category = (error_category or error_type)[:50]
+                event.error_category = category[:50]
                 event.error_message = _redact(reason)[:500]
                 event.retry_after_seconds = retry_after_seconds
                 event.latency_ms = latency_ms
@@ -591,8 +803,9 @@ class IntelligentRoutingEngine:
         *,
         routing_id: Optional[str] = None,
         cost_source: str = "estimated",
+        reserved_input_tokens: int = 0,
     ) -> None:
-        """Records ledger usage, spend increments, and resets failure streak."""
+        """Records ledger usage, spend increments, token windows, and resets failure streak."""
         now = datetime.datetime.now(datetime.timezone.utc)
         stmt = select(ProviderCredential).where(ProviderCredential.id == credential_id)
         res = await db.execute(stmt)
@@ -606,12 +819,18 @@ class IntelligentRoutingEngine:
             cred.current_month_spend_usd = float(cred.current_month_spend_usd) + cost_usd
             cred.total_tokens_served += input_tokens + output_tokens
 
+        # The selection step already reserved an input-token estimate; add the
+        # difference plus the actual output so the TPM window stays accurate.
+        tokens_to_record = max(0, input_tokens - max(0, reserved_input_tokens)) + output_tokens
+        routing_state.record_tokens(_credential_state_key(credential_id), tokens_to_record)
+
         # Increment provider account spend
         p_stmt = select(ProviderAccount).where(ProviderAccount.provider_name == provider_name)
         p_res = await db.execute(p_stmt)
         provider = p_res.scalar_one_or_none()
         if provider:
             provider.current_month_spend_usd = float(provider.current_month_spend_usd) + cost_usd
+            routing_state.record_tokens(_account_state_key(provider.id), tokens_to_record)
 
         # Record audit ledger entry
         total_tokens = input_tokens + output_tokens

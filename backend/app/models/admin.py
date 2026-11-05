@@ -115,6 +115,12 @@ class ProviderAccount(Base):
     global_monthly_budget_usd = Column(Numeric(12, 6), default=5000.00, nullable=False)
     current_month_spend_usd = Column(Numeric(12, 6), default=0.00, nullable=False)
     supported_models = Column(CompatibleJSON, default=list, nullable=False)  # list of model identifiers
+
+    # Account-wide limits. Providers often enforce limits across the whole
+    # account, so these are shared by every token and 0 means "not configured".
+    account_rate_limit_rpm = Column(Integer, default=0, nullable=False)
+    account_rate_limit_tpm = Column(Integer, default=0, nullable=False)
+    account_max_concurrency = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -145,6 +151,7 @@ class ProviderCredential(Base):
     warning_threshold_pct = Column(Integer, default=85, nullable=False)
     rate_limit_rpm = Column(Integer, default=500, nullable=False)
     rate_limit_tpm = Column(Integer, default=100000, nullable=False)
+    max_concurrency = Column(Integer, default=0, nullable=False)
 
     # Operational Telemetry
     total_requests_served = Column(Integer, default=0, nullable=False)

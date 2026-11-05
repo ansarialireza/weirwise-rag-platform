@@ -8,6 +8,7 @@ provider is available.
 
 import asyncio
 import json
+import random
 import time
 import uuid
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ import httpx
 from backend.app.core.logging import logger
 from backend.app.models.assistant import Assistant
 from backend.app.services.routing_engine import IntelligentRoutingEngine
+from backend.app.services.routing_state import routing_state
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Provider calls reuse one keep-alive pool per event loop. A fresh client per
@@ -573,7 +575,9 @@ class LLMService:
             order.remove(preferred_provider)
             order.insert(0, preferred_provider)
 
+        estimated_input_tokens = max(1, len(system + user) // 4)
         max_attempts_per_provider = 3
+        abort_all = False
         for provider_name in order:
             model = _model_for(provider_name, requested)
             excluded: set[str] = set()
@@ -586,61 +590,78 @@ class LLMService:
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
+                    estimated_tokens=estimated_input_tokens,
+                    reserve_slot=True,
                 )
                 if not resolution:
                     break
 
                 try:
-                    content, input_tokens, output_tokens = await call_provider(
-                        provider_name=provider_name,
-                        api_key=resolution.raw_secret,
-                        model=model,
-                        system=system,
-                        user=user,
-                        temperature=float(assistant.temperature or 0.2),
-                        max_tokens=int(assistant.max_tokens or 1024),
-                    )
-                except ProviderCallError as exc:
-                    logger.warning(f"Provider {provider_name} failed for assistant {assistant.id}: {exc!s}")
-                    await IntelligentRoutingEngine.record_failure(
+                    try:
+                        content, input_tokens, output_tokens = await call_provider(
+                            provider_name=provider_name,
+                            api_key=resolution.raw_secret,
+                            model=model,
+                            system=system,
+                            user=user,
+                            temperature=float(assistant.temperature or 0.2),
+                            max_tokens=int(assistant.max_tokens or 1024),
+                        )
+                    except ProviderCallError as exc:
+                        category = _error_category(exc)
+                        logger.warning(f"Provider {provider_name} failed for assistant {assistant.id}: {exc!s}")
+                        await IntelligentRoutingEngine.record_failure(
+                            db,
+                            credential_id=str(resolution.credential.id),
+                            error_type="provider_error",
+                            reason=str(exc),
+                            is_rate_limit=exc.is_rate_limit,
+                            routing_id=resolution.routing_id,
+                            error_category=category,
+                            retry_after_seconds=exc.retry_after,
+                            latency_ms=int((time.perf_counter() - started) * 1000),
+                        )
+                        excluded.add(str(resolution.credential.id))
+                        if category == "invalid_request":
+                            abort_all = True
+                            break
+                        if category in _NON_RETRYABLE_CATEGORIES:
+                            break
+                        if attempt < max_attempts_per_provider:
+                            await asyncio.sleep(_retry_delay_seconds(attempt, category, exc.retry_after))
+                        continue
+
+                    latency_ms = int((time.perf_counter() - started) * 1000)
+                    cost = _estimate_cost(model, input_tokens, output_tokens)
+                    await IntelligentRoutingEngine.record_success(
                         db,
                         credential_id=str(resolution.credential.id),
-                        error_type="provider_error",
-                        reason=str(exc),
-                        is_rate_limit=exc.is_rate_limit,
+                        workspace_id=str(workspace_id),
+                        provider_name=provider_name,
+                        model_name=model,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_usd=cost,
+                        latency_ms=latency_ms,
                         routing_id=resolution.routing_id,
-                        error_category=_error_category(exc),
-                        retry_after_seconds=exc.retry_after,
-                        latency_ms=int((time.perf_counter() - started) * 1000),
+                        cost_source="estimated",
+                        reserved_input_tokens=estimated_input_tokens,
                     )
-                    excluded.add(str(resolution.credential.id))
-                    continue
-
-                latency_ms = int((time.perf_counter() - started) * 1000)
-                cost = _estimate_cost(model, input_tokens, output_tokens)
-                await IntelligentRoutingEngine.record_success(
-                    db,
-                    credential_id=str(resolution.credential.id),
-                    workspace_id=str(workspace_id),
-                    provider_name=provider_name,
-                    model_name=model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                    routing_id=resolution.routing_id,
-                    cost_source="estimated",
-                )
-                return GroundedAnswer(
-                    content=content,
-                    used_llm=True,
-                    provider_name=provider_name,
-                    model_name=model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                )
+                    return GroundedAnswer(
+                        content=content,
+                        used_llm=True,
+                        provider_name=provider_name,
+                        model_name=model,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_usd=cost,
+                        latency_ms=latency_ms,
+                    )
+                finally:
+                    if resolution.limiter_keys:
+                        routing_state.release(resolution.limiter_keys)
+            if abort_all:
+                break
 
         return GroundedAnswer(
             content=extractive_answer(passages, assistant.fallback_message),
@@ -694,8 +715,10 @@ class LLMService:
             order.remove(preferred_provider)
             order.insert(0, preferred_provider)
 
+        estimated_input_tokens = max(1, len(system + user) // 4)
         max_attempts_per_provider = 3
         last_error_message = "No provider is currently available."
+        abort_all = False
 
         for provider_name in order:
             model = _model_for(provider_name, requested)
@@ -709,120 +732,159 @@ class LLMService:
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
+                    estimated_tokens=estimated_input_tokens,
+                    reserve_slot=True,
                 )
                 if not resolution:
                     break
 
-                yield {
-                    "type": "meta",
-                    "provider_name": provider_name,
-                    "model_name": model,
-                    "routing_id": resolution.routing_id,
-                    "credential_label": resolution.credential.label,
-                    "decision_reason": resolution.decision_reason,
-                    "attempt_number": attempt,
-                }
-
-                collected: list[str] = []
-                usage = (0, 0)
-                failure: ProviderCallError | None = None
                 try:
-                    async for chunk in stream_provider(
+                    yield {
+                        "type": "meta",
+                        "provider_name": provider_name,
+                        "model_name": model,
+                        "routing_id": resolution.routing_id,
+                        "credential_label": resolution.credential.label,
+                        "decision_reason": resolution.decision_reason,
+                        "attempt_number": attempt,
+                    }
+
+                    collected: list[str] = []
+                    usage = (0, 0)
+                    failure: ProviderCallError | None = None
+                    try:
+                        async for chunk in stream_provider(
+                            provider_name=provider_name,
+                            api_key=resolution.raw_secret,
+                            model=model,
+                            system=system,
+                            user=user,
+                            temperature=float(assistant.temperature or 0.2),
+                            max_tokens=int(assistant.max_tokens or 1024),
+                        ):
+                            if "text" in chunk:
+                                collected.append(chunk["text"])
+                                yield {"type": "delta", "text": chunk["text"]}
+                            elif "usage" in chunk:
+                                usage = chunk["usage"]
+                    except ProviderCallError as exc:
+                        failure = exc
+                        last_error_message = str(exc)
+
+                    content = "".join(collected).strip()
+                    latency_ms = int((time.perf_counter() - started) * 1000)
+
+                    if failure is not None:
+                        category = _error_category(failure)
+                        logger.warning(f"Provider {provider_name} failed for assistant {assistant.id}: {failure!s}")
+                        await IntelligentRoutingEngine.record_failure(
+                            db,
+                            credential_id=str(resolution.credential.id),
+                            error_type="provider_error",
+                            reason=str(failure),
+                            is_rate_limit=failure.is_rate_limit,
+                            routing_id=resolution.routing_id,
+                            error_category=category,
+                            retry_after_seconds=failure.retry_after,
+                            latency_ms=latency_ms,
+                        )
+                        if content:
+                            input_tokens, output_tokens = usage
+                            if input_tokens <= 0:
+                                input_tokens = estimated_input_tokens
+                            if output_tokens <= 0:
+                                output_tokens = max(1, len(content) // 4)
+                            cost = _estimate_cost(model, input_tokens, output_tokens)
+                            await IntelligentRoutingEngine.record_success(
+                                db,
+                                credential_id=str(resolution.credential.id),
+                                workspace_id=str(workspace_id),
+                                provider_name=provider_name,
+                                model_name=model,
+                                input_tokens=input_tokens,
+                                output_tokens=output_tokens,
+                                cost_usd=cost,
+                                latency_ms=latency_ms,
+                                routing_id=resolution.routing_id,
+                                cost_source="estimated",
+                                reserved_input_tokens=estimated_input_tokens,
+                            )
+                            yield {
+                                "type": "done",
+                                "content": content,
+                                "used_llm": True,
+                                "truncated": True,
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                                "cost_usd": cost,
+                                "latency_ms": latency_ms,
+                                "provider_name": provider_name,
+                                "model_name": model,
+                            }
+                            return
+                        excluded.add(str(resolution.credential.id))
+                        if category == "invalid_request":
+                            abort_all = True
+                            break
+                        if category in _NON_RETRYABLE_CATEGORIES:
+                            break
+                        if attempt < max_attempts_per_provider:
+                            await asyncio.sleep(_retry_delay_seconds(attempt, category, failure.retry_after))
+                        continue
+
+                    if not content:
+                        await IntelligentRoutingEngine.record_failure(
+                            db,
+                            credential_id=str(resolution.credential.id),
+                            error_type="empty_response",
+                            reason="Provider returned an empty stream.",
+                            routing_id=resolution.routing_id,
+                            error_category="empty_response",
+                            latency_ms=latency_ms,
+                        )
+                        excluded.add(str(resolution.credential.id))
+                        if attempt < max_attempts_per_provider:
+                            await asyncio.sleep(_retry_delay_seconds(attempt, "empty_response", None))
+                        continue
+
+                    input_tokens, output_tokens = usage
+                    if input_tokens <= 0:
+                        input_tokens = estimated_input_tokens
+                    if output_tokens <= 0:
+                        output_tokens = max(1, len(content) // 4)
+                    cost = _estimate_cost(model, input_tokens, output_tokens)
+                    await IntelligentRoutingEngine.record_success(
+                        db,
+                        credential_id=str(resolution.credential.id),
+                        workspace_id=str(workspace_id),
                         provider_name=provider_name,
-                        api_key=resolution.raw_secret,
-                        model=model,
-                        system=system,
-                        user=user,
-                        temperature=float(assistant.temperature or 0.2),
-                        max_tokens=int(assistant.max_tokens or 1024),
-                    ):
-                        if "text" in chunk:
-                            collected.append(chunk["text"])
-                            yield {"type": "delta", "text": chunk["text"]}
-                        elif "usage" in chunk:
-                            usage = chunk["usage"]
-                except ProviderCallError as exc:
-                    failure = exc
-                    last_error_message = str(exc)
-
-                content = "".join(collected).strip()
-                latency_ms = int((time.perf_counter() - started) * 1000)
-
-                if failure is not None:
-                    logger.warning(f"Provider {provider_name} failed for assistant {assistant.id}: {failure!s}")
-                    await IntelligentRoutingEngine.record_failure(
-                        db,
-                        credential_id=str(resolution.credential.id),
-                        error_type="provider_error",
-                        reason=str(failure),
-                        is_rate_limit=failure.is_rate_limit,
-                        routing_id=resolution.routing_id,
-                        error_category=_error_category(failure),
-                        retry_after_seconds=failure.retry_after,
+                        model_name=model,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cost_usd=cost,
                         latency_ms=latency_ms,
-                    )
-                    if content:
-                        yield {
-                            "type": "done",
-                            "content": content,
-                            "used_llm": True,
-                            "truncated": True,
-                            "input_tokens": usage[0],
-                            "output_tokens": usage[1],
-                            "cost_usd": _estimate_cost(model, usage[0], usage[1]),
-                            "latency_ms": latency_ms,
-                            "provider_name": provider_name,
-                            "model_name": model,
-                        }
-                        return
-                    excluded.add(str(resolution.credential.id))
-                    continue
-
-                if not content:
-                    await IntelligentRoutingEngine.record_failure(
-                        db,
-                        credential_id=str(resolution.credential.id),
-                        error_type="empty_response",
-                        reason="Provider returned an empty stream.",
                         routing_id=resolution.routing_id,
-                        error_category="empty_response",
-                        latency_ms=latency_ms,
+                        cost_source="estimated",
+                        reserved_input_tokens=estimated_input_tokens,
                     )
-                    excluded.add(str(resolution.credential.id))
-                    continue
-
-                input_tokens, output_tokens = usage
-                if input_tokens <= 0:
-                    input_tokens = max(1, len(system + user) // 4)
-                if output_tokens <= 0:
-                    output_tokens = max(1, len(content) // 4)
-                cost = _estimate_cost(model, input_tokens, output_tokens)
-                await IntelligentRoutingEngine.record_success(
-                    db,
-                    credential_id=str(resolution.credential.id),
-                    workspace_id=str(workspace_id),
-                    provider_name=provider_name,
-                    model_name=model,
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
-                    cost_usd=cost,
-                    latency_ms=latency_ms,
-                    routing_id=resolution.routing_id,
-                    cost_source="estimated",
-                )
-                yield {
-                    "type": "done",
-                    "content": content,
-                    "used_llm": True,
-                    "truncated": False,
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "cost_usd": cost,
-                    "latency_ms": latency_ms,
-                    "provider_name": provider_name,
-                    "model_name": model,
-                }
-                return
+                    yield {
+                        "type": "done",
+                        "content": content,
+                        "used_llm": True,
+                        "truncated": False,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "cost_usd": cost,
+                        "latency_ms": latency_ms,
+                        "provider_name": provider_name,
+                        "model_name": model,
+                    }
+                    return
+                finally:
+                    if resolution.limiter_keys:
+                        routing_state.release(resolution.limiter_keys)
+            if abort_all:
+                break
 
         text = extractive_answer(passages, assistant.fallback_message)
         latency_ms = int((time.perf_counter() - started) * 1000)
@@ -849,20 +911,36 @@ class LLMService:
         }
 
 
+_NON_RETRYABLE_CATEGORIES = {"auth", "quota", "invalid_request"}
+
+
 def _error_category(exc: ProviderCallError) -> str:
+    text = str(exc).lower()
+    if exc.status_code == 402 or any(
+        marker in text for marker in ("quota", "insufficient_quota", "insufficient quota", "billing", "credit balance")
+    ):
+        return "quota"
     if exc.is_rate_limit or exc.status_code == 429:
         return "rate_limit"
     if exc.status_code in (401, 403):
         return "auth"
-    if exc.status_code in (408, 504) or "timed out" in str(exc).lower():
+    if exc.status_code in (408, 504) or "timed out" in text or "timeout" in text:
         return "timeout"
+    if exc.status_code in (400, 404, 409, 422):
+        return "invalid_request"
     if exc.status_code == 503:
         return "connection"
     if exc.status_code >= 500:
         return "provider"
-    if exc.status_code == 404:
-        return "not_found"
     return "provider_error"
+
+
+def _retry_delay_seconds(attempt: int, category: str, retry_after: int | None) -> float:
+    """Bounded, jittered delay so failed-over retries never form a retry storm."""
+    if category == "rate_limit" and retry_after:
+        return min(max(retry_after, 1), 5) * random.uniform(0.9, 1.1)
+    base = min(0.2 * (2 ** max(attempt - 1, 0)), 2.0)
+    return base * random.uniform(0.75, 1.25)
 
 
 llm_service = LLMService()

@@ -73,6 +73,9 @@ class ProviderAccountCreate(BaseModel):
     ] = "round_robin"
     global_monthly_budget_usd: float = Field(5000.0, ge=0)
     supported_models: list[str] = Field(default_factory=list)
+    account_rate_limit_rpm: int = Field(0, ge=0)
+    account_rate_limit_tpm: int = Field(0, ge=0)
+    account_max_concurrency: int = Field(0, ge=0)
 
 
 class ProviderAccountUpdate(BaseModel):
@@ -92,6 +95,9 @@ class ProviderAccountUpdate(BaseModel):
     ] = None
     global_monthly_budget_usd: Optional[float] = Field(None, ge=0)
     supported_models: Optional[list[str]] = None
+    account_rate_limit_rpm: Optional[int] = Field(None, ge=0)
+    account_rate_limit_tpm: Optional[int] = Field(None, ge=0)
+    account_max_concurrency: Optional[int] = Field(None, ge=0)
 
 
 class ProviderAccountResponse(BaseModel):
@@ -103,6 +109,9 @@ class ProviderAccountResponse(BaseModel):
     global_monthly_budget_usd: float
     current_month_spend_usd: float
     supported_models: list[str]
+    account_rate_limit_rpm: int = 0
+    account_rate_limit_tpm: int = 0
+    account_max_concurrency: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -116,6 +125,7 @@ class CredentialCreate(BaseModel):
     monthly_budget_usd: float = Field(1000.0, ge=0)
     rate_limit_rpm: int = Field(500, ge=1)
     rate_limit_tpm: int = Field(100000, ge=1)
+    max_concurrency: int = Field(0, ge=0)
 
 
 class CredentialResponse(BaseModel):
@@ -134,6 +144,7 @@ class CredentialResponse(BaseModel):
     warning_threshold_pct: int
     rate_limit_rpm: int
     rate_limit_tpm: int
+    max_concurrency: int = 0
     total_requests_served: int
     total_tokens_served: int
     consecutive_failures: int
@@ -243,6 +254,7 @@ class CredentialUpdate(BaseModel):
     warning_threshold_pct: Optional[int] = Field(None, ge=1, le=100)
     rate_limit_rpm: Optional[int] = Field(None, ge=1)
     rate_limit_tpm: Optional[int] = Field(None, ge=1)
+    max_concurrency: Optional[int] = Field(None, ge=0)
 
 
 class RoutingEventResponse(BaseModel):
