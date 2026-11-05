@@ -18,7 +18,6 @@ interface FlowConsoleLabels {
   sample: string;
   answer: string;
   checked: string;
-  hint: string;
 }
 
 interface FlowConsoleProps {
@@ -141,8 +140,6 @@ export function FlowConsole({ scenarios, labels }: FlowConsoleProps) {
             <span className="ms-auto shrink-0 text-white/50">{active.page}</span>
           </div>
         </div>
-
-        <p className="mt-3 text-center text-[10px] text-white/50">{labels.hint}</p>
       </div>
     </div>
   );

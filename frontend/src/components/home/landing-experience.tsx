@@ -4,12 +4,12 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { LivingFlow } from "@/components/brand/living-flow";
 import { FlowConsole, type FlowScenario } from "@/components/home/flow-console";
-import { ArrowRight, Bot, Check, FileText, Globe2, Search } from "lucide-react";
+import { KnowledgePipeline, type PipelineNode } from "@/components/home/knowledge-pipeline";
+import { ArrowRight, Check, FileText, Globe2, Search, SlidersHorizontal } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
-import { formatNumber } from "@/lib/i18n/format";
 
 export function LandingExperience() {
-  const { dict, locale } = useI18n();
+  const { dict } = useI18n();
 
   const scenarios: FlowScenario[] = [
     {
@@ -46,19 +46,17 @@ export function LandingExperience() {
     },
   ];
 
-  const path = [
-    { title: dict.landing.path1Title, description: dict.landing.path1Desc, icon: FileText },
-    { title: dict.landing.path2Title, description: dict.landing.path2Desc, icon: Bot },
-    { title: dict.landing.path3Title, description: dict.landing.path3Desc, icon: Search },
-    { title: dict.landing.path4Title, description: dict.landing.path4Desc, icon: Globe2 },
+  const nodes: PipelineNode[] = [
+    { id: "ingest", label: dict.landing.path1Title, icon: FileText },
+    { id: "configure", label: dict.landing.path2Title, icon: SlidersHorizontal },
+    { id: "answer", label: dict.landing.path3Title, icon: Search },
+    { id: "publish", label: dict.landing.path4Title, icon: Globe2 },
   ];
 
-  const proofPoints = [
-    dict.landing.proofPoint1,
-    dict.landing.proofPoint2,
-    dict.landing.proofPoint3,
-    dict.landing.proofPoint4,
-  ];
+  /* Only the claims the console cannot show on its own. The passage and the
+     citation are visible two columns away, so repeating them here would be
+     captioning the picture. */
+  const proofPoints = [dict.landing.proofPoint1, dict.landing.proofPoint2];
 
   const useCases = [
     {
@@ -129,9 +127,6 @@ export function LandingExperience() {
               <h2 className="section-title mt-3 font-semibold text-foreground">
                 {dict.landing.proofTitle}
               </h2>
-              <p className="mt-4 max-w-lg text-sm text-muted-foreground sm:text-[15px]">
-                {dict.landing.proofBody}
-              </p>
 
               <ul className="mt-6 space-y-2.5">
                 {proofPoints.map((point) => (
@@ -154,13 +149,13 @@ export function LandingExperience() {
                 sample: dict.landing.consoleSample,
                 answer: dict.landing.consoleAnswer,
                 checked: dict.landing.consoleChecked,
-                hint: dict.landing.consoleHint,
               }}
             />
           </div>
         </section>
 
-        {/* How it works */}
+        {/* How it works. The four stages used to carry a sentence each; the
+            rail says what connects them, so the labels are all that is left. */}
         <section id="how-it-works" className="scroll-mt-20 border-b border-border/60">
           <div className="mx-auto w-full max-w-wide px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
             <div className="max-w-2xl">
@@ -168,47 +163,20 @@ export function LandingExperience() {
               <h2 className="section-title mt-3 font-semibold text-foreground">
                 {dict.landing.pathTitle}
               </h2>
-              <p className="mt-3 max-w-xl text-sm text-muted-foreground sm:text-[15px]">
-                {dict.landing.pathSubtitle}
-              </p>
             </div>
 
-            <ol className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-              {path.map((step, index) => {
-                const Icon = step.icon;
-                return (
-                  <li key={step.title}>
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground">
-                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                      </span>
-                      <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                        {formatNumber(index + 1, locale, { minimumIntegerDigits: 2 })}
-                      </span>
-                      <span aria-hidden="true" className="hidden h-px flex-1 bg-border lg:block" />
-                    </div>
-                    <h3 className="mt-4 text-[15px] font-semibold text-foreground">{step.title}</h3>
-                    <p className="mt-1.5 text-[13px] text-muted-foreground">{step.description}</p>
-                  </li>
-                );
-              })}
-            </ol>
+            <KnowledgePipeline nodes={nodes} className="mt-10 sm:mt-12" />
           </div>
         </section>
 
         {/* What it solves */}
         <section className="border-b border-border/60 bg-card/40">
           <div className="mx-auto w-full max-w-wide px-4 py-14 sm:px-6 sm:py-16 lg:px-10">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-xl">
-                <p className="eyebrow">{dict.landing.useCasesEyebrow}</p>
-                <h2 className="section-title mt-3 font-semibold text-foreground">
-                  {dict.landing.useCasesTitle}
-                </h2>
-              </div>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                {dict.landing.useCasesSubtitle}
-              </p>
+            <div className="max-w-2xl">
+              <p className="eyebrow">{dict.landing.useCasesEyebrow}</p>
+              <h2 className="section-title mt-3 font-semibold text-foreground">
+                {dict.landing.useCasesTitle}
+              </h2>
             </div>
 
             <dl className="mt-9 grid gap-x-12 gap-y-7 sm:grid-cols-2">
@@ -244,18 +212,16 @@ export function LandingExperience() {
                 {dict.landing.primaryCta}
                 <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Link>
-              <p className="mt-5 text-[11px] text-white/55">{dict.landing.ctaNote}</p>
             </div>
           </div>
         </section>
       </main>
 
       {/* The header is sticky and already carries the navigation, so the footer
-          adds no links and no second logo. */}
+          adds no links, no tagline and no second logo. */}
       <footer className="border-t border-border/60">
-        <div className="mx-auto flex w-full max-w-wide flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6 lg:px-10">
-          <span>{dict.landing.copyright}</span>
-          <span>{dict.landing.footerNote}</span>
+        <div className="mx-auto w-full max-w-wide px-4 py-6 text-[11px] text-muted-foreground sm:px-6 lg:px-10">
+          {dict.landing.copyright}
         </div>
       </footer>
     </div>

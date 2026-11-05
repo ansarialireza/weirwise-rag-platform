@@ -44,31 +44,29 @@ export default function OverviewPage() {
   const publishedAssistants = assistants.filter((assistant) => assistant.status === "published");
   const attention = sources.filter((source) => source.status === "failed").length;
 
+  /* Each row links straight to where the step happens and the empty state below
+     explains what to add, so the rows carry a title and nothing else. */
   const steps = [
     {
       title: "Add your knowledge",
-      description: "Upload the documents your team already relies on.",
       href: "/sources",
       action: "Add knowledge",
       done: sources.length > 0,
     },
     {
       title: "Create an assistant",
-      description: "Choose the knowledge it uses and how it should answer.",
       href: "/assistants",
       action: "Create assistant",
       done: assistants.length > 0,
     },
     {
       title: "Share an answer",
-      description: "Publish the assistant or embed it where your customers are.",
       href: "/assistants",
       action: "Publish",
       done: publishedAssistants.length > 0,
     },
   ];
   const completed = steps.filter((step) => step.done).length;
-  const progress = Math.round((completed / steps.length) * 100);
 
   if (loading) {
     return (
@@ -95,7 +93,6 @@ export default function OverviewPage() {
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="Overview"
-        description="Everything your workspace needs, in one clear place."
         actions={
           <>
             {/* "Add knowledge" is offered by step 1 and by the empty state below;
@@ -136,9 +133,10 @@ export default function OverviewPage() {
             href: "/assistants",
           },
           {
+            // The icon and the colour already say healthy or not; restating it
+            // under the number would caption the picture.
             label: "Needs attention",
             value: attention,
-            hint: attention === 0 ? "Everything looks healthy" : "Needs attention",
             icon: attention > 0 ? AlertCircle : CheckCircle2,
             href: "/sources",
             tone: attention > 0 ? "warning" : "default",
@@ -163,7 +161,9 @@ export default function OverviewPage() {
               <div className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
                 {formatNumber(stat.value, locale)}
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">{stat.hint}</div>
+              {stat.hint && (
+                <div className="mt-1 text-xs text-muted-foreground">{stat.hint}</div>
+              )}
             </Link>
           );
         })}
@@ -171,63 +171,60 @@ export default function OverviewPage() {
 
       {/* Getting started */}
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-border/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-[15px] font-semibold text-foreground">
-              {completed === steps.length ? "You're all set" : "Get started with Weirwise"}
-            </h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              {completed === steps.length
-                ? "Your assistant is live. Ask a question to see it in action."
-                : "Three small steps from documents to a working assistant."}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-signal transition-[width] duration-300"
-                style={{ width: `${progress}%` }}
+        <div className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-foreground">
+            {completed === steps.length ? "You're all set" : "Get started with Weirwise"}
+          </h2>
+          {/* Progress is drawn, not written: one segment per step, filled in the
+              order the list below completes. */}
+          <div aria-hidden="true" className="flex w-28 items-center gap-1">
+            {steps.map((step) => (
+              <span
+                key={step.title}
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors duration-300",
+                  step.done ? "bg-signal" : "bg-border"
+                )}
               />
-            </div>
-            <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {formatNumber(completed, locale)}/{formatNumber(steps.length, locale)}
-            </span>
+            ))}
           </div>
         </div>
 
         <ol className="divide-y divide-border/60">
-          {steps.map((step, index) => (
+          {steps.map((step) => (
             <li key={step.title}>
               <Link
                 href={step.href}
-                className="group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40"
+                className="group flex items-center gap-4 px-5 py-3 transition-colors hover:bg-muted/40"
               >
                 <span
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-medium",
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border",
                     step.done
-                      ? "border-signal/40 bg-signal/15 text-foreground"
-                      : "border-border bg-background text-muted-foreground"
+                      ? "border-signal/40 bg-signal/15 text-signal"
+                      : "border-border bg-background"
                   )}
                 >
-                  {step.done ? <Check className="h-4 w-4" strokeWidth={3} /> : index + 1}
+                  {step.done ? (
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 rounded-full bg-muted-foreground/45"
+                    />
+                  )}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <div
-                    className={cn(
-                      "text-sm font-medium",
-                      step.done ? "text-muted-foreground" : "text-foreground"
-                    )}
-                  >
-                    {step.title}
-                  </div>
-                  {/* Clipping here hid a third of the sentence at 390px with no way
-                      to read the rest; two wrapped lines cost nothing and stay legible. */}
-                  <div className="line-clamp-2 text-xs text-muted-foreground">{step.description}</div>
-                </div>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-sm font-medium",
+                    step.done ? "text-muted-foreground" : "text-foreground"
+                  )}
+                >
+                  {step.title}
+                </span>
                 <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground sm:inline-flex">
                   {step.done ? "Review" : step.action}
-                  <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" />
+                  <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                 </span>
               </Link>
             </li>
@@ -282,7 +279,7 @@ export default function OverviewPage() {
                         {source.name}
                       </div>
                       <div className="text-[11px] text-muted-foreground">
-                        {source.document_count ?? 0} document
+                        {formatNumber(source.document_count ?? 0, locale)} document
                         {(source.document_count ?? 0) === 1 ? "" : "s"}
                       </div>
                     </div>

@@ -346,6 +346,58 @@
     animation: flow-dash 7s linear infinite;
   }
 
+  /*
+   * The knowledge pipeline (§15). The route from sources to answers is the
+   * explanation, so it is drawn rather than written: a rail that warms toward
+   * its destination, one comet crossing it, and each node answering in turn.
+   * Reduced motion collapses both animations to the resting frame.
+   */
+  .flow-rail {
+    position: absolute;
+    inset-inline: 12.5%;
+    top: 0.875rem;
+    height: 1px;
+    /* Warmer at the end, so direction survives a static screenshot. */
+    background-image: linear-gradient(
+      to right,
+      hsl(var(--border)) 0%,
+      hsl(var(--border)) 55%,
+      hsl(var(--signal) / 0.5) 100%
+    );
+  }
+
+  @media (min-width: 640px) {
+    .flow-rail {
+      top: 1rem;
+    }
+  }
+
+  .flow-comet {
+    position: absolute;
+    inset-block: -1px;
+    left: 0;
+    width: 20%;
+    opacity: 0;
+    background-image: linear-gradient(
+      to right,
+      hsl(var(--signal) / 0),
+      hsl(var(--signal)) 78%,
+      hsl(var(--signal) / 0.9)
+    );
+    filter: drop-shadow(0 0 5px hsl(var(--signal) / 0.45));
+    animation: flow-travel 4s linear infinite;
+  }
+
+  /* RTL mirrors the rail with a transform, so the comet and the warm end both
+     run with the reading direction instead of against it. */
+  [dir="rtl"] .flow-rail {
+    transform: scaleX(-1);
+  }
+
+  .flow-node {
+    animation: flow-arrive 4s linear infinite;
+  }
+
   .flow-grid {
     background-image:
       linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
@@ -472,6 +524,42 @@
   }
 }
 
+/*
+ * The comet's leading edge covers the rail in exactly 3s of a 4s cycle, so the
+ * four nodes (at 0, 1/3, 2/3 and 1 of the rail) take delays of 0s, 1s, 2s, 3s
+ * and light up as it arrives rather than on their own clock.
+ */
+@keyframes flow-travel {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  69% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+}
+
+@keyframes flow-arrive {
+  0%,
+  16%,
+  100% {
+    border-color: hsl(var(--border));
+    box-shadow: 0 0 0 0 hsl(var(--signal) / 0);
+  }
+  5% {
+    border-color: hsl(var(--signal) / 0.55);
+    box-shadow: 0 0 0 3px hsl(var(--signal) / 0.14);
+  }
+}
+
 @keyframes signal-pulse {
   0%,
   100% {
@@ -515,6 +603,10 @@
     transition-duration: 0.01ms !important;
   }
   .flow-line {
+    animation: none;
+  }
+  .flow-comet,
+  .flow-node {
     animation: none;
   }
 }

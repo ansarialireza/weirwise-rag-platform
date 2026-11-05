@@ -50,9 +50,11 @@ export default function PricingPage() {
   ];
 
   const assurances = [
-    { icon: FileText, title: p.assurance1Title, description: p.assurance1Desc },
-    { icon: Lock, title: p.assurance2Title, description: p.assurance2Desc },
-    { icon: Globe2, title: p.assurance3Title, description: p.assurance3Desc },
+    // Title only: an icon and a short label carry each claim, and the sentences
+    // that used to sit under them repeated the landing page.
+    { icon: FileText, title: p.assurance1Title },
+    { icon: Lock, title: p.assurance2Title },
+    { icon: Globe2, title: p.assurance3Title },
   ];
 
   return (
@@ -144,18 +146,15 @@ export default function PricingPage() {
         </section>
 
         <section className="border-y border-border/60 bg-card/40">
-          <div className="mx-auto grid w-full max-w-wide gap-8 px-4 py-12 sm:grid-cols-3 sm:px-6 sm:py-16 lg:px-10">
+          <div className="mx-auto grid w-full max-w-wide gap-6 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-10">
             {assurances.map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.title} className="px-1 py-5 sm:px-6 sm:py-0">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-foreground">
+                <div key={item.title} className="flex items-center gap-3 px-1 sm:px-6">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
-                  <h2 className="mt-4 text-sm font-semibold text-foreground">{item.title}</h2>
-                  <p className="mt-1.5 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
+                  <h2 className="text-[13px] font-semibold text-foreground">{item.title}</h2>
                 </div>
               );
             })}
@@ -182,11 +181,10 @@ export default function PricingPage() {
       </main>
 
       {/* The sticky header already carries the mark, the navigation and Sign in,
-          so the footer states the copyright and the brand line and nothing else. */}
+          so the footer states the copyright and nothing else. */}
       <footer className="border-t border-border/60">
-        <div className="mx-auto flex w-full max-w-wide flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6 lg:px-10">
-          <span>{dict.landing.copyright}</span>
-          <span>{dict.landing.footerNote}</span>
+        <div className="mx-auto w-full max-w-wide px-4 py-6 text-[11px] text-muted-foreground sm:px-6 lg:px-10">
+          {dict.landing.copyright}
         </div>
       </footer>
     </div>

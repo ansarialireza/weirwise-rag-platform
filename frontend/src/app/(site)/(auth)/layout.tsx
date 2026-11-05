@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { PreferenceControls } from "@/components/ui/preference-controls";
-import { Check, FileText, Globe2, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { FileText, Globe2, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { ToastProvider } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -18,7 +18,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
-  const points = [dict.auth.point1, dict.auth.point2, dict.auth.point3];
   const rail = [
     { icon: FileText, label: dict.landing.path1Title },
     { icon: SlidersHorizontal, label: dict.landing.path2Title },
@@ -71,27 +70,12 @@ function AuthShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="relative my-auto max-w-md py-12">
-          <p className="text-xs font-medium uppercase tracking-eyebrow text-volt">
-            {dict.auth.panelEyebrow}
-          </p>
-          <h2 className="mt-4 text-[2rem] font-semibold leading-hero tracking-hero text-white xl:text-4xl">
+          <h2 className="text-[2rem] font-semibold leading-hero tracking-hero text-white xl:text-4xl">
             {dict.auth.panelTitle}
           </h2>
-          <p className="mt-4 text-sm leading-relaxed text-white/65">
-            {dict.auth.panelSubtitle}
-          </p>
 
-          <ul className="mt-8 space-y-3">
-            {points.map((point) => (
-              <li key={point} className="flex items-start gap-3 text-sm text-white/80">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-volt text-volt-foreground">
-                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-                </span>
-                {point}
-              </li>
-            ))}
-          </ul>
-
+          {/* The rail is the promise: it shows the three steps the signed-in
+              product takes you through, so no sentence explains them twice. */}
           <ol className="mt-10 space-y-0">
             {rail.map((step, index) => {
               const Icon = step.icon;
