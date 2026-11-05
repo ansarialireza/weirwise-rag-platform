@@ -46,6 +46,7 @@ async def close_provider_clients() -> None:
         except Exception:
             pass
 
+
 # Requested model is either a UI alias (Auto/Fast/Deep Thinking) or a concrete
 # provider model identifier. Aliases map to a latency/capability tier.
 _PROVIDER_MODELS: dict[str, dict[str, str]] = {
@@ -336,9 +337,7 @@ async def stream_provider(
     """Yield {'text': str} deltas and a final {'usage': (input, output)} event."""
     if provider_name in ("openai", "openrouter"):
         base_url = "https://api.openai.com/v1" if provider_name == "openai" else "https://openrouter.ai/api/v1"
-        async for chunk in _stream_openai_compatible(
-            base_url, api_key, model, system, user, temperature, max_tokens
-        ):
+        async for chunk in _stream_openai_compatible(base_url, api_key, model, system, user, temperature, max_tokens):
             yield chunk
         return
     if provider_name == "anthropic":

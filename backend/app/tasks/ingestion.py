@@ -72,9 +72,7 @@ async def _recalculate_source_status(db, source: KnowledgeSource) -> None:
 
     if all(s == SourceProcessingStatus.FAILED.value for s in statuses):
         source.status = SourceProcessingStatus.FAILED.value
-        source.error_message = next(
-            (doc.error_message for doc in documents if doc.error_message), source.error_message
-        )
+        source.error_message = next((doc.error_message for doc in documents if doc.error_message), source.error_message)
         return
 
     source.status = SourceProcessingStatus.READY.value
@@ -147,9 +145,7 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
                 document.storage_path = cold_path
 
             # 6. Wait for Core to finish indexing before reporting READY.
-            core_status, core_error = await _wait_for_core_indexing(
-                core_client, core_doc_id, doc_data.get("status")
-            )
+            core_status, core_error = await _wait_for_core_indexing(core_client, core_doc_id, doc_data.get("status"))
             if core_status in _READY_STATES:
                 document.status = SourceProcessingStatus.READY.value
                 document.error_message = None

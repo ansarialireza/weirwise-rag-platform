@@ -3,9 +3,9 @@
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+from backend.app.db.base import GUID
 
 from alembic import op
-from backend.app.db.base import GUID
 
 revision: str = "d8e9f0a1b2c3"
 down_revision: Union[str, None] = "c1d2e3f4a5b6"

@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
 from backend.app.core.logging import logger
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from fastapi import HTTPException, status
 
 BLOCKED_IP_RANGES = [
@@ -441,6 +441,8 @@ class WebsiteCrawler:
                 if depth < self.max_depth and len(visited) + len(queue) < max_p * 2:
                     soup = BeautifulSoup(resp.text, "html.parser")
                     for a_tag in soup.find_all("a", href=True):
+                        if not isinstance(a_tag, Tag):
+                            continue
                         raw_href = str(a_tag["href"])
                         joined = urljoin(norm_curr, raw_href)
                         norm_child = normalize_url(joined)

@@ -157,8 +157,7 @@ def test_successful_login_clears_failure_counters():
                 == 401
             )
         assert (
-            client.post("/api/v1/auth/login", json={"email": email, "password": "Correct-Horse-9!"}).status_code
-            == 429
+            client.post("/api/v1/auth/login", json={"email": email, "password": "Correct-Horse-9!"}).status_code == 429
         )
     finally:
         asyncio.run(AuthRateLimiter.reset_all())

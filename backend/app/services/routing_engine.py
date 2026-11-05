@@ -102,9 +102,7 @@ class IntelligentRoutingEngine:
         exclude = exclude_ids or set()
 
         # 1. Fetch provider account
-        p_res = await db.execute(
-            select(ProviderAccount).where(ProviderAccount.provider_name == provider_name)
-        )
+        p_res = await db.execute(select(ProviderAccount).where(ProviderAccount.provider_name == provider_name))
         provider = p_res.scalar_one_or_none()
         if provider is None:
             # Not configured at all: not a routing decision, so do not pollute the event trail.
@@ -253,16 +251,14 @@ class IntelligentRoutingEngine:
             eligible.sort(
                 key=lambda c: (
                     c.total_requests_served,
-                    _ensure_utc(c.last_used_at)
-                    or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
                 )
             )
             selected = eligible[0]
             reason = f"round_robin(served={selected.total_requests_served})"
         elif strategy == ProviderRoutingStrategy.LEAST_RECENTLY_USED.value:
             eligible.sort(
-                key=lambda c: _ensure_utc(c.last_used_at)
-                or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+                key=lambda c: _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
             )
             selected = eligible[0]
             reason = "least_recently_used"
@@ -275,8 +271,7 @@ class IntelligentRoutingEngine:
                 key=lambda c: (
                     routing_state.in_flight(str(c.id)),
                     c.priority,
-                    _ensure_utc(c.last_used_at)
-                    or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
                 )
             )
             selected = eligible[0]
@@ -289,8 +284,7 @@ class IntelligentRoutingEngine:
             highest_priority = eligible[0].priority
             top_tier = [c for c in eligible if c.priority == highest_priority]
             top_tier.sort(
-                key=lambda c: _ensure_utc(c.last_used_at)
-                or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+                key=lambda c: _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
             )
             selected = top_tier[0]
             reason = f"priority={selected.priority}"
@@ -378,15 +372,19 @@ class IntelligentRoutingEngine:
             }
 
         creds = (
-            await db.execute(
-                select(ProviderCredential)
-                .where(
-                    ProviderCredential.provider_id == provider.id,
-                    ProviderCredential.is_active.is_(True),
+            (
+                await db.execute(
+                    select(ProviderCredential)
+                    .where(
+                        ProviderCredential.provider_id == provider.id,
+                        ProviderCredential.is_active.is_(True),
+                    )
+                    .order_by(ProviderCredential.priority.asc())
                 )
-                .order_by(ProviderCredential.priority.asc())
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         healthy = []
         for cred in creds:
             cooling = _ensure_utc(cred.cooling_down_until)
@@ -396,11 +394,10 @@ class IntelligentRoutingEngine:
                 continue
             if routing_state.rate_limit_retry_after(str(cred.id), int(cred.rate_limit_rpm or 0)) > 0:
                 continue
-            if (
-                cred.health_status
-                in (CredentialHealthStatus.HEALTHY.value, CredentialHealthStatus.DEGRADED.value)
-                and not (cooling and cooling > now)
-            ):
+            if cred.health_status in (
+                CredentialHealthStatus.HEALTHY.value,
+                CredentialHealthStatus.DEGRADED.value,
+            ) and not (cooling and cooling > now):
                 healthy.append(cred)
         if not healthy:
             return {
@@ -421,16 +418,16 @@ class IntelligentRoutingEngine:
                 healthy,
                 key=lambda c: (
                     c.total_requests_served,
-                    _ensure_utc(c.last_used_at)
-                    or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
                 ),
             )
             reason = f"round_robin(served={candidate.total_requests_served})"
         elif strategy == ProviderRoutingStrategy.LEAST_RECENTLY_USED.value:
             candidate = min(
                 healthy,
-                key=lambda c: _ensure_utc(c.last_used_at)
-                or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                key=lambda c: (
+                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+                ),
             )
             reason = "least_recently_used"
         elif strategy == ProviderRoutingStrategy.LEAST_LOADED.value:
@@ -450,8 +447,7 @@ class IntelligentRoutingEngine:
                 healthy,
                 key=lambda c: (
                     c.priority,
-                    _ensure_utc(c.last_used_at)
-                    or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                    _ensure_utc(c.last_used_at) or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
                 ),
             )
             reason = f"priority={candidate.priority}"
@@ -520,7 +516,7 @@ class IntelligentRoutingEngine:
         if cred:
             cred.last_failure_at = now
             cred.last_health_check_at = now
-            if not automatic:
+            if control is None or not automatic:
                 logger.warning("Credential failure observed in manual mode; no automatic health changes applied.")
             elif not control.auto_disable_unhealthy:
                 cred.consecutive_failures += 1
@@ -544,8 +540,8 @@ class IntelligentRoutingEngine:
 
         if routing_id:
             events = (
-                await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))
-            ).scalars().all()
+                (await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))).scalars().all()
+            )
             for event in events:
                 event.outcome = RoutingEventOutcome.FAILURE.value
                 event.error_category = (error_category or error_type)[:50]
@@ -574,9 +570,7 @@ class IntelligentRoutingEngine:
             cred.last_success_at = now
             cred.last_health_check_at = now
 
-        events = (
-            await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))
-        ).scalars().all()
+        events = (await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))).scalars().all()
         for event in events:
             event.outcome = RoutingEventOutcome.SUCCESS.value
             event.latency_ms = latency_ms
@@ -639,8 +633,8 @@ class IntelligentRoutingEngine:
 
         if routing_id:
             events = (
-                await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))
-            ).scalars().all()
+                (await db.execute(select(RoutingEvent).where(RoutingEvent.routing_id == routing_id))).scalars().all()
+            )
             for event in events:
                 event.outcome = RoutingEventOutcome.SUCCESS.value
                 event.latency_ms = latency_ms

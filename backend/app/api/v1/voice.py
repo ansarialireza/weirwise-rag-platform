@@ -72,12 +72,11 @@ async def _warm_speak_connection(raw_key: str) -> None:
     connection without sending an invalid request to /v1/speak.
     """
     try:
-        response = await _tts_client().head(
-            "https://api.deepgram.com/", headers={"Authorization": f"Token {raw_key}"}
-        )
+        response = await _tts_client().head("https://api.deepgram.com/", headers={"Authorization": f"Token {raw_key}"})
         await response.aclose()
     except Exception:  # noqa: BLE001 - warm-up is best-effort
         pass
+
 
 VOICE_SUBPROTOCOL = "wwp-voice"
 MAX_CONNECT_ATTEMPTS = 3
@@ -202,9 +201,7 @@ async def _authenticate_socket(websocket: WebSocket, db: AsyncSession) -> User |
     token = websocket.cookies.get("access_token")
     if not token:
         offered = [
-            part.strip()
-            for part in (websocket.headers.get("sec-websocket-protocol") or "").split(",")
-            if part.strip()
+            part.strip() for part in (websocket.headers.get("sec-websocket-protocol") or "").split(",") if part.strip()
         ]
         if len(offered) >= 2 and offered[0] == VOICE_SUBPROTOCOL:
             token = offered[1]
@@ -221,9 +218,7 @@ async def _authenticate_socket(websocket: WebSocket, db: AsyncSession) -> User |
     except (ValueError, TypeError):
         return None
 
-    result = await db.execute(
-        select(User).where(User.id == user_id, User.is_active.is_(True))
-    )
+    result = await db.execute(select(User).where(User.id == user_id, User.is_active.is_(True)))
     return result.scalar_one_or_none()
 
 
@@ -300,9 +295,7 @@ async def stream_transcription(
 
     if upstream is None:
         with contextlib.suppress(Exception):
-            await websocket.send_json(
-                {"type": "error", "message": "Speech service is unavailable right now."}
-            )
+            await websocket.send_json({"type": "error", "message": "Speech service is unavailable right now."})
         await websocket.close(code=1011)
         return
 

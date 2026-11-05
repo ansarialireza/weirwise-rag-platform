@@ -91,6 +91,7 @@ class TieredStorageService:
         part_path = os.path.join(self.hot_dir, f".upload-{uuid.uuid4().hex}.part")
 
         try:
+
             async def write_stream(out) -> None:
                 nonlocal total_size
                 while chunk := await file.read(64 * 1024):  # Read in 64KB chunks

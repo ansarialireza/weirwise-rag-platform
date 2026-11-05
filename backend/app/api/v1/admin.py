@@ -515,27 +515,35 @@ async def get_credential_usage(
 
     since = datetime.now(UTC) - timedelta(days=days)
     ledger_rows = (
-        await db.execute(
-            select(TokenCostLedger).where(
-                TokenCostLedger.credential_id == credential_id,
-                TokenCostLedger.created_at >= since,
+        (
+            await db.execute(
+                select(TokenCostLedger).where(
+                    TokenCostLedger.credential_id == credential_id,
+                    TokenCostLedger.created_at >= since,
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # Terminal routing events are the request-attempt record (they also cover
     # speech calls that never write a token ledger entry).
     terminal_events = (
-        await db.execute(
-            select(RoutingEvent)
-            .where(
-                RoutingEvent.credential_id == credential_id,
-                RoutingEvent.created_at >= since,
-                RoutingEvent.outcome.in_(("success", "failure")),
+        (
+            await db.execute(
+                select(RoutingEvent)
+                .where(
+                    RoutingEvent.credential_id == credential_id,
+                    RoutingEvent.created_at >= since,
+                    RoutingEvent.outcome.in_(("success", "failure")),
+                )
+                .order_by(RoutingEvent.created_at.desc())
             )
-            .order_by(RoutingEvent.created_at.desc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     recent_events = terminal_events[:20]
     for event in recent_events:
         event.error_message = _sanitize_error(event.error_message)
@@ -545,9 +553,7 @@ async def get_credential_usage(
     total_cost = float(sum((row.cost_usd or 0) for row in ledger_rows))
     estimated_cost = float(sum((row.cost_usd or 0) for row in ledger_rows if row.cost_source != "provider"))
     billed_cost = float(sum((row.cost_usd or 0) for row in ledger_rows if row.cost_source == "provider"))
-    avg_latency = (
-        sum(event.latency_ms or 0 for event in terminal_events) / request_count if request_count else 0.0
-    )
+    avg_latency = sum(event.latency_ms or 0 for event in terminal_events) / request_count if request_count else 0.0
 
     cost_by_model: dict[str, float] = {}
     daily_cost: dict[str, float] = {}
@@ -604,14 +610,18 @@ async def list_routing_events(
         filters.append(RoutingEvent.outcome.in_(("failure", "no_credential")))
 
     events = (
-        await db.execute(
-            select(RoutingEvent)
-            .where(*filters)
-            .order_by(RoutingEvent.created_at.desc())
-            .limit(limit)
-            .offset(offset)
+        (
+            await db.execute(
+                select(RoutingEvent)
+                .where(*filters)
+                .order_by(RoutingEvent.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     for event in events:
         event.error_message = _sanitize_error(event.error_message)
     return events

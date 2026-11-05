@@ -21,7 +21,7 @@ from fastapi import HTTPException, Request, status
 try:
     from redis.asyncio import Redis
 except Exception:  # pragma: no cover - redis is a declared dependency
-    Redis = None  # type: ignore[assignment]
+    Redis = None  # type: ignore[assignment, misc]
 
 
 _CHECK_SCRIPT = """
@@ -266,9 +266,7 @@ class SlidingWindowRateLimiter:
                     remaining=max(0, limit - int(count)),
                 )
             except Exception as exc:
-                logger.warning(
-                    f"Auth rate limiter Redis check_and_record failed, using fallback: {type(exc).__name__}"
-                )
+                logger.warning(f"Auth rate limiter Redis check_and_record failed, using fallback: {type(exc).__name__}")
                 cls._redis_by_loop.pop(id(asyncio.get_running_loop()), None)
 
         with cls._lock:

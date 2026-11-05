@@ -73,9 +73,7 @@ async def verify_project_access(project_id: uuid.UUID, user_id: uuid.UUID, db: A
     return proj
 
 
-async def _retrieve_citations(
-    db: AsyncSession, assistant: Assistant, query: str
-) -> list[CitationItem]:
+async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str) -> list[CitationItem]:
     """Query every linked Core knowledge base and merge citations by similarity."""
     core_client = CoreApiClient()
     citations: list[CitationItem] = []
@@ -94,9 +92,7 @@ async def _retrieve_citations(
             continue
         try:
             # Never trust a per-assistant threshold below the platform safety floor.
-            effective_threshold = max(
-                float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY
-            )
+            effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
             search_data = await core_client.search(
                 kb_id=ks.core_kb_id,
                 query=query,
@@ -123,10 +119,7 @@ async def _retrieve_citations(
 
 async def _conversation_history(db: AsyncSession, conversation_id: uuid.UUID) -> list[dict[str, str]]:
     stmt = (
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.desc())
-        .limit(6)
+        select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.desc()).limit(6)
     )
     rows = (await db.execute(stmt)).scalars().all()
     return [{"role": m.role, "content": m.content} for m in reversed(rows)]
@@ -136,8 +129,8 @@ def _sse(event: dict) -> str:
     return f"data: {json.dumps(event, default=str)}\n\n"
 
 
-
 # --- Assistant Management & Creation Wizard ---
+
 
 @router.post("/projects/{project_id}/assistants", response_model=AssistantResponse, status_code=status.HTTP_201_CREATED)
 async def create_assistant(
