@@ -40,7 +40,7 @@ PLAN_DEFINITIONS: dict[str, PlanLimits] = {
     "starter": PlanLimits(
         tier="starter",
         name="Team Starter",
-        monthly_price_usd=49,
+        monthly_price_usd=29,
         max_assistants=10,
         max_documents=100,
         max_chat_turns_monthly=2500,
@@ -73,7 +73,7 @@ PLAN_DEFINITIONS: dict[str, PlanLimits] = {
     ),
     "enterprise": PlanLimits(
         tier="enterprise",
-        name="Business Pro",
+        name="Business",
         monthly_price_usd=199,
         max_assistants=50,
         max_documents=1000,
