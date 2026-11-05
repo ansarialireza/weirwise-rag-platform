@@ -24,6 +24,7 @@ from backend.app.core.logging import configure_logging, logger
 from backend.app.core.security_headers import SecurityHeadersMiddleware
 from backend.app.db.base import Base
 from backend.app.db.session import engine
+from backend.app.services.llm import close_provider_clients
 from backend.app.services.storage import storage_service
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -59,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
     reaper_task.cancel()
     await close_core_clients()
+    await close_provider_clients()
     await engine.dispose()
 
 

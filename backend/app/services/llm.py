@@ -6,6 +6,7 @@ provider, records ledger usage, and falls back to an extractive answer when no
 provider is available.
 """
 
+import asyncio
 import json
 import time
 import uuid
@@ -17,6 +18,33 @@ from backend.app.core.logging import logger
 from backend.app.models.assistant import Assistant
 from backend.app.services.routing_engine import IntelligentRoutingEngine
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Provider calls reuse one keep-alive pool per event loop. A fresh client per
+# attempt added a TCP/TLS handshake to every failover and first token.
+_PROVIDER_CLIENTS: dict[int, httpx.AsyncClient] = {}
+_PROVIDER_TIMEOUT = httpx.Timeout(connect=10.0, read=45.0, write=30.0, pool=10.0)
+
+
+def _provider_client() -> httpx.AsyncClient:
+    loop_id = id(asyncio.get_running_loop())
+    client = _PROVIDER_CLIENTS.get(loop_id)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=_PROVIDER_TIMEOUT,
+            limits=httpx.Limits(max_connections=40, max_keepalive_connections=20, keepalive_expiry=120.0),
+        )
+        _PROVIDER_CLIENTS[loop_id] = client
+    return client
+
+
+async def close_provider_clients() -> None:
+    clients = list(_PROVIDER_CLIENTS.values())
+    _PROVIDER_CLIENTS.clear()
+    for client in clients:
+        try:
+            await client.aclose()
+        except Exception:
+            pass
 
 # Requested model is either a UI alias (Auto/Fast/Deep Thinking) or a concrete
 # provider model identifier. Aliases map to a latency/capability tier.
@@ -159,8 +187,8 @@ async def _call_openai_compatible(
     }
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers)
+        client = _provider_client()
+        resp = await client.post(f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers)
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
@@ -203,8 +231,8 @@ async def _call_anthropic(
         "Content-Type": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers)
+        client = _provider_client()
+        resp = await client.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers)
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
@@ -243,8 +271,8 @@ async def _call_gemini(
     headers = {"x-goog-api-key": api_key, "Content-Type": "application/json"}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        client = _provider_client()
+        resp = await client.post(url, json=payload, headers=headers)
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
@@ -345,39 +373,39 @@ async def _stream_openai_compatible(
     input_tokens = 0
     output_tokens = 0
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream(
-                "POST", f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers
-            ) as resp:
-                if resp.status_code != 200:
-                    body = (await resp.aread())[:300].decode("utf-8", "ignore")
-                    raise ProviderCallError(
-                        f"Provider returned HTTP {resp.status_code}: {body}",
-                        resp.status_code,
-                        is_rate_limit=resp.status_code == 429,
-                        retry_after=_parse_retry_after(resp.headers),
-                    )
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
-                    if not data or data == "[DONE]":
-                        continue
-                    try:
-                        event = json.loads(data)
-                    except json.JSONDecodeError:
-                        continue
-                    usage = event.get("usage") or {}
-                    if usage:
-                        input_tokens = int(usage.get("prompt_tokens") or input_tokens)
-                        output_tokens = int(usage.get("completion_tokens") or output_tokens)
-                    choices = event.get("choices") or []
-                    if not choices:
-                        continue
-                    delta = choices[0].get("delta") or {}
-                    text = delta.get("content")
-                    if text:
-                        yield {"text": text}
+        client = _provider_client()
+        async with client.stream(
+            "POST", f"{base_url.rstrip('/')}/chat/completions", json=payload, headers=headers
+        ) as resp:
+            if resp.status_code != 200:
+                body = (await resp.aread())[:300].decode("utf-8", "ignore")
+                raise ProviderCallError(
+                    f"Provider returned HTTP {resp.status_code}: {body}",
+                    resp.status_code,
+                    is_rate_limit=resp.status_code == 429,
+                    retry_after=_parse_retry_after(resp.headers),
+                )
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                usage = event.get("usage") or {}
+                if usage:
+                    input_tokens = int(usage.get("prompt_tokens") or input_tokens)
+                    output_tokens = int(usage.get("completion_tokens") or output_tokens)
+                choices = event.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                text = delta.get("content")
+                if text:
+                    yield {"text": text}
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
@@ -409,39 +437,39 @@ async def _stream_anthropic(
     input_tokens = 0
     output_tokens = 0
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream(
-                "POST", "https://api.anthropic.com/v1/messages", json=payload, headers=headers
-            ) as resp:
-                if resp.status_code != 200:
-                    body = (await resp.aread())[:300].decode("utf-8", "ignore")
-                    raise ProviderCallError(
-                        f"Provider returned HTTP {resp.status_code}: {body}",
-                        resp.status_code,
-                        is_rate_limit=resp.status_code == 429,
-                        retry_after=_parse_retry_after(resp.headers),
-                    )
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
-                    if not data:
-                        continue
-                    try:
-                        event = json.loads(data)
-                    except json.JSONDecodeError:
-                        continue
-                    event_type = event.get("type")
-                    if event_type == "message_start":
-                        usage = (event.get("message") or {}).get("usage") or {}
-                        input_tokens = int(usage.get("input_tokens") or input_tokens)
-                    elif event_type == "content_block_delta":
-                        text = (event.get("delta") or {}).get("text")
-                        if text:
-                            yield {"text": text}
-                    elif event_type == "message_delta":
-                        usage = event.get("usage") or {}
-                        output_tokens = int(usage.get("output_tokens") or output_tokens)
+        client = _provider_client()
+        async with client.stream(
+            "POST", "https://api.anthropic.com/v1/messages", json=payload, headers=headers
+        ) as resp:
+            if resp.status_code != 200:
+                body = (await resp.aread())[:300].decode("utf-8", "ignore")
+                raise ProviderCallError(
+                    f"Provider returned HTTP {resp.status_code}: {body}",
+                    resp.status_code,
+                    is_rate_limit=resp.status_code == 429,
+                    retry_after=_parse_retry_after(resp.headers),
+                )
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data:
+                    continue
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                event_type = event.get("type")
+                if event_type == "message_start":
+                    usage = (event.get("message") or {}).get("usage") or {}
+                    input_tokens = int(usage.get("input_tokens") or input_tokens)
+                elif event_type == "content_block_delta":
+                    text = (event.get("delta") or {}).get("text")
+                    if text:
+                        yield {"text": text}
+                elif event_type == "message_delta":
+                    usage = event.get("usage") or {}
+                    output_tokens = int(usage.get("output_tokens") or output_tokens)
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
@@ -467,35 +495,35 @@ async def _stream_gemini(
     input_tokens = 0
     output_tokens = 0
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("POST", url, json=payload, headers=headers) as resp:
-                if resp.status_code != 200:
-                    body = (await resp.aread())[:300].decode("utf-8", "ignore")
-                    raise ProviderCallError(
-                        f"Provider returned HTTP {resp.status_code}: {body}",
-                        resp.status_code,
-                        is_rate_limit=resp.status_code == 429,
-                        retry_after=_parse_retry_after(resp.headers),
-                    )
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[5:].strip()
-                    if not data:
-                        continue
-                    try:
-                        event = json.loads(data)
-                    except json.JSONDecodeError:
-                        continue
-                    usage = event.get("usageMetadata") or {}
-                    input_tokens = int(usage.get("promptTokenCount") or input_tokens)
-                    output_tokens = int(usage.get("candidatesTokenCount") or output_tokens)
-                    candidates = event.get("candidates") or []
-                    parts = (candidates[0].get("content") or {}).get("parts") if candidates else []
-                    for part in parts or []:
-                        text = part.get("text")
-                        if text:
-                            yield {"text": text}
+        client = _provider_client()
+        async with client.stream("POST", url, json=payload, headers=headers) as resp:
+            if resp.status_code != 200:
+                body = (await resp.aread())[:300].decode("utf-8", "ignore")
+                raise ProviderCallError(
+                    f"Provider returned HTTP {resp.status_code}: {body}",
+                    resp.status_code,
+                    is_rate_limit=resp.status_code == 429,
+                    retry_after=_parse_retry_after(resp.headers),
+                )
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data:
+                    continue
+                try:
+                    event = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                usage = event.get("usageMetadata") or {}
+                input_tokens = int(usage.get("promptTokenCount") or input_tokens)
+                output_tokens = int(usage.get("candidatesTokenCount") or output_tokens)
+                candidates = event.get("candidates") or []
+                parts = (candidates[0].get("content") or {}).get("parts") if candidates else []
+                for part in parts or []:
+                    text = part.get("text")
+                    if text:
+                        yield {"text": text}
     except httpx.TimeoutException as exc:
         raise ProviderCallError(f"Provider request timed out: {exc!s}", 504) from exc
     except httpx.RequestError as exc:
