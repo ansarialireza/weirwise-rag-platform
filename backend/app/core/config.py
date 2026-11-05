@@ -2,13 +2,16 @@
 
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve the env file relative to the backend package, not the process cwd.
 # Starting uvicorn from the repository root used to silently fall back to
 # defaults (wrong Core URL, dev secret, no provider keys).
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+_PRODUCTION_ENVIRONMENTS = {"production", "prod", "staging"}
+_DEV_SECRET_KEY = "insecure-dev-secret-key-replace-in-production-0123456789abcdef"
 
 
 class Settings(BaseSettings):
@@ -131,6 +134,16 @@ class Settings(BaseSettings):
 
     # RAG & Embedding Engine Default
     DEFAULT_EMBEDDING_MODEL: str = "jina-embeddings-v4"
+
+    @model_validator(mode="after")
+    def validate_production_secret(self) -> "Settings":
+        if self.ENVIRONMENT.strip().lower() in _PRODUCTION_ENVIRONMENTS:
+            if self.SECRET_KEY in {_DEV_SECRET_KEY, ""} or len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "SECRET_KEY must be a strong value (32+ characters) outside development; "
+                    "tokens signed with the public default would be forgeable"
+                )
+        return self
 
 
 settings = Settings()

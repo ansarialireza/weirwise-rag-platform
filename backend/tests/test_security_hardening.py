@@ -11,7 +11,8 @@ import io
 import uuid
 
 import httpx
-from backend.app.core.config import settings
+import pytest
+from backend.app.core.config import Settings, settings
 from backend.app.main import app
 from backend.app.services import scraper as scraper_module
 from backend.app.services.auth_rate_limiter import AuthRateLimiter
@@ -23,6 +24,19 @@ client = TestClient(app)
 
 def _unique_email(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}@hardening.test"
+
+
+def test_production_settings_reject_default_secret_key():
+    default_secret = "insecure-dev-secret-key-replace-in-production-0123456789abcdef"
+
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        Settings(ENVIRONMENT="production", SECRET_KEY=default_secret)
+
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        Settings(ENVIRONMENT="production", SECRET_KEY="too-short")
+
+    assert Settings(ENVIRONMENT="production", SECRET_KEY="x" * 48).SECRET_KEY == "x" * 48
+    assert Settings(ENVIRONMENT="development", SECRET_KEY=default_secret).ENVIRONMENT == "development"
 
 
 def test_password_policy_rejects_weak_passwords():
