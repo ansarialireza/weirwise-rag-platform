@@ -6,6 +6,7 @@ import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from backend.app.adapters.core_client import close_core_clients
 from backend.app.api.v1.admin import router as admin_router
 from backend.app.api.v1.assistants import router as assistants_router
 from backend.app.api.v1.auth import router as auth_router
@@ -57,6 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
     reaper_task.cancel()
+    await close_core_clients()
     await engine.dispose()
 
 

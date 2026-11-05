@@ -1,12 +1,19 @@
 """Centralized application settings with strict validation."""
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve the env file relative to the backend package, not the process cwd.
+# Starting uvicorn from the repository root used to silently fall back to
+# defaults (wrong Core URL, dev secret, no provider keys).
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_ENV_FILE),
         env_file_encoding="utf-8",
         extra="ignore",
     )
