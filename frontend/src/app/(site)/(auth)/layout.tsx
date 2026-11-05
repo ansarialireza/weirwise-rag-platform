@@ -6,13 +6,18 @@ import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { SignalFlow } from "@/components/brand/signal-flow";
 import { Check } from "lucide-react";
+import { ToastProvider } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/context";
 
-export default function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ToastProvider>
+      <AuthShell>{children}</AuthShell>
+    </ToastProvider>
+  );
+}
+
+function AuthShell({ children }: { children: React.ReactNode }) {
   const { dict } = useI18n();
   const points = [dict.auth.point1, dict.auth.point2, dict.auth.point3];
 

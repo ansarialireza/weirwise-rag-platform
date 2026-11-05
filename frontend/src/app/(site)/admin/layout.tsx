@@ -20,12 +20,19 @@ import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
 import { api } from "@/lib/api";
 import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
 import { BrutalistLoader } from "@/components/ui/brutalist-loader";
+import { ToastProvider } from "@/components/ui/toast";
+import { CommandPalette } from "@/components/ui/command-palette";
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ToastProvider>
+      <AdminShell>{children}</AdminShell>
+      <CommandPalette />
+    </ToastProvider>
+  );
+}
+
+function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();

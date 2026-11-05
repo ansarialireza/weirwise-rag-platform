@@ -1,15 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/lib/auth-context";
-import { ThemeProvider } from "@/lib/theme-context";
-import { I18nProvider } from "@/lib/i18n/context";
-import { ToastProvider } from "@/components/ui/toast";
-import { CommandPalette } from "@/components/ui/command-palette";
-import { ServiceWorkerRegister } from "@/components/pwa-register";
-import { TelemetryProvider } from "@/lib/telemetry";
-import { StoryStageProvider } from "@/lib/story-stage-context";
-import { ContinuousThreadStage } from "@/components/layout/continuous-thread-stage";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
 
@@ -110,24 +101,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans bg-background text-foreground antialiased min-h-screen selection:bg-primary selection:text-primary-foreground">
-        <I18nProvider>
-          <ThemeProvider>
-            <AuthProvider>
-              <TelemetryProvider>
-                <StoryStageProvider>
-                  <ToastProvider>
-                    <ContinuousThreadStage />
-                    <div className="relative z-10 min-h-screen">
-                      {children}
-                    </div>
-                    <CommandPalette />
-                    <ServiceWorkerRegister />
-                  </ToastProvider>
-                </StoryStageProvider>
-              </TelemetryProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </I18nProvider>
+        {children}
       </body>
     </html>
   );

@@ -6,8 +6,24 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToastProvider } from "@/components/ui/toast";
+import { CommandPalette } from "@/components/ui/command-palette";
+import { StoryStageProvider } from "@/lib/story-stage-context";
+import { ContinuousThreadStage } from "@/components/layout/continuous-thread-stage";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <StoryStageProvider>
+      <ToastProvider>
+        <ContinuousThreadStage />
+        <DashboardShell>{children}</DashboardShell>
+        <CommandPalette />
+      </ToastProvider>
+    </StoryStageProvider>
+  );
+}
+
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
