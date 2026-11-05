@@ -3,11 +3,6 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 
-/**
- * Route Transition Template (Horizontal Progressive Disclosure):
- * Provides layoutId-like progressive morphing without unmounting
- * the persistent ContinuousThread ambient layer.
- */
 export default function Template({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 

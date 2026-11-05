@@ -1,64 +1,97 @@
-const CACHE_NAME = 'weirwise-pwa-v3';
-const OFFLINE_URL = '/offline';
+const CACHE_NAME = "weirwise-pwa-v4";
+const OFFLINE_URL = "/offline";
 
 const PRECACHE_ASSETS = [
-  '/',
-  '/offline',
-  '/manifest.json',
-  '/favicon.svg',
-  '/weirwise-app-icon.svg',
-  '/weirwise-symbol.svg',
-  '/weirwise-horizontal.svg',
+  "/offline",
+  "/manifest.json",
+  "/favicon.svg",
+  "/weirwise-symbol.svg",
+  "/weirwise-horizontal.svg",
+  "/weirwise-app-icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
 ];
 
-self.addEventListener('install', (event) => {
+// Only anonymous marketing and embed routes may ever be written to the cache.
+// Dashboard, admin, auth, and API responses can contain private data.
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/pricing",
+  "/blog",
+  "/offline",
+]);
+const PUBLIC_PREFIXES = ["/blog/", "/embed/"];
+
+function isPublicPath(pathname) {
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function isStaticAsset(pathname) {
+  return (
+    pathname.startsWith("/_next/static/") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".woff2") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".webp")
+  );
+}
+
+self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(PRECACHE_ASSETS.map((asset) => cache.add(asset)))
+    )
   );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
+    caches.keys().then((keys) =>
+      Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
-      );
-    })
+      )
+    )
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle GET requests within same origin
-  if (request.method !== 'GET' || url.origin !== self.location.origin) {
+  if (request.method !== "GET" || url.origin !== self.location.origin) {
     return;
   }
 
-  // 1. Never cache API routes, health checks, or telemetry
+  // Never intervene in API, health, telemetry, or Next.js RSC data requests.
   if (
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/health/') ||
-    url.pathname.startsWith('/_telemetry')
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/health/") ||
+    url.pathname.startsWith("/_telemetry") ||
+    url.pathname.startsWith("/_next/data/") ||
+    request.headers.get("RSC") === "1"
   ) {
     return;
   }
 
-  // 2. Navigation requests: Network-first with cache and offline fallback
-  if (request.mode === 'navigate') {
+  if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.status === 200) {
+          if (response.status === 200 && isPublicPath(url.pathname)) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
@@ -66,51 +99,34 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           const cache = await caches.open(CACHE_NAME);
-          const cachedResponse = await cache.match(request);
-          if (cachedResponse) {
-            return cachedResponse;
+          if (isPublicPath(url.pathname)) {
+            const cached = await cache.match(request);
+            if (cached) return cached;
           }
-          return cache.match(OFFLINE_URL);
+          return (
+            (await cache.match(OFFLINE_URL)) ||
+            new Response("You are offline.", {
+              status: 503,
+              headers: { "Content-Type": "text/plain; charset=utf-8" },
+            })
+          );
         })
     );
     return;
   }
 
-  // 3. Static assets: Cache-first with network fallback (Next.js chunks, fonts, SVG)
-  if (
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.endsWith('.svg') ||
-    url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.jpg')
-  ) {
+  if (isStaticAsset(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        if (cached) {
-          return cached;
-        }
-        return fetch(request).then((networkResponse) => {
-          if (networkResponse.status === 200) {
-            const copy = networkResponse.clone();
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.status === 200) {
+            const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
-          return networkResponse;
+          return response;
         });
       })
     );
-    return;
   }
-
-  // 4. Default strategy: Network-first with cache fallback
-  event.respondWith(
-    fetch(request)
-      .then((networkResponse) => {
-        if (networkResponse.status === 200) {
-          const copy = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        }
-        return networkResponse;
-      })
-      .catch(() => caches.match(request))
-  );
 });

@@ -1,13 +1,15 @@
 {
-  "name": "Weirwise Studio",
+  "name": "Weirwise — Intelligent flow control",
   "short_name": "Weirwise",
-  "description": "Build, publish, and improve AI assistants grounded in your business knowledge.",
+  "description": "Turn your business knowledge into assistants that answer with the source beside every claim.",
   "start_url": "/",
   "id": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#101114",
-  "theme_color": "#101114",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#090A0C",
+  "theme_color": "#090A0C",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -32,6 +34,20 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Knowledge",
+      "short_name": "Knowledge",
+      "url": "/sources",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Playground",
+      "short_name": "Playground",
+      "url": "/playground",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

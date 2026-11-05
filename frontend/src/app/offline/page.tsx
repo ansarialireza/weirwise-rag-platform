@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RefreshCw, ArrowLeft } from "lucide-react";
+import { RefreshCw, ArrowLeft, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 
 export default function OfflinePage() {
   const [retrying, setRetrying] = useState(false);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -29,54 +30,46 @@ export default function OfflinePage() {
     setRetrying(true);
     if (navigator.onLine) {
       window.location.reload();
-    } else {
-      setTimeout(() => {
-        setRetrying(false);
-      }, 800);
+      return;
     }
+    window.setTimeout(() => setRetrying(false), 900);
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 bg-background text-foreground select-none font-mono">
-      <div className="w-full max-w-md rounded-md border border-border bg-card p-8 space-y-6 text-center">
-        {/* Stark Status Header */}
-        <div className="space-y-3">
-          <div className="inline-block px-3 py-1 rounded-sm border border-border bg-muted text-[11px] uppercase tracking-widest text-muted-foreground">
-            {isOnline ? "[ STATUS: ONLINE. RECONNECTING... ]" : "[ CONNECTION LOST. AWAITING NETWORK... ]"}
-          </div>
-          <h1 className="text-sm font-semibold tracking-tight text-foreground uppercase">
-            Cluster Link Offline
-          </h1>
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6 text-foreground">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-soft)]">
+        <WeirwiseSymbol className="mx-auto h-7 w-auto" priority />
+
+        <div className="mx-auto mt-6 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <WifiOff className="h-4 w-4" />
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-col gap-2 pt-2">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleRetry}
-            disabled={retrying}
-            className="w-full rounded-md h-9 text-xs font-bold gap-2"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${retrying ? "animate-spin" : ""}`} />
-            {retrying ? "POLLING LINK..." : "RETRY CONNECTION"}
-          </Button>
+        <h1 className="mt-4 text-base font-semibold tracking-tight text-foreground">
+          You&apos;re offline
+        </h1>
+        <p className="mx-auto mt-2 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
+          Weirwise needs a connection to reach your workspace. Nothing has been lost — try again when
+          you&apos;re back online.
+        </p>
 
+        <div className="mt-6 flex flex-col gap-2">
+          <Button onClick={handleRetry} disabled={retrying} className="h-10 w-full gap-2">
+            <RefreshCw className={`h-4 w-4 ${retrying ? "animate-spin" : ""}`} />
+            {retrying ? "Checking connection…" : "Try again"}
+          </Button>
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => window.history.back()}
-            className="w-full rounded-md h-9 text-xs text-muted-foreground hover:text-foreground border border-transparent hover:border-border"
+            className="h-10 w-full gap-2 text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-            RETURN
+            <ArrowLeft className="h-4 w-4" />
+            Go back
           </Button>
         </div>
 
-        {/* Minimal Terminal Footer */}
-        <div className="pt-4 border-t border-border text-[10px] text-muted-foreground/70 tracking-wider">
-          WEIRWISE LOCAL NODE &middot; PWA STANDALONE ACTIVE
-        </div>
+        <p className="mt-6 text-[11px] text-muted-foreground/80" aria-live="polite">
+          {isOnline ? "Connection restored — reconnecting." : "Waiting for a connection."}
+        </p>
       </div>
     </div>
   );
