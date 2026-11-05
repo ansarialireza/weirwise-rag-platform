@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { useI18n } from "@/lib/i18n/context";
 import { ArrowRight, Check, FileText, Globe2, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -187,7 +187,7 @@ export default function PricingPage() {
       <footer className="border-t border-border/60 py-6">
         <div className="mx-auto flex w-full max-w-wide flex-col items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-10">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-4 w-auto" />
+            <WeirwiseMark className="h-5 w-auto" />
             <span className="font-semibold text-foreground">{dict.common.brand}</span>
             <span>{dict.landing.copyright}</span>
           </div>

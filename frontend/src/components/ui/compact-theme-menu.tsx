@@ -37,7 +37,7 @@ export function CompactThemeMenu({ className }: CompactThemeMenuProps) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
+        className="flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40 md:min-h-0 md:px-2 md:py-1.5 md:text-xs"
         title={`Theme preference: ${theme} (currently ${resolvedTheme})`}
         aria-label="Toggle theme menu"
         aria-expanded={open}
@@ -63,7 +63,7 @@ export function CompactThemeMenu({ className }: CompactThemeMenuProps) {
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex items-center justify-between w-full px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-secondary",
+                  "flex min-h-11 w-full items-center justify-between px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-secondary",
                   isSelected ? "text-accent-strong font-semibold" : "text-foreground"
                 )}
               >

@@ -7,6 +7,7 @@ import { ChevronDown, LogOut, Menu, Search, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
+import { ModKey } from "@/components/ui/mod-key";
 
 interface AppTopbarProps {
   onOpenMenu: () => void;
@@ -74,7 +75,7 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
         >
           <Search className="h-3.5 w-3.5" />
           <span>{dict.common.quickSearch}</span>
-          <kbd className="ms-2 rounded border border-border bg-muted px-1 py-0.5 text-[10px]">⌘K</kbd>
+          <kbd className="ms-2 rounded border border-border bg-muted px-1 py-0.5 text-[10px]"><ModKey /></kbd>
         </button>
         <button
           type="button"

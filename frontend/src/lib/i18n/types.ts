@@ -17,6 +17,9 @@ export interface TranslationDictionary {
     pricing: string;
     blog: string;
     installApp: string;
+    installHintIos: string;
+    installHintMac: string;
+    gotIt: string;
     account: string;
     user: string;
     workspace: string;

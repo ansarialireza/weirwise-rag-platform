@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { Calendar, Clock, ArrowRight, BookOpen, Tag } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -30,11 +30,11 @@ export default function BlogIndexPage() {
             <BookOpen className="h-3.5 w-3.5 text-accent" />
             <span>Engineering & Product Blog</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
-            Insights & Architecture
+          <h1 className="font-display text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
+            Insights &amp; Architecture
           </h1>
           <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Deep dives into autonomous RAG, deterministic citation grounding, enterprise vector isolation, and conversational UX.
+            How Weirwise keeps knowledge flowing: retrieval that shows its work, permission-aware routing, and the engineering behind answers you can put your name to.
           </p>
         </div>
 
@@ -103,7 +103,7 @@ export default function BlogIndexPage() {
       <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground mt-16">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-5 w-auto" />
+            <WeirwiseMark className="h-5 w-auto" />
             <span className="font-semibold text-foreground text-xs">Weirwise</span>
             <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
           </div>

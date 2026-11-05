@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-3FD0DA.svg" alt="Backend CI"></a>
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-3FD0DA.svg" alt="Frontend CI"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-25C4D8.svg" alt="Backend CI"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-25C4D8.svg" alt="Frontend CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6B7078.svg" alt="License: MIT"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-6B7078.svg" alt="Python 3.11+"></a>
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-15-101114.svg" alt="Next.js 15"></a>
@@ -217,6 +217,28 @@ weirwise-rag-platform/
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Security Policy](SECURITY.md)
 - [Architectural Decision Records (ADRs)](docs/adr/)
+
+---
+
+## Brand & Identity
+
+The Weirwise mark ships from one authoritative source: [`frontend/public/weirwise-mark.svg`](frontend/public/weirwise-mark.svg). Its geometry is never redrawn per surface — every other asset in `frontend/public/` is derived from it by `scripts/brand/build-official-mark.mjs`, which also emits the React path data used by `WeirwiseMark`.
+
+| Asset | Purpose |
+| --- | --- |
+| `weirwise-mark.svg` | Master symbol (official geometry, C2PA provenance intact) |
+| `weirwise-mark-ink.svg` / `-mono-ink.svg` / `-mono-paper.svg` | Light-background, knockout, and single-colour marks |
+| `weirwise-wordmark*.svg`, `weirwise-horizontal*.svg` | Wordmark and lockups |
+| `weirwise-app-icon*.svg`, `icon-192.png`, `icon-512*.png` | PWA icons, including maskable and monochrome |
+| `favicon.svg`, `favicon.ico`, `favicon-*.png`, `apple-touch-icon.png` | Browser and OS icons |
+| `weirwise-og.png` | Social preview card |
+
+Rules for usage — minimum size, clear space, background compatibility and incorrect usage — live in the private `weirwise-brand` repository (`identity/logo-guidelines.md`). Colour tokens are defined in `frontend/src/app/globals.css` as `--ww-mark-1/2/3` and `--ww-mark-accent`, so the mark re-tints per theme instead of carrying hard-coded fills.
+
+Two operational notes:
+
+- `scripts/brand/sync-brand-repo.mjs` publishes the generated set to the brand repository and `--check` verifies the two copies byte-for-byte. Run it after any regeneration.
+- `next start` snapshots `public/` at build time. New assets return 404 until `next build` is re-run.
 
 ---
 

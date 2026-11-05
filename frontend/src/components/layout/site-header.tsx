@@ -7,8 +7,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { Menu, X, Download } from "lucide-react";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
+import { InstallAppButton } from "@/components/ui/install-app-button";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SiteHeaderProps {
@@ -20,8 +21,6 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   const { dict } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -29,26 +28,6 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   }, []);
 
   const isAuthenticated = mounted && !authLoading && Boolean(user);
-
-  useEffect(() => {
-    const handleBeforeInstall = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-      setIsInstallable(true);
-    };
-    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const choiceResult = await installPrompt.userChoice;
-    if (choiceResult.outcome === "accepted") {
-      setIsInstallable(false);
-      setInstallPrompt(null);
-    }
-  };
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -84,9 +63,9 @@ export function SiteHeader({ className }: SiteHeaderProps) {
       <div className="mx-auto flex h-16 w-full max-w-content items-center justify-between px-4 sm:px-6 lg:px-10">
         <Link
           href="/"
-          className="flex shrink-0 select-none items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="flex shrink-0 select-none items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <WeirwiseSymbol className="h-7 w-auto" priority />
+          <WeirwiseMark className="h-7 w-auto" />
           <span className="text-[15px] font-semibold tracking-tight text-foreground">
             {dict.common.brand}
           </span>
@@ -110,6 +89,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
         <div className="hidden items-center gap-2 md:flex">
           <LanguageSwitcher />
           <ThemeSwitcher />
+          <InstallAppButton variant="pill" className="ms-1 border border-border" />
 
           {mounted && !authLoading ? (
             isAuthenticated ? (
@@ -214,16 +194,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               <ThemeSwitcher />
             </div>
 
-            {isInstallable && (
-              <button
-                type="button"
-                onClick={handleInstallClick}
-                className="mt-4 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <Download className="h-4 w-4 text-accent" />
-                {dict.common.installApp}
-              </button>
-            )}
+            <InstallAppButton variant="row" className="mt-4" />
           </div>
         </>
       )}

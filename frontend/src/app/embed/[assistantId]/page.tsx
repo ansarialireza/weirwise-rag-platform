@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Send, Bot, User, AlertCircle, FileText } from "lucide-react";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { friendlyErrorMessage } from "@/lib/errors";
 
 interface WidgetConfig {
@@ -145,7 +145,7 @@ export default function AssistantWidgetPage() {
     <div className="flex h-dvh w-full flex-col bg-background text-foreground font-sans">
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <WeirwiseSymbol className="h-8 w-auto" priority />
+          <WeirwiseMark className="h-8 w-auto" />
           <div>
             <div className="text-sm font-bold text-foreground flex items-center gap-1.5">
               {config.name || "Weirwise Assistant"}

@@ -1,30 +1,20 @@
-import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 
 interface WeirwiseWordmarkProps {
   className?: string;
-  priority?: boolean;
 }
 
-export function WeirwiseWordmark({ className, priority = false }: WeirwiseWordmarkProps) {
+export function WeirwiseWordmark({ className }: WeirwiseWordmarkProps) {
   return (
-    <span className={cn("inline-flex w-36 shrink-0", className)} aria-label="Weirwise">
-      <Image
-        src="/weirwise-horizontal.svg"
-        alt="Weirwise"
-        width={980}
-        height={200}
-        priority={priority}
-        className="hidden h-auto w-full dark:block"
-      />
-      <Image
-        src="/weirwise-horizontal-light.svg"
-        alt="Weirwise"
-        width={980}
-        height={200}
-        priority={priority}
-        className="block h-auto w-full dark:hidden"
-      />
+    <span className={cn("inline-flex select-none items-center gap-2", className)} aria-label="Weirwise">
+      <WeirwiseMark className="h-5 w-auto" />
+      <span
+        aria-hidden="true"
+        className="font-display text-[15px] font-semibold leading-none tracking-[-0.035em] text-foreground"
+      >
+        Weirwise
+      </span>
     </span>
   );
 }

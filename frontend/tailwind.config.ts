@@ -21,6 +21,16 @@ const config: Config = {
           "Arial",
           "sans-serif",
         ],
+        display: [
+          "var(--font-inter-tight)",
+          "Inter Tight",
+          "var(--font-inter)",
+          "Inter",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "sans-serif",
+        ],
       },
       colors: {
         background: "hsl(var(--background) / <alpha-value>)",

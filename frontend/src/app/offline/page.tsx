@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, ArrowLeft, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 
 export default function OfflinePage() {
   const [retrying, setRetrying] = useState(false);
@@ -38,7 +38,7 @@ export default function OfflinePage() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6 text-foreground">
       <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-[var(--shadow-soft)]">
-        <WeirwiseSymbol className="mx-auto h-7 w-auto" priority />
+        <WeirwiseMark className="mx-auto h-7 w-auto" />
 
         <div className="mx-auto mt-6 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <WifiOff className="h-4 w-4" />

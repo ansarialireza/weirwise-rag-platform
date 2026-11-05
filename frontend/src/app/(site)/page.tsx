@@ -18,7 +18,7 @@ export default function RootPage() {
     "@type": "Organization",
     name: "Weirwise Inc.",
     url: baseUrl,
-    logo: `${baseUrl}/weirwise-horizontal.svg`,
+    logo: `${baseUrl}/icon-512.png`,
     description: "Answers from your business knowledge, with the source beside every claim.",
     sameAs: ["https://github.com/ansarialireza/weirwise-rag-platform"],
   };

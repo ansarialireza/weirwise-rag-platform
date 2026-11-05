@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { Check, FileText, Globe2, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { ToastProvider } from "@/components/ui/toast";
@@ -31,9 +31,9 @@ function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between">
           <Link
             href="/"
-            className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <WeirwiseSymbol className="h-7 w-auto" priority />
+            <WeirwiseMark className="h-7 w-auto" />
             <span className="text-[15px] font-semibold tracking-tight text-foreground">
               {dict.common.brand}
             </span>
@@ -62,7 +62,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
         />
 
         <div className="relative flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white">
-          <WeirwiseSymbol className="h-7 w-auto" surface="dark" priority />
+          <WeirwiseMark className="h-7 w-auto" surface="dark" />
           {dict.common.brand}
           <span className="ms-1 inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/60">
             <span className="h-1 w-1 rounded-full bg-volt" aria-hidden="true" />

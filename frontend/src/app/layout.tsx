@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dev.weirwise.com";
@@ -10,13 +10,21 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter-tight",
+  weight: ["500", "600", "700"],
+});
+
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F3F4F6" },
-    { media: "(prefers-color-scheme: dark)", color: "#090A0C" },
+    { media: "(prefers-color-scheme: light)", color: "#F7F6F3" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B0E0D" },
   ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -93,7 +101,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" dir="ltr" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" dir="ltr" className={`${inter.variable} ${interTight.variable}`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

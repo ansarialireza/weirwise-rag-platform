@@ -48,28 +48,32 @@ export function LanguageSwitcher({
 
   if (variant === "sidebar") {
     return (
-      <div className={cn("flex items-center justify-between gap-2", className)}>
-        <span className="text-xs text-muted-foreground">Language</span>
-        <div className="inline-flex items-center rounded-lg border border-border bg-background p-0.5">
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setLocale(option.value)}
-              className={cn(
-                "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
-                locale === option.value
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-              title={option.title}
-              aria-label={option.ariaLabel}
-              aria-pressed={locale === option.value}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+      <div
+        className={cn(
+          "inline-flex select-none items-center rounded-lg border border-border bg-card p-0.5",
+          className
+        )}
+        role="group"
+        aria-label="Language"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setLocale(option.value)}
+            className={cn(
+              "rounded-md px-3 py-1 text-[11px] font-semibold transition-colors",
+              locale === option.value
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title={option.title}
+            aria-label={option.ariaLabel}
+            aria-pressed={locale === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
       </div>
     );
   }

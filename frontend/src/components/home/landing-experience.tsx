@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { FlowConsole, type FlowScenario } from "@/components/home/flow-console";
 import { SignalFlow, SignalDot } from "@/components/brand/signal-flow";
 import {
@@ -120,7 +120,7 @@ export function LandingExperience() {
 
               <h1 className="mt-6 text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.035em] text-foreground sm:text-6xl lg:text-[4.1rem]">
                 {dict.landing.heroHeadline1}{" "}
-                <span className="lime-underline text-foreground">{dict.landing.heroHeadline2}</span>
+                <span className="signal-underline text-foreground">{dict.landing.heroHeadline2}</span>
               </h1>
 
               <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">
@@ -255,7 +255,7 @@ export function LandingExperience() {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3 sm:px-5">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-onyx">
-                      <WeirwiseSymbol className="h-4 w-auto" surface="dark" />
+                      <WeirwiseMark variant="monochrome" className="h-auto w-7 text-foreground" surface="dark" />
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
@@ -303,8 +303,8 @@ export function LandingExperience() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
-                      <WeirwiseSymbol className="h-3.5 w-auto" />
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+                      <WeirwiseMark className="h-auto w-7" />
                     </span>
 
                     {proofMode === "answer" ? (
@@ -438,7 +438,7 @@ export function LandingExperience() {
               />
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(9,10,12,0.92)_20%,rgba(9,10,12,0.45)_58%,transparent_78%)]"
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(11,14,13,0.92)_20%,rgba(11,14,13,0.45)_58%,transparent_78%)]"
               />
               <div className="relative mx-auto max-w-2xl">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/50">
@@ -477,7 +477,7 @@ export function LandingExperience() {
         <div className="mx-auto grid w-full max-w-wide gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:px-10">
           <div>
             <div className="flex items-center gap-2.5">
-              <WeirwiseSymbol className="h-7 w-auto" />
+              <WeirwiseMark className="h-7 w-auto" />
               <span className="text-[15px] font-semibold tracking-tight text-foreground">
                 {dict.common.brand}
               </span>

@@ -105,14 +105,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           {/* Header Bar */}
           <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <WeirwiseWordmark className="w-16" />
+              <WeirwiseWordmark />
               <span className="text-[10px] font-semibold tracking-wide uppercase px-1.5 py-0.5 rounded bg-muted/60 border border-border/80 text-muted-foreground font-mono">
                 Admin
               </span>
             </div>
             <Link
               href="/"
-              className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="flex min-h-9 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               title="Return to App"
             >
               <span>App</span>
@@ -133,7 +133,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`relative flex min-w-max items-center gap-2.5 rounded-md px-2.5 py-1.5 text-xs transition-colors ${
+                    className={`relative flex min-h-11 min-w-max items-center gap-2.5 rounded-md px-3 py-2 text-[13px] transition-colors md:min-h-0 md:px-2.5 md:py-1.5 md:text-xs ${
                       isActive
                         ? "bg-accent text-accent-foreground font-semibold shadow-xs"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
@@ -178,10 +178,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
                 logout();
                 router.push("/login");
               }}
-              className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+              className="flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
               title="Sign Out"
+              aria-label="Sign Out"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>

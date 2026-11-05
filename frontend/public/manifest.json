@@ -7,8 +7,10 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],
-  "background_color": "#090A0C",
-  "theme_color": "#090A0C",
+  "background_color": "#0B0E0D",
+  "theme_color": "#0B0E0D",
+  "lang": "en",
+  "dir": "ltr",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
@@ -28,6 +30,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512-monochrome.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "monochrome"
     },
     {
       "src": "/favicon.svg",

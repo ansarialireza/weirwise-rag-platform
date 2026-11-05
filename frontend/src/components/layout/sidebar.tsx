@@ -22,7 +22,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useI18n } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
+import { ModKey } from "@/components/ui/mod-key";
+import { InstallAppButton } from "@/components/ui/install-app-button";
 
 interface SidebarProps {
   onItemClick?: () => void;
@@ -84,7 +86,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
     >
       <div className="flex h-16 shrink-0 items-center justify-between px-4">
         <Link href="/overview" onClick={() => onItemClick?.()} className="group flex items-center gap-2.5">
-          <WeirwiseSymbol className="h-7 w-auto" priority />
+          <WeirwiseMark className="h-7 w-auto" />
           <span className="text-[15px] font-semibold tracking-tight text-foreground">
             Weirwise
           </span>
@@ -180,8 +182,10 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
         >
           <Command className="h-3.5 w-3.5" />
           <span className="flex-1 text-start">{dict.common.quickSearch}</span>
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">⌘K</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]"><ModKey /></kbd>
         </button>
+
+        <InstallAppButton variant="row" className="mb-2 min-h-10 py-1.5 text-[12px]" />
 
         <div className="flex items-center justify-between gap-2 rounded-lg px-1 py-1">
           <div className="flex items-center gap-2">
@@ -223,7 +227,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
                   type="button"
                   onClick={() => setTheme(option.id)}
                   className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-md transition-colors",
+                    "flex h-8 w-9 items-center justify-center rounded-md transition-colors",
                     theme === option.id
                       ? "bg-muted text-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -232,7 +236,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
                   aria-label={option.label}
                   aria-pressed={theme === option.id}
                 >
-                  <Icon className="h-3 w-3" />
+                  <Icon className="h-3.5 w-3.5" />
                 </button>
               );
             })}

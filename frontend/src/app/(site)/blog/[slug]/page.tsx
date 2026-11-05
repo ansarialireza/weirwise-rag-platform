@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { getAllPosts, getPostBySlug } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { Calendar, Clock, ArrowLeft, CheckCircle2, Bot, Shield, ChevronRight } from "lucide-react";
 
 interface Props {
@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: "Weirwise",
       images: [
         {
-          url: "/weirwise-horizontal.svg",
+          url: "/weirwise-og.png",
           width: 1200,
           height: 630,
           alt: post.meta.title,
@@ -58,20 +58,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: post.meta.title,
       description: post.meta.description,
-      images: ["/weirwise-horizontal.svg"],
+      images: ["/weirwise-og.png"],
     },
   };
 }
 
 const mdxComponents = {
   h1: (props: any) => (
-    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground mt-8 mb-4" {...props} />
+    <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-8 mb-4" {...props} />
   ),
   h2: (props: any) => (
-    <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-8 mb-3" {...props} />
+    <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-foreground mt-8 mb-3" {...props} />
   ),
   h3: (props: any) => (
-    <h3 className="text-lg sm:text-xl font-bold tracking-tight text-foreground mt-6 mb-2" {...props} />
+    <h3 className="font-display text-lg sm:text-xl font-semibold tracking-tight text-foreground mt-6 mb-2" {...props} />
   ),
   p: (props: any) => (
     <p className="text-base text-muted-foreground leading-relaxed mb-4" {...props} />
@@ -121,7 +121,7 @@ export default async function BlogPostPage({ params }: Props) {
       name: "Weirwise Inc.",
       logo: {
         "@type": "ImageObject",
-        url: `${baseUrl}/weirwise-horizontal.svg`,
+        url: `${baseUrl}/icon-512.png`,
       },
     },
     datePublished: post.meta.date,
@@ -129,7 +129,7 @@ export default async function BlogPostPage({ params }: Props) {
       "@type": "WebPage",
       "@id": postUrl,
     },
-    image: `${baseUrl}/weirwise-horizontal.svg`,
+    image: `${baseUrl}/weirwise-og.png`,
   };
 
   return (
@@ -170,7 +170,7 @@ export default async function BlogPostPage({ params }: Props) {
             )}
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-foreground leading-tight">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
             {post.meta.title}
           </h1>
 
@@ -209,7 +209,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         {/* Bottom Call to Action Card */}
         <div className="mt-16 rounded-2xl border border-border bg-card p-6 sm:p-8 text-center relative overflow-hidden shadow-xs">
-          <h3 className="text-xl font-extrabold text-foreground mb-2">
+          <h3 className="font-display text-xl font-semibold text-foreground mb-2">
             Experience Grounded AI for Your Business
           </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
@@ -228,7 +228,7 @@ export default async function BlogPostPage({ params }: Props) {
       <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <WeirwiseSymbol className="h-5 w-auto" />
+            <WeirwiseMark className="h-5 w-auto" />
             <span className="font-semibold text-foreground text-xs">Weirwise</span>
             <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
           </div>

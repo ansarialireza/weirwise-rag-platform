@@ -1,15 +1,25 @@
-const CACHE_NAME = "weirwise-pwa-v4";
+// Static assets are cache-first, so this version must be bumped whenever a
+// precached brand asset changes — an installed PWA otherwise keeps serving the
+// old icon forever. scripts/brand/build-official-mark.mjs rewrites those files.
+const CACHE_NAME = "weirwise-pwa-v8";
 const OFFLINE_URL = "/offline";
 
 const PRECACHE_ASSETS = [
   "/offline",
   "/manifest.json",
   "/favicon.svg",
-  "/weirwise-symbol.svg",
+  "/favicon.ico",
+  "/favicon-16.png",
+  "/favicon-32.png",
+  "/apple-touch-icon.png",
+  "/weirwise-mark.svg",
+  "/weirwise-mark-ink.svg",
   "/weirwise-horizontal.svg",
   "/weirwise-app-icon.svg",
   "/icon-192.png",
   "/icon-512.png",
+  "/icon-512-maskable.png",
+  "/icon-512-monochrome.png",
 ];
 
 // Only anonymous marketing and embed routes may ever be written to the cache.

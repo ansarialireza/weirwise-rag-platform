@@ -22,8 +22,6 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/_telemetry") ||
     pathname === "/sw.js" ||
     pathname === "/manifest.json" ||
-    pathname === "/favicon.svg" ||
-    pathname === "/weirwise-app-icon.svg" ||
     pathname.includes(".")
   ) {
     return withTransportSecurity(NextResponse.next(), request);

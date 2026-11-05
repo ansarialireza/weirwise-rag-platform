@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, FileText } from "lucide-react";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { cn } from "@/lib/utils";
 
 export interface FlowScenario {
@@ -169,7 +169,7 @@ export function FlowConsole({ scenarios, labels }: FlowConsoleProps) {
               aria-hidden="true"
               className="absolute inset-2 rounded-full border border-volt/25"
             />
-            <WeirwiseSymbol className="relative h-6 w-auto" surface="dark" />
+            <WeirwiseMark className="relative h-6 w-auto" surface="dark" />
           </div>
         </div>
 
