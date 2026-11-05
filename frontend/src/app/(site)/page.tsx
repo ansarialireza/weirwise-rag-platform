@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { LandingExperience } from "@/components/home/landing-experience";
 
 export const metadata: Metadata = {
-  title: { absolute: "Weirwise — Intelligent flow control for business knowledge" },
+  title: { absolute: "Weirwise — Knowledge, in motion." },
   description:
-    "Weirwise routes documents, pages, and notes through one controlled flow, so every answer comes from your business with the source beside it.",
+    "Connect your business knowledge and publish an assistant that answers your team and your customers, with the source behind every reply.",
   alternates: {
     canonical: "https://dev.weirwise.com/",
   },

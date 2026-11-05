@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { KnowledgeSource, DocumentItem } from "@/types";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes } from "@/lib/i18n/format";
 import {
   AlertCircle,
   Database,
@@ -29,6 +29,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
+import { useI18n } from "@/lib/i18n/context";
 
 const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
 
@@ -48,6 +49,7 @@ function describeProcessingError(raw?: string | null): string {
 
 export default function SourcesKnowledgePage() {
   const { toast } = useToast();
+  const { locale } = useI18n();
   const uploadWorkflow = useWorkflow("wf_upload_documents");
   const createSourceWorkflow = useWorkflow("wf_create_source");
   const { trackFriction } = useTelemetry();
@@ -681,7 +683,7 @@ export default function SourcesKnowledgePage() {
                               {doc.filename}
                             </div>
                             <div className="text-[11px] text-muted-foreground">
-                              {formatBytes(doc.file_size_bytes)}
+                              {formatBytes(doc.file_size_bytes, locale)}
                             </div>
                             {doc.status === "failed" && doc.error_message && (
                               <div className="mt-0.5 line-clamp-2 text-[11px] text-destructive">

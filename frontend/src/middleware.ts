@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { defaultLocale, getDirection, matchLocale } from "@/lib/i18n/locales";
+import type { Locale } from "@/lib/i18n/types";
 
 // HSTS is only meaningful (and only safe) on requests that actually arrived over TLS.
 function withTransportSecurity(response: NextResponse, request: NextRequest): NextResponse {
@@ -8,6 +10,28 @@ function withTransportSecurity(response: NextResponse, request: NextRequest): Ne
     response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
   return response;
+}
+
+/**
+ * Server-side mirror of the client detection: stored choice wins, then
+ * Accept-Language in the order the browser sent it, then the default. The
+ * country hint is only consulted when nothing was declared, because guessing a
+ * language from an IP is how a traveler in Tehran gets the wrong site.
+ */
+function negotiateLocale(request: NextRequest): Locale {
+  const stored = matchLocale(request.cookies.get("wwp_locale")?.value);
+  if (stored) return stored;
+
+  const acceptLang = request.headers.get("accept-language") || "";
+  for (const part of acceptLang.split(",")) {
+    const hit = matchLocale(part.split(";")[0].trim());
+    if (hit) return hit;
+  }
+
+  const geoCountry = (request.headers.get("cf-ipcountry") || request.headers.get("x-country-code") || "").toUpperCase();
+  if (geoCountry === "IR") return "fa";
+
+  return defaultLocale;
 }
 
 // We use NextRequest and NextResponse for geolocation and Accept-Language negotiation
@@ -27,31 +51,11 @@ export function middleware(request: NextRequest) {
     return withTransportSecurity(NextResponse.next(), request);
   }
 
-  // Check cookie preference first
-  const cookieLocale = request.cookies.get("wwp_locale")?.value;
-  let preferredLocale = "en";
+  const preferredLocale = negotiateLocale(request);
 
-  if (cookieLocale === "fa" || cookieLocale === "en") {
-    preferredLocale = cookieLocale;
-  } else {
-    // Geo/Accept-Language detection
-    const acceptLang = request.headers.get("accept-language") || "";
-    // Cloudflare / proxy geo country headers
-    const geoCountry = request.headers.get("cf-ipcountry") || request.headers.get("x-country-code") || "";
-
-    if (
-      geoCountry.toUpperCase() === "IR" ||
-      acceptLang.toLowerCase().includes("fa") ||
-      acceptLang.toLowerCase().includes("persian")
-    ) {
-      preferredLocale = "fa";
-    }
-  }
-
-  // Set response headers and cookie if not present
   const response = NextResponse.next();
   response.headers.set("x-locale", preferredLocale);
-  response.headers.set("x-direction", preferredLocale === "fa" ? "rtl" : "ltr");
+  response.headers.set("x-direction", getDirection(preferredLocale));
 
   if (!request.cookies.has("wwp_locale")) {
     response.cookies.set("wwp_locale", preferredLocale, {

@@ -2,17 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { Calendar, Clock, ArrowRight, BookOpen, Tag } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Blog",
   description:
-    "Architectural deep dives, best practices for RAG assistants, and product updates from the Weirwise engineering team.",
+    "How Weirwise works, practical guides for teams putting their own knowledge to work, and product updates.",
   openGraph: {
     title: "Blog",
     description:
-      "Architectural deep dives, best practices for RAG assistants, and product updates from the Weirwise engineering team.",
+      "How Weirwise works, practical guides for teams putting their own knowledge to work, and product updates.",
   },
 };
 
@@ -100,28 +99,11 @@ export default function BlogIndexPage() {
         )}
       </main>
 
-      <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground mt-16">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <WeirwiseMark className="h-5 w-auto" />
-            <span className="font-semibold text-foreground text-xs">Weirwise</span>
-            <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
-          </div>
-
-          <div className="flex items-center gap-6 text-xs font-medium">
-            <Link href="/" className="hover:text-foreground transition-colors">
-              Home
-            </Link>
-            <Link href="/pricing" className="hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="/blog" className="text-foreground font-semibold">
-              Blog
-            </Link>
-            <Link href="/login" className="hover:text-foreground transition-colors">
-              Sign In
-            </Link>
-          </div>
+      {/* The header carries the mark and the navigation, so this repeats neither. */}
+      <footer className="mt-16 border-t border-border/80">
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6">
+          <span>&copy; 2026 Weirwise Inc.</span>
+          <span>Answers with sources. Knowledge under control.</span>
         </div>
       </footer>
     </div>

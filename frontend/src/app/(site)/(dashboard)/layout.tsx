@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPalette } from "@/components/ui/command-palette";
+import { useI18n } from "@/lib/i18n/context";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
+  const { dict } = useI18n();
   const router = useRouter();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -106,7 +108,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background">
       <a href="#main-content" className="skip-link">
-        Skip to content
+        {dict.common.skipToContent}
       </a>
 
       <div className="hidden shrink-0 md:flex">
@@ -129,7 +131,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             ref={drawerRef}
             tabIndex={-1}
             onKeyDown={trapDrawerFocus}
-            className="relative z-10 flex h-full w-[86vw] max-w-[300px] flex-col border-r border-border bg-card shadow-lift outline-none animate-in"
+            className="relative z-10 flex h-full w-[86vw] max-w-[300px] flex-col border-e border-border bg-card shadow-lift outline-none animate-in"
           >
             <Sidebar
               onItemClick={closeMenu}

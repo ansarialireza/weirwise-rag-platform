@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
+import { PreferenceControls } from "@/components/ui/preference-controls";
 import { Check, FileText, Globe2, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { ToastProvider } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/context";
@@ -38,7 +38,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
               {dict.common.brand}
             </span>
           </Link>
-          <ThemeSwitcher />
+          <PreferenceControls />
         </div>
 
         <div className="flex flex-1 items-center justify-center py-10">
@@ -58,23 +58,23 @@ function AuthShell({ children }: { children: React.ReactNode }) {
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-24 top-1/3 h-80 w-80 rounded-full bg-primary/[0.14] blur-3xl"
+          className="pointer-events-none absolute -end-24 top-1/3 h-80 w-80 rounded-full bg-primary/[0.14] blur-3xl"
         />
 
-        <div className="relative flex items-center gap-2.5 text-sm font-semibold tracking-tight text-white">
-          <WeirwiseMark className="h-7 w-auto" surface="dark" />
-          {dict.common.brand}
-          <span className="ms-1 inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/60">
+        {/* One mark per page: the left column owns the lockup, so this panel
+            carries only its status pill. */}
+        <div className="relative flex items-center gap-2.5 text-sm font-semibold text-white">
+          <span className="ms-1 inline-flex items-center gap-1.5 rounded-full border border-white/12 px-2 py-0.5 text-[10px] font-medium uppercase tracking-eyebrow text-white/60">
             <span className="h-1 w-1 rounded-full bg-volt" aria-hidden="true" />
             {dict.landing.heroEyebrow}
           </span>
         </div>
 
         <div className="relative my-auto max-w-md py-12">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-volt">
+          <p className="text-xs font-medium uppercase tracking-eyebrow text-volt">
             {dict.auth.panelEyebrow}
           </p>
-          <h2 className="mt-4 text-[2rem] font-semibold leading-[1.15] tracking-tight text-white xl:text-4xl">
+          <h2 className="mt-4 text-[2rem] font-semibold leading-hero tracking-hero text-white xl:text-4xl">
             {dict.auth.panelTitle}
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-white/65">

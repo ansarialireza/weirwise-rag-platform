@@ -11,7 +11,7 @@ export function WeirwiseWordmark({ className }: WeirwiseWordmarkProps) {
       <WeirwiseMark className="h-5 w-auto" />
       <span
         aria-hidden="true"
-        className="font-display text-[15px] font-semibold leading-none tracking-[-0.035em] text-foreground"
+        className="font-display text-[15px] font-semibold leading-none tracking-display text-foreground"
       >
         Weirwise
       </span>

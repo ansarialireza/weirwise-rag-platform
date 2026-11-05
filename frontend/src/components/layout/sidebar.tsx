@@ -8,22 +8,15 @@ import {
   Bot,
   Database,
   MessageSquare,
-  LogOut,
   X,
-  Sun,
-  Moon,
-  Laptop,
-  Command,
   ShieldCheck,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme-context";
 import { useI18n } from "@/lib/i18n/context";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { PreferenceControls } from "@/components/ui/preference-controls";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
-import { ModKey } from "@/components/ui/mod-key";
 import { InstallAppButton } from "@/components/ui/install-app-button";
 
 interface SidebarProps {
@@ -34,8 +27,7 @@ interface SidebarProps {
 
 export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
   const { dict } = useI18n();
   const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   const [planTier, setPlanTier] = useState<string | null>(null);
@@ -123,7 +115,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3">
-        <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+        <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-label text-muted-foreground">
           {dict.common.workspace}
         </p>
         {navItems.map((item) => {
@@ -152,7 +144,7 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
 
         {user?.is_superuser && (
           <>
-            <p className="px-3 pb-1.5 pt-5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <p className="px-3 pb-1.5 pt-5 text-[11px] font-medium uppercase tracking-label text-muted-foreground">
               {dict.common.administration}
             </p>
             <Link
@@ -173,74 +165,12 @@ export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: Sideba
       </nav>
 
       <div className="shrink-0 border-t border-border p-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-        <button
-          type="button"
-          onClick={() => {
-            window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
-          }}
-          className="mb-2 flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Command className="h-3.5 w-3.5" />
-          <span className="flex-1 text-start">{dict.common.quickSearch}</span>
-          <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]"><ModKey /></kbd>
-        </button>
+        {/* Search, the account menu and sign-out all belong to the top bar; a
+            second copy of each here would be three duplicated controls. */}
+        <InstallAppButton variant="row" className="min-h-10 py-1.5 text-[12px]" />
 
-        <InstallAppButton variant="row" className="mb-2 min-h-10 py-1.5 text-[12px]" />
-
-        <div className="flex items-center justify-between gap-2 rounded-lg px-1 py-1">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-onyx text-[11px] font-semibold text-white">
-              {user?.full_name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "U"}
-            </div>
-            <div className="min-w-0">
-              <div className="max-w-[120px] truncate text-[12px] font-medium leading-tight text-foreground">
-                {user?.full_name || dict.common.user}
-              </div>
-              <div className="max-w-[120px] truncate text-[11px] leading-tight text-muted-foreground">
-                {user?.email}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title={dict.common.signOut}
-            aria-label={dict.common.signOut}
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mt-2 flex items-center justify-between gap-2 px-1">
-          <LanguageSwitcher variant="sidebar" />
-          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5" role="group" aria-label={dict.common.theme}>
-            {[
-              { id: "light" as const, icon: Sun, label: dict.common.lightTheme, short: "Light" },
-              { id: "dark" as const, icon: Moon, label: dict.common.darkTheme, short: "Dark" },
-              { id: "system" as const, icon: Laptop, label: dict.common.systemTheme, short: "System" },
-            ].map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setTheme(option.id)}
-                  className={cn(
-                    "flex h-8 w-9 items-center justify-center rounded-md transition-colors",
-                    theme === option.id
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                  title={option.label}
-                  aria-label={option.label}
-                  aria-pressed={theme === option.id}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </button>
-              );
-            })}
-          </div>
+        <div className="mt-2 flex items-center justify-end gap-2 px-1">
+          <PreferenceControls />
         </div>
       </div>
     </aside>

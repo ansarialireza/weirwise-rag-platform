@@ -1,25 +1,77 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { Locale, Direction, TranslationDictionary, getDictionary, getDirection, defaultLocale, locales } from "./index";
+import type { Locale, Direction, TranslationDictionary } from "./types";
+import {
+  defaultLocale,
+  getDictionary,
+  getDirection,
+  getSpec,
+  locales,
+  matchLocale,
+  type LocaleSpec,
+} from "./index";
 
 interface I18nContextType {
   locale: Locale;
   direction: Direction;
+  spec: LocaleSpec;
   dict: TranslationDictionary;
   setLocale: (locale: Locale) => void;
-  toggleLocale: () => void;
 }
 
-const I18nContext = createContext<I18nContextType>({
+const fallbackValue: I18nContextType = {
   locale: defaultLocale,
   direction: "ltr",
+  spec: getSpec(defaultLocale),
   dict: getDictionary(defaultLocale),
   setLocale: () => {},
-  toggleLocale: () => {},
-});
+};
+
+const I18nContext = createContext<I18nContextType>(fallbackValue);
 
 const LOCALE_COOKIE = "wwp_locale";
+
+/** Read the choice the same way the boot script and middleware do. */
+export function readStoredLocale(): Locale | null {
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(LOCALE_COOKIE);
+  } catch {
+    // Storage can be blocked; the cookie below still works.
+  }
+  if (!saved && typeof document !== "undefined") {
+    const match = document.cookie.match(new RegExp(`(^|;\\s*)${LOCALE_COOKIE}=([^;]*)`));
+    if (match) saved = decodeURIComponent(match[2]);
+  }
+  return matchLocale(saved);
+}
+
+function detectLocale(): Locale {
+  const stored = readStoredLocale();
+  if (stored) return stored;
+  // Accept-Language order matters: walk the list and take the first we ship.
+  const preferred = typeof navigator !== "undefined" ? navigator.languages ?? [navigator.language] : [];
+  for (const tag of preferred) {
+    const hit = matchLocale(tag);
+    if (hit) return hit;
+  }
+  return defaultLocale;
+}
+
+function applyDocumentLocale(locale: Locale) {
+  const root = document.documentElement;
+  const spec = getSpec(locale);
+  root.lang = spec.code;
+  root.dir = spec.direction;
+  root.dataset.font = spec.fontStack;
+  document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=31536000; SameSite=Lax`;
+  try {
+    localStorage.setItem(LOCALE_COOKIE, locale);
+  } catch {
+    // Cookie above is the durable copy.
+  }
+}
 
 export function I18nProvider({
   children,
@@ -29,74 +81,28 @@ export function I18nProvider({
   initialLocale?: Locale;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const [mounted, setMounted] = useState(false);
-
-  const applyLocale = useCallback((newLocale: Locale) => {
-    setLocaleState(newLocale);
-    const dir = getDirection(newLocale);
-
-    if (typeof document !== "undefined") {
-      document.documentElement.lang = newLocale;
-      document.documentElement.dir = dir;
-      document.cookie = `${LOCALE_COOKIE}=${newLocale}; path=/; max-age=31536000; SameSite=Lax`;
-      try {
-        localStorage.setItem(LOCALE_COOKIE, newLocale);
-      } catch {
-        // LocalStorage fallback handled
-      }
-    }
-  }, []);
 
   useEffect(() => {
-    setMounted(true);
-    // 1. Check cookie or local storage
-    let saved: Locale | null = null;
-    try {
-      saved = localStorage.getItem(LOCALE_COOKIE) as Locale | null;
-    } catch {
-      // ignore
-    }
+    const detected = detectLocale();
+    setLocaleState(detected);
+    applyDocumentLocale(detected);
+  }, []);
 
-    if (!saved && typeof document !== "undefined") {
-      const match = document.cookie.match(new RegExp(`(^|;\\s*)${LOCALE_COOKIE}=([^;]*)`));
-      if (match) saved = match[2] as Locale;
-    }
+  const applyLocale = useCallback((newLocale: Locale) => {
+    if (!locales.includes(newLocale)) return;
+    setLocaleState(newLocale);
+    if (typeof document !== "undefined") applyDocumentLocale(newLocale);
+  }, []);
 
-    if (saved && locales.includes(saved)) {
-      applyLocale(saved);
-    } else if (typeof navigator !== "undefined" && navigator.language) {
-      const navLang = navigator.language.toLowerCase();
-      if (navLang.startsWith("fa")) {
-        applyLocale("fa");
-      } else {
-        applyLocale(initialLocale);
-      }
-    } else {
-      applyLocale(initialLocale);
-    }
-  }, [applyLocale, initialLocale]);
+  const value: I18nContextType = {
+    locale,
+    direction: getDirection(locale),
+    spec: getSpec(locale),
+    dict: getDictionary(locale),
+    setLocale: applyLocale,
+  };
 
-  const toggleLocale = useCallback(() => {
-    const next = locale === "en" ? "fa" : "en";
-    applyLocale(next);
-  }, [locale, applyLocale]);
-
-  const dict = getDictionary(locale);
-  const direction = getDirection(locale);
-
-  return (
-    <I18nContext.Provider
-      value={{
-        locale,
-        direction,
-        dict,
-        setLocale: applyLocale,
-        toggleLocale,
-      }}
-    >
-      {children}
-    </I18nContext.Provider>
-  );
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
 export function useI18n() {

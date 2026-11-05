@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, Menu, Search, ShieldCheck } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
@@ -59,11 +58,9 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
           <Menu className="h-5 w-5" />
         </button>
 
-        <nav className="hidden items-center gap-1.5 text-[13px] text-muted-foreground md:flex" aria-label={dict.common.breadcrumb}>
-          <span>{dict.common.workspace}</span>
-          <span className="text-border">/</span>
-          <span className="font-medium text-foreground">{pageLabel}</span>
-        </nav>
+        {/* Below `md` the page heading scrolls away and the sidebar is closed, so
+            the bar is the only thing left holding context. On desktop the page's
+            own h1 states the title and the sidebar states the location. */}
         <span className="truncate text-sm font-medium text-foreground md:hidden">{pageLabel}</span>
       </div>
 
@@ -113,18 +110,7 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
                 <div className="truncate text-[11px] text-muted-foreground">{user?.email}</div>
               </div>
 
-              {user?.is_superuser && (
-                <Link
-                  href="/admin"
-                  role="menuitem"
-                  onClick={() => setMenuOpen(false)}
-                  className="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-foreground transition-colors hover:bg-muted"
-                >
-                  <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                  {dict.common.admin}
-                </Link>
-              )}
-
+              {/* Administration lives in the sidebar nav, not here too. */}
               <button
                 type="button"
                 role="menuitem"

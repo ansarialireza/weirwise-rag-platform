@@ -135,7 +135,7 @@ export function InstallAppButton({ variant = "row", className }: InstallAppButto
                 type="button"
                 onClick={() => setHintOpen(false)}
                 aria-label={dict.common.closeNavigation}
-                className="-mr-1 -mt-1 flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="-me-1 -mt-1 flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>

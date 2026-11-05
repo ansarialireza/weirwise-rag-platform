@@ -20,8 +20,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
+import { formatNumber } from "@/lib/i18n/format";
 
 export default function OverviewPage() {
+  const { locale } = useI18n();
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,13 +98,8 @@ export default function OverviewPage() {
         description="Everything your workspace needs, in one clear place."
         actions={
           <>
-            <Link
-              href="/sources"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/70"
-            >
-              <Plus className="h-4 w-4" />
-              Add knowledge
-            </Link>
+            {/* "Add knowledge" is offered by step 1 and by the empty state below;
+                the bar carries only the action those do not. */}
             <Link
               href="/playground"
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
@@ -126,14 +124,14 @@ export default function OverviewPage() {
           {
             label: "Collections",
             value: sources.length,
-            hint: `${documentCount} document${documentCount === 1 ? "" : "s"}`,
+            hint: `${formatNumber(documentCount, locale)} document${documentCount === 1 ? "" : "s"}`,
             icon: Database,
             href: "/sources",
           },
           {
             label: "Assistants",
             value: assistants.length,
-            hint: `${publishedAssistants.length} published`,
+            hint: `${formatNumber(publishedAssistants.length, locale)} published`,
             icon: Bot,
             href: "/assistants",
           },
@@ -163,7 +161,7 @@ export default function OverviewPage() {
                 />
               </div>
               <div className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-foreground">
-                {stat.value}
+                {formatNumber(stat.value, locale)}
               </div>
               <div className="mt-1 text-xs text-muted-foreground">{stat.hint}</div>
             </Link>
@@ -192,7 +190,7 @@ export default function OverviewPage() {
               />
             </div>
             <span className="text-xs font-medium tabular-nums text-muted-foreground">
-              {completed}/{steps.length}
+              {formatNumber(completed, locale)}/{formatNumber(steps.length, locale)}
             </span>
           </div>
         </div>
@@ -223,7 +221,9 @@ export default function OverviewPage() {
                   >
                     {step.title}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">{step.description}</div>
+                  {/* Clipping here hid a third of the sentence at 390px with no way
+                      to read the rest; two wrapped lines cost nothing and stay legible. */}
+                  <div className="line-clamp-2 text-xs text-muted-foreground">{step.description}</div>
                 </div>
                 <span className="hidden shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors group-hover:text-foreground sm:inline-flex">
                   {step.done ? "Review" : step.action}

@@ -51,6 +51,14 @@
     --input: 45 33% 99%;
     --ring: 172 79% 30%;
     --radius: 0.5rem;
+
+    /* Semantic roles (ADR-013). Intelligence and discovery are new; flow reuses
+       the existing signal rather than adding a second near-identical teal, and
+       system reuses --info. Values are contrast-tuned, not copied from the brief. */
+    --role-intelligence: 260 57% 52%;  /* #6E3FCB — 6.00:1 on Paper, 5.68:1 on its tint */
+    --role-discovery: 9 67% 46.5%;     /* #C63F27 — 4.69:1 on Paper, 4.55:1 on its tint */
+    --tint-intelligence: 258 62% 96%;  /* #F2EEFB */
+    --tint-discovery: 12 80% 96%;      /* #FDF0ED */
     --shadow-soft: 0 1px 2px rgba(11, 14, 13, 0.04), 0 8px 24px -18px rgba(11, 14, 13, 0.3);
     --shadow-lift: 0 2px 4px rgba(11, 14, 13, 0.05), 0 18px 44px -22px rgba(11, 14, 13, 0.36);
     --grid-line: rgba(11, 14, 13, 0.055);
@@ -95,6 +103,10 @@
     --border-strong: 160 6% 42%;      /* #65726D — 3.35:1 vs dark input fill, clears 1.4.11 */
     --input: 160 8% 11%;
     --ring: 170 60% 60%;
+    --role-intelligence: 257 100% 80%; /* #B79BFF — 8.45:1 on Ink, 6.99:1 on its tint */
+    --role-discovery: 10 100% 75%;     /* #FF9681 — 9.17:1 on Ink, 6.94:1 on its tint */
+    --tint-intelligence: 258 35% 17%;  /* #251C3B */
+    --tint-discovery: 12 40% 17%;      /* #3D211A */
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.32), 0 10px 28px -20px rgba(0, 0, 0, 0.72);
     --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.36), 0 24px 56px -24px rgba(0, 0, 0, 0.82);
     --grid-line: rgba(244, 243, 239, 0.055);
@@ -115,6 +127,89 @@
     --ww-mark-accent: #25c4d8;
   }
 
+  /* Brand spectrum and motion language (ADR-013). Theme-independent: these are
+     the signature's own colours, not UI colours. On Paper the stops measure
+     1.40–1.79:1, which is exactly why they are confined to signature surfaces
+     and never used for text, borders or controls. */
+  :root {
+    --flow-1: 174 62% 51%;   /* #35CFC0 turquoise — data flow */
+    --flow-2: 189 80% 52%;   /* #22C7E6 cyan */
+    --flow-3: 223 100% 57%;  /* #2563FF electric blue — signature only, still deprecated as a UI accent */
+    --flow-4: 261 73% 62%;   /* #8957E5 violet — intelligence */
+    --flow-5: 322 62% 60%;   /* #D85BAA magenta */
+    --flow-6: 7 100% 70%;    /* #FF7867 coral — discovery */
+    --flow-7: 21 100% 83%;   /* #FFC6A8 peach */
+    --flow-ink: 274 28% 10%;    /* #1A1220 deep aubergine signature ground */
+    --flow-ivory: 25 100% 98%;  /* #FFF8F3 warm ivory signature ground */
+
+    --gradient-flow: linear-gradient(
+      118deg,
+      hsl(var(--flow-1)) 0%, hsl(var(--flow-2)) 17%, hsl(var(--flow-3)) 35%,
+      hsl(var(--flow-4)) 53%, hsl(var(--flow-5)) 70%, hsl(var(--flow-6)) 86%,
+      hsl(var(--flow-7)) 100%
+    );
+    --gradient-flow-soft: linear-gradient(
+      118deg,
+      hsl(var(--flow-1) / 0.55), hsl(var(--flow-4) / 0.55) 55%, hsl(var(--flow-6) / 0.55)
+    );
+
+    --dur-instant: 90ms;
+    --dur-fast: 140ms;
+    --dur-standard: 220ms;
+    --dur-enter: 320ms;
+    --dur-flow: 1200ms;
+    --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-soft: cubic-bezier(0.16, 0.84, 0.44, 1);
+    --ease-flow: cubic-bezier(0.65, 0, 0.35, 1);
+
+    /* Language-specific stacks. The switch is `data-font` on <html>, written by
+       the same locale spec that writes `lang` and `dir`, so a new language is a
+       registry row rather than a new CSS rule or a new branch in a component.
+       Inter carries no Arabic-script coverage, so letting it win a fallback
+       chain is how Persian ends up rendered by whatever the OS happens to have. */
+    --font-stack-body: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-stack-display: var(--font-inter-tight), "Inter Tight", var(--font-inter), "Inter", -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-stack-arabic: var(--font-vazirmatn), "Vazirmatn", "Noto Naskh Arabic", "Segoe UI", Tahoma, sans-serif;
+
+    --leading-body: 1.65;
+    --leading-snug: 1.25;
+    --leading-tight: 1.12;
+    --leading-hero: 1.05;
+    --leading-section: 1.12;
+    --tracking-display: -0.03em;
+    --tracking-snug: -0.022em;
+    --tracking-hero: -0.035em;
+    --tracking-section: -0.025em;
+    --tracking-eyebrow: 0.18em;
+    --tracking-label: 0.08em;
+    --tracking-normal: 0;
+    /* OpenType calls that belong to Inter and mean nothing elsewhere. */
+    --font-features: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Arabic script needs more leading (descenders and diacritics collide) and no
+     tracking in either direction: negative tracking closes the joins that make
+     the script readable, and the wide tracking an uppercase label wants tears a
+     joined word into separate letters. */
+  [data-font="arabic"] {
+    --font-stack-body: var(--font-stack-arabic);
+    --font-stack-display: var(--font-stack-arabic);
+    --leading-body: 1.95;
+    --leading-snug: 1.6;
+    --leading-tight: 1.55;
+    --leading-hero: 1.3;
+    --leading-section: 1.42;
+    --tracking-display: var(--tracking-normal);
+    --tracking-snug: var(--tracking-normal);
+    --tracking-hero: var(--tracking-normal);
+    --tracking-section: var(--tracking-normal);
+    --tracking-eyebrow: var(--tracking-normal);
+    --tracking-label: var(--tracking-normal);
+    --font-features: normal;
+  }
+
   * {
     @apply border-border;
   }
@@ -127,10 +222,9 @@
   body {
     color: hsl(var(--foreground));
     background-color: hsl(var(--background));
-    font-family:
-      var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-      "Noto Sans", sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: var(--font-stack-body);
+    font-feature-settings: var(--font-features);
+    line-height: var(--leading-body);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -146,16 +240,16 @@
 
   h1,
   h2 {
-    font-family:
-      var(--font-inter-tight), "Inter Tight", var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont,
-      "Segoe UI", sans-serif;
-    letter-spacing: -0.03em;
+    font-family: var(--font-stack-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
     text-wrap: balance;
   }
 
   h3,
   h4 {
-    letter-spacing: -0.022em;
+    letter-spacing: var(--tracking-snug);
+    line-height: var(--leading-snug);
     text-wrap: balance;
   }
 
@@ -211,11 +305,6 @@
 
   .label {
     @apply text-xs font-medium text-muted-foreground;
-  }
-
-  .dot-grid {
-    background-image: radial-gradient(var(--grid-line) 1px, transparent 1px);
-    background-size: 22px 22px;
   }
 
   /*
@@ -287,8 +376,40 @@
     text-decoration-skip-ink: none;
   }
 
+  /* Editorial type scale. Size is fluid so one declaration covers every
+     breakpoint, and the leading and tracking come from the language tokens so
+     a Persian headline gets room to breathe instead of a Latin fit. */
+  .hero-display {
+    font-family: var(--font-stack-display);
+    font-size: clamp(2.4rem, 1.25rem + 4.1vw, 3.75rem);
+    line-height: var(--leading-hero);
+    letter-spacing: var(--tracking-hero);
+  }
+
+  .section-title {
+    font-family: var(--font-stack-display);
+    font-size: clamp(1.65rem, 1.1rem + 1.5vw, 2.25rem);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-section);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: hsl(var(--accent-strong));
+  }
+
+  /* The flow is a living object, not a framed picture: feathering the edges of
+     its box is what lets it sit on the page instead of floating above it. */
+  .flow-feather {
+    -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 50%, black 45%, transparent 82%);
+    mask-image: radial-gradient(ellipse 72% 62% at 50% 50%, black 45%, transparent 82%);
+  }
+
   .skip-link {
-    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground;
+    @apply sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground;
   }
 }
 
@@ -313,20 +434,24 @@
     animation: voice-bar 1s ease-in-out infinite;
   }
 
-  .animate-orbit {
-    animation: orbit 18s linear infinite;
+  /* Bidi isolation (§6). Tailwind already ships the logical spacing utilities
+     (ms/me/ps/pe, start/end, text-start, border-s/e) and an `rtl:` variant —
+     those are the right tool for layout. These three cover what layout
+     utilities cannot: a URL, code sample, email or Latin product name sitting
+     inside RTL prose will steal its neighbour's punctuation unless the run is
+     isolated, because the bidi algorithm reorders it, not the CSS. */
+  .bidi-isolate {
+    unicode-bidi: isolate;
   }
 
-  .animate-orbit-reverse {
-    animation: orbit 26s linear infinite reverse;
+  .bidi-ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
   }
 
-  .animate-trace {
-    animation: trace 9s linear infinite;
-  }
-
-  .animate-soft-pulse {
-    animation: soft-pulse 4s ease-in-out infinite;
+  .bidi-rtl {
+    direction: rtl;
+    unicode-bidi: isolate;
   }
 }
 
@@ -375,33 +500,6 @@
   }
   50% {
     transform: scaleY(1);
-  }
-}
-
-@keyframes orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes trace {
-  from {
-    stroke-dashoffset: 180;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes soft-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(0.98);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.03);
   }
 }
 

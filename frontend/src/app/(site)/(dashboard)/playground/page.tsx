@@ -857,12 +857,16 @@ function PlaygroundPage() {
               </div>
 
               {selectedAssistant.system_instructions && (
-                <div className="space-y-1.5">
-                  <span className="text-[13px] font-medium text-foreground">Instructions</span>
-                  <p className="line-clamp-6 rounded-lg border border-border/70 bg-background p-2.5 text-[12px] leading-relaxed text-muted-foreground">
+                // Collapsed: the rail is for testing answers, and the full text
+                // belongs to the assistant settings page below.
+                <details className="space-y-1.5 rounded-lg border border-border/70 px-2.5 py-2">
+                  <summary className="cursor-pointer text-[13px] font-medium text-foreground">
+                    Instructions
+                  </summary>
+                  <p className="line-clamp-6 pt-1 text-[12px] leading-relaxed text-muted-foreground">
                     {selectedAssistant.system_instructions}
                   </p>
-                </div>
+                </details>
               )}
 
               <Link

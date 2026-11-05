@@ -1,6 +1,4 @@
 import React from "react";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
@@ -8,7 +6,6 @@ interface PageHeaderProps {
   description?: string;
   badge?: React.ReactNode;
   actions?: React.ReactNode;
-  breadcrumbs?: { label: string; href?: string }[];
   className?: string;
 }
 
@@ -17,30 +14,10 @@ export function PageHeader({
   description,
   badge,
   actions,
-  breadcrumbs,
   className,
 }: PageHeaderProps) {
   return (
     <header className={cn("mb-6 space-y-3 sm:mb-8", className)}>
-      {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav
-          className="flex items-center gap-1 text-xs text-muted-foreground"
-          aria-label="Breadcrumb"
-        >
-          {breadcrumbs.map((crumb, idx) => (
-            <React.Fragment key={`${crumb.label}-${idx}`}>
-              {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-border" aria-hidden="true" />}
-              {crumb.href ? (
-                <Link href={crumb.href} className="transition-colors hover:text-foreground">
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span className="font-medium text-foreground">{crumb.label}</span>
-              )}
-            </React.Fragment>
-          ))}
-        </nav>
-      )}
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div className="min-w-0 space-y-1.5">

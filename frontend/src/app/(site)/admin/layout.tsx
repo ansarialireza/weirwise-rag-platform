@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   ExternalLink,
 } from "lucide-react";
-import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
+import { PreferenceControls } from "@/components/ui/preference-controls";
 import { api } from "@/lib/api";
 import { WeirwiseWordmark } from "@/components/ui/weirwise-wordmark";
 import { BrutalistLoader } from "@/components/ui/brutalist-loader";
@@ -156,11 +156,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           className="border-t border-border/60 p-3 space-y-2.5 bg-muted/20"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
-              Theme
-            </span>
-            <CompactThemeMenu />
+          <div className="flex items-center justify-end">
+            <PreferenceControls />
           </div>
 
           <div className="flex items-center justify-between rounded-md border border-border/70 bg-card p-2 text-xs">

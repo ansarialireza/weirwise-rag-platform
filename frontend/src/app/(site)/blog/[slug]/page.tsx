@@ -4,7 +4,6 @@ import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { getAllPosts, getPostBySlug } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { Calendar, Clock, ArrowLeft, CheckCircle2, Bot, Shield, ChevronRight } from "lucide-react";
 
 interface Props {
@@ -85,7 +84,7 @@ const mdxComponents = {
   li: (props: any) => <li className="leading-relaxed" {...props} />,
   strong: (props: any) => <strong className="font-semibold text-foreground" {...props} />,
   blockquote: (props: any) => (
-    <blockquote className="border-l-4 border-accent pl-4 italic text-muted-foreground my-4 bg-secondary/30 py-2 rounded-r" {...props} />
+    <blockquote className="border-s-4 border-accent ps-4 italic text-muted-foreground my-4 bg-secondary/30 py-2 rounded-e" {...props} />
   ),
   pre: (props: any) => (
     <pre className="p-4 rounded-xl bg-muted border border-border overflow-x-auto text-xs sm:text-sm font-mono my-6 text-foreground" {...props} />
@@ -175,16 +174,11 @@ export default async function BlogPostPage({ params }: Props) {
           </h1>
 
           <div className="mt-6 flex items-center justify-between border-y border-border/80 py-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-foreground">
-                WW
-              </div>
-              <div>
-                <span className="text-sm font-bold text-foreground block">{post.meta.author}</span>
-                {post.meta.authorRole && (
-                  <span className="text-xs text-muted-foreground">{post.meta.authorRole}</span>
-                )}
-              </div>
+            <div className="min-w-0">
+              <span className="text-sm font-bold text-foreground block">{post.meta.author}</span>
+              {post.meta.authorRole && (
+                <span className="text-xs text-muted-foreground">{post.meta.authorRole}</span>
+              )}
             </div>
 
             {post.meta.tags && post.meta.tags.length > 0 && (
@@ -210,43 +204,26 @@ export default async function BlogPostPage({ params }: Props) {
         {/* Bottom Call to Action Card */}
         <div className="mt-16 rounded-2xl border border-border bg-card p-6 sm:p-8 text-center relative overflow-hidden shadow-xs">
           <h3 className="font-display text-xl font-semibold text-foreground mb-2">
-            Experience Grounded AI for Your Business
+            Put your knowledge to work
           </h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-            Build, test, and publish zero-hallucination assistants backed by isolated vector stores.
+            Build an assistant that answers from your own material and shows the source behind every reply.
           </p>
           <Link
             href="/register"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-foreground text-background px-6 py-3 text-sm font-semibold shadow-xs hover:opacity-90 active:scale-[0.98] transition-all"
           >
-            <span>Start Free Trial</span>
+            <span>Get started</span>
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
       </main>
 
-      <footer className="w-full border-t border-border/80 py-6 px-4 sm:px-6 text-xs text-muted-foreground">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <WeirwiseMark className="h-5 w-auto" />
-            <span className="font-semibold text-foreground text-xs">Weirwise</span>
-            <span>&copy; 2026 Weirwise Inc. All rights reserved.</span>
-          </div>
-
-          <div className="flex items-center gap-6 text-xs font-medium">
-            <Link href="/" className="hover:text-foreground transition-colors">
-              Home
-            </Link>
-            <Link href="/pricing" className="hover:text-foreground transition-colors">
-              Pricing
-            </Link>
-            <Link href="/blog" className="hover:text-foreground transition-colors">
-              Blog
-            </Link>
-            <Link href="/login" className="hover:text-foreground transition-colors">
-              Sign In
-            </Link>
-          </div>
+      {/* The header carries the mark and the navigation, so this repeats neither. */}
+      <footer className="border-t border-border/80">
+        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6">
+          <span>&copy; 2026 Weirwise Inc.</span>
+          <span>Answers with sources. Knowledge under control.</span>
         </div>
       </footer>
     </div>

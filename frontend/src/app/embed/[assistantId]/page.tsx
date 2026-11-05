@@ -213,7 +213,7 @@ export default function AssistantWidgetPage() {
         ))}
 
         {loading && (
-          <div className="flex gap-2 items-center text-xs text-muted-foreground italic pl-8">
+          <div className="flex gap-2 items-center text-xs text-muted-foreground italic ps-8">
             <div className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent" />
             <span>Looking through your documents…</span>
           </div>

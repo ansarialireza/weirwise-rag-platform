@@ -1,13 +1,10 @@
-import type { Locale, Direction, TranslationDictionary } from "./types";
+import type { Locale, TranslationDictionary } from "./types";
+import { defaultLocale } from "./locales";
 import en from "@/dictionaries/en.json";
 import fa from "@/dictionaries/fa.json";
 
-export const locales: Locale[] = ["en", "fa"];
-export const defaultLocale: Locale = "en";
-
-export function getDirection(locale: Locale): Direction {
-  return locale === "fa" ? "rtl" : "ltr";
-}
+export * from "./locales";
+export * from "./types";
 
 const dictionaries: Record<Locale, TranslationDictionary> = {
   en: en as TranslationDictionary,
@@ -17,5 +14,3 @@ const dictionaries: Record<Locale, TranslationDictionary> = {
 export function getDictionary(locale: Locale): TranslationDictionary {
   return dictionaries[locale] || dictionaries[defaultLocale];
 }
-
-export * from "./types";

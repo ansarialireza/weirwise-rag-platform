@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
-import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { useI18n } from "@/lib/i18n/context";
 import { ArrowRight, Check, FileText, Globe2, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,10 +63,8 @@ export default function PricingPage() {
         <section className="border-b border-border/60">
           <div className="mx-auto grid w-full max-w-wide gap-8 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:items-end lg:gap-16 lg:px-10">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-accent-strong">
-                {p.eyebrow}
-              </p>
-              <h1 className="mt-3 max-w-xl text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-5xl lg:text-[3.4rem]">
+              <p className="eyebrow">{p.eyebrow}</p>
+              <h1 className="hero-display mt-3 max-w-xl font-semibold text-foreground">
                 {p.title}
               </h1>
             </div>
@@ -104,7 +101,7 @@ export default function PricingPage() {
                   </div>
 
                   <div className="mt-5 border-t border-border/70 pt-5">
-                    <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="text-[10px] font-medium uppercase tracking-eyebrow text-muted-foreground">
                       {p.included}
                     </p>
                     <ul className="mt-3 space-y-2.5">
@@ -184,24 +181,12 @@ export default function PricingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/60 py-6">
-        <div className="mx-auto flex w-full max-w-wide flex-col items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6 lg:px-10">
-          <div className="flex items-center gap-2">
-            <WeirwiseMark className="h-5 w-auto" />
-            <span className="font-semibold text-foreground">{dict.common.brand}</span>
-            <span>{dict.landing.copyright}</span>
-          </div>
-          <div className="flex items-center gap-5">
-            <Link href="/" className="transition-colors hover:text-foreground">
-              {dict.landing.footerHowItWorks}
-            </Link>
-            <Link href="/blog" className="transition-colors hover:text-foreground">
-              {dict.common.blog}
-            </Link>
-            <Link href="/login" className="transition-colors hover:text-foreground">
-              {dict.common.signIn}
-            </Link>
-          </div>
+      {/* The sticky header already carries the mark, the navigation and Sign in,
+          so the footer states the copyright and the brand line and nothing else. */}
+      <footer className="border-t border-border/60">
+        <div className="mx-auto flex w-full max-w-wide flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6 lg:px-10">
+          <span>{dict.landing.copyright}</span>
+          <span>{dict.landing.footerNote}</span>
         </div>
       </footer>
     </div>

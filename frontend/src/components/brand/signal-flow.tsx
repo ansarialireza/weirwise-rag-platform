@@ -7,9 +7,9 @@ interface SignalFlowProps {
 }
 
 /**
- * The recurring Weirwise motif: scattered sources flowing into one clear signal.
- * Used on the landing hero, auth panel, empty states and the workspace journey
- * so every screen feels like the next chapter of the same story.
+ * The small sibling of the Living Flow: scattered sources gathering into one
+ * clear signal, drawn as a static SVG because an empty state does not warrant
+ * a WebGL context. The canvas owns the brand surfaces; this owns the quiet ones.
  */
 export function SignalFlow({
   className,
@@ -79,14 +79,5 @@ export function SignalFlow({
         />
       </g>
     </svg>
-  );
-}
-
-export function SignalDot({ className }: { className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn("inline-block h-1.5 w-1.5 rounded-full bg-signal", className)}
-    />
   );
 }

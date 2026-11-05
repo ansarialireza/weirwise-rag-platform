@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { PreferenceControls } from "@/components/ui/preference-controls";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { InstallAppButton } from "@/components/ui/install-app-button";
 import { Menu, X } from "lucide-react";
@@ -48,7 +47,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
   }, [mobileMenuOpen]);
 
   const links = [
-    { label: "How it works", href: "/#how-it-works" },
+    { label: dict.common.howItWorks, href: "/#how-it-works" },
     { label: dict.common.pricing, href: "/pricing" },
     { label: dict.common.blog, href: "/blog" },
   ];
@@ -72,7 +71,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
         </Link>
 
         <nav
-          aria-label="Main navigation"
+          aria-label={dict.common.mainNavigation}
           className="hidden items-center gap-7 text-sm md:flex"
         >
           {links.map((link) => (
@@ -86,50 +85,55 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <LanguageSwitcher />
-          <ThemeSwitcher />
-          <InstallAppButton variant="pill" className="ms-1 border border-border" />
+        {/* One preference pair for the whole bar, at every width. The mobile
+            sheet used to carry its own copy, which meant the header held two
+            theme buttons and two language buttons at once. */}
+        <div className="flex items-center gap-2">
+          <PreferenceControls />
 
-          {mounted && !authLoading ? (
-            isAuthenticated ? (
-              <Link
-                href="/overview"
-                className="ml-2 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-              >
-                Open workspace
-              </Link>
+          <div className="hidden items-center gap-2 md:flex">
+            <InstallAppButton variant="pill" className="ms-1 border border-border" />
+
+            {mounted && !authLoading ? (
+              isAuthenticated ? (
+                <Link
+                  href="/overview"
+                  className="ms-2 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  {dict.common.openWorkspace}
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="ms-2 inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    {dict.common.signIn}
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    {dict.landing.primaryCta}
+                  </Link>
+                </>
+              )
             ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="ml-2 inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {dict.common.signIn}
-                </Link>
-                <Link
-                  href="/register"
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  {dict.landing.primaryCta}
-                </Link>
-              </>
-            )
-          ) : (
-            <span className="ml-2 h-10 w-28 animate-pulse rounded-lg bg-muted" />
-          )}
-        </div>
+              <span className="ms-2 h-10 w-28 animate-pulse rounded-lg bg-muted" />
+            )}
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen((open) => !open)}
-          aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
-          aria-expanded={mobileMenuOpen}
-          aria-controls="site-mobile-menu"
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground md:hidden"
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label={mobileMenuOpen ? dict.common.closeNavigation : dict.common.openNavigation}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="site-mobile-menu"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground md:hidden"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {mobileMenuOpen && (
@@ -143,7 +147,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
             id="site-mobile-menu"
             className="fixed inset-x-0 top-16 z-40 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-4 pb-8 pt-2 shadow-lift md:hidden"
           >
-            <nav aria-label="Mobile navigation" className="flex flex-col">
+            <nav aria-label={dict.common.mainNavigation} className="flex flex-col">
               {links.map((link) => (
                 <Link
                   key={link.href}
@@ -164,7 +168,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
                   >
-                    Open workspace
+                    {dict.common.openWorkspace}
                   </Link>
                 ) : (
                   <>
@@ -189,12 +193,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               )}
             </div>
 
-            <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-4">
-              <LanguageSwitcher />
-              <ThemeSwitcher />
-            </div>
-
-            <InstallAppButton variant="row" className="mt-4" />
+            <InstallAppButton variant="row" className="mt-6" />
           </div>
         </>
       )}

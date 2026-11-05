@@ -37,10 +37,13 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/context";
+import { formatDate } from "@/lib/i18n/format";
 
 export default function AssistantConfigurePage() {
   const params = useParams();
   const assistantId = params.assistantId as string;
+  const { locale } = useI18n();
 
   const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -1018,7 +1021,7 @@ export default function AssistantConfigurePage() {
                               </p>
                               <p className="text-[11px] text-muted-foreground">
                                 {credential.key_prefix}… ·{" "}
-                                {new Date(credential.created_at).toLocaleDateString()}
+                                {formatDate(credential.created_at, locale)}
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
