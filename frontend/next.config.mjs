@@ -53,6 +53,7 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
+  transpilePackages: ['next-mdx-remote'],
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },

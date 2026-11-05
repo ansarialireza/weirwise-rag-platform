@@ -41,6 +41,7 @@ from backend.app.schemas.assistant import (
     ConversationResponse,
     DeploymentCreateRequest,
     DeploymentResponse,
+    DeploymentUpdateRequest,
     EvaluationCaseCreateRequest,
     EvaluationCaseResponse,
     KnowledgeGapAnalyticsResponse,
@@ -52,7 +53,7 @@ from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -978,6 +979,84 @@ async def list_assistant_deployments(
     return [DeploymentResponse.model_validate(d) for d in res.scalars().all()]
 
 
+@router.patch(
+    "/assistants/{assistant_id}/deployments/{deployment_id}",
+    response_model=DeploymentResponse,
+)
+async def update_assistant_deployment(
+    assistant_id: uuid.UUID,
+    deployment_id: uuid.UUID,
+    payload: DeploymentUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DeploymentResponse:
+    """Update a deployment's sharing rules without rotating its public key."""
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = a_res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    await verify_project_access(assistant.project_id, current_user.id, db)
+
+    dep_res = await db.execute(
+        select(Deployment).where(
+            Deployment.id == deployment_id,
+            Deployment.assistant_id == assistant_id,
+        )
+    )
+    deployment = dep_res.scalar_one_or_none()
+    if not deployment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deployment not found.")
+
+    if payload.name is not None:
+        deployment.name = payload.name
+
+    if payload.allowed_domains is not None:
+        cleaned: list[str] = []
+        for entry in payload.allowed_domains:
+            domain = entry.strip().lower()
+            if not domain or domain in cleaned:
+                continue
+            if len(domain) > 253:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A domain name is too long.",
+                )
+            cleaned.append(domain)
+        if len(cleaned) > 50:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You can allow at most 50 domains.",
+            )
+        deployment.allowed_domains = cleaned
+
+    if payload.theme_config is not None:
+        allowed_theme_keys = {
+            "primary_color",
+            "assistant_title",
+            "welcome_message",
+            "placeholder_text",
+            "position",
+            "show_branding",
+        }
+        unknown = set(payload.theme_config) - allowed_theme_keys
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported widget options: {', '.join(sorted(unknown))}.",
+            )
+        theme = dict(deployment.theme_config or {})
+        theme.update(payload.theme_config)
+        deployment.theme_config = theme
+
+    if payload.is_active is not None:
+        deployment.is_active = payload.is_active
+
+    await db.commit()
+    await db.refresh(deployment)
+    return DeploymentResponse.model_validate(deployment)
+
+
 @router.post(
     "/workspaces/{workspace_id}/api-credentials",
     response_model=ApiCredentialResponse,
@@ -1007,3 +1086,46 @@ async def create_api_credential(
     resp = ApiCredentialResponse.model_validate(cred)
     resp.raw_api_key = raw_key
     return resp
+
+
+@router.get("/workspaces/{workspace_id}/api-credentials", response_model=list[ApiCredentialResponse])
+async def list_api_credentials(
+    workspace_id: uuid.UUID,
+    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[ApiCredentialResponse]:
+    """List active and revoked API keys. Raw keys are never returned again."""
+    stmt = (
+        select(ApiCredential)
+        .where(ApiCredential.workspace_id == workspace_id)
+        .order_by(ApiCredential.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    return [ApiCredentialResponse.model_validate(cred) for cred in res.scalars().all()]
+
+
+@router.delete(
+    "/workspaces/{workspace_id}/api-credentials/{credential_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def revoke_api_credential(
+    workspace_id: uuid.UUID,
+    credential_id: uuid.UUID,
+    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """Revoke an API key immediately. Revocation is idempotent."""
+    stmt = select(ApiCredential).where(
+        ApiCredential.id == credential_id,
+        ApiCredential.workspace_id == workspace_id,
+    )
+    credential = (await db.execute(stmt)).scalar_one_or_none()
+    if not credential:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
+
+    if credential.is_active:
+        credential.is_active = False
+        credential.revoked_at = datetime.now(UTC)
+        await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

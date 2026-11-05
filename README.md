@@ -9,7 +9,7 @@
   <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-3FD0DA.svg" alt="Frontend CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6B7078.svg" alt="License: MIT"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-6B7078.svg" alt="Python 3.11+"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14-101114.svg" alt="Next.js 14"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-15-101114.svg" alt="Next.js 15"></a>
 </p>
 
 ---
@@ -37,7 +37,7 @@ See [Product Vision](docs/PRODUCT_VISION.md) for the product definition, current
 
 ```mermaid
 flowchart TD
-    subgraph Client["Frontend (Next.js 14 App Router)"]
+    subgraph Client["Frontend (Next.js 15 App Router)"]
         UI[Workspace & Assistant Studio]
         Playground[Interactive Grounding Playground]
         Admin[Super Admin Control Center]
@@ -101,7 +101,7 @@ The current assistant chat endpoint performs retrieval and returns grounded exce
 ## Tech Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Pytest, Ruff.
-- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons.
+- **Frontend**: Next.js 15 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons.
 - **Storage & Security**: PostgreSQL / SQLite (compatible dual-driver), Fernet symmetric encryption, JWT authentication.
 
 ---
@@ -194,7 +194,7 @@ weirwise-rag-platform/
 ├── docs/                     # Technical specifications, architecture, and ADRs
 │   ├── adr/                  # Architectural Decision Records
 │   └── ARCHITECTURE.md       # Comprehensive system architecture documentation
-├── frontend/                 # Next.js 14 Web Application
+├── frontend/                 # Next.js 15 Web Application
 │   ├── public/               # Brand assets and SVG icons
 │   └── src/                  # App Router pages, components, hooks, and lib
 ├── docker-compose.yml        # Docker service orchestration manifest

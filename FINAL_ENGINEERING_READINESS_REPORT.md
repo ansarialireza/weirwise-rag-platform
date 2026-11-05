@@ -8,6 +8,12 @@ Mission: maximum performance, reliability, accuracy and engineering quality acro
 
 **FINAL VERDICT: NOT READY — REMAINING ENGINEERING WORK**
 
+> **Update 2026-11-05:** The Next.js critical advisories listed in §4 are resolved by the
+> `next@15.5.29` upgrade, and assistant distribution is now functional (widget loader, domain
+> allowlist editing, API-key authentication, key listing/revocation). See
+> `DISTRIBUTION_AND_PLATFORM_UPGRADE_REPORT.md`. The overall verdict is unchanged because no
+> deployment was performed and the PostgreSQL/multi-worker/soak limits remain open.
+
 The engineering work in this mission is complete and reviewable, and the tested paths are stable. The system is not production-ready because several material items remain open: an unresolved critical Next.js advisory, no shared state store for multi-worker correctness, no PostgreSQL load/soak evidence for the Platform, and blocked post-optimization retrieval measurement. No production-readiness claim is made.
 
 ---

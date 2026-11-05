@@ -111,7 +111,7 @@ export interface ChatMessage {
 export interface Deployment {
   id: string;
   assistant_id: string;
-  deployment_type: "widget" | "public_api";
+  deployment_type: "widget" | "public_api" | "shareable_link";
   name: string;
   public_key: string;
   allowed_domains: string[];

@@ -345,6 +345,13 @@ class DeploymentCreateRequest(BaseModel):
     theme_config: dict[str, Any] = Field(default_factory=dict)
 
 
+class DeploymentUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    allowed_domains: list[str] | None = None
+    theme_config: dict[str, Any] | None = None
+    is_active: bool | None = None
+
+
 class DeploymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

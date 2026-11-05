@@ -8,7 +8,7 @@ import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
 import { Calendar, Clock, ArrowLeft, CheckCircle2, Bot, Shield, ChevronRight } from "lucide-react";
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
@@ -19,7 +19,8 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const post = getPostBySlug(params.slug);
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
   if (!post) {
     return {
       title: "Post Not Found | Weirwise Blog",
@@ -94,8 +95,9 @@ const mdxComponents = {
   ),
 };
 
-export default function BlogPostPage({ params }: Props) {
-  const post = getPostBySlug(params.slug);
+export default async function BlogPostPage({ params }: Props) {
+  const { slug } = await params;
+  const post = getPostBySlug(slug);
 
   if (!post) {
     notFound();

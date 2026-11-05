@@ -583,11 +583,34 @@ class ApiClient {
     });
   }
 
+  async updateDeployment(
+    assistantId: string,
+    deploymentId: string,
+    data: { name?: string; allowed_domains?: string[]; theme_config?: Record<string, any>; is_active?: boolean }
+  ): Promise<Deployment> {
+    return this.request<Deployment>(`/assistants/${assistantId}/deployments/${deploymentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
   async createApiCredential(data: { name: string; scopes: string[] }): Promise<ApiCredential> {
     const { workspaceId } = await this.getTenancy();
     return this.request<ApiCredential>(`/workspaces/${workspaceId}/api-credentials`, {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async listApiCredentials(): Promise<ApiCredential[]> {
+    const { workspaceId } = await this.getTenancy();
+    return this.request<ApiCredential[]>(`/workspaces/${workspaceId}/api-credentials`);
+  }
+
+  async revokeApiCredential(credentialId: string): Promise<void> {
+    const { workspaceId } = await this.getTenancy();
+    await this.request<void>(`/workspaces/${workspaceId}/api-credentials/${credentialId}`, {
+      method: "DELETE",
     });
   }
 
