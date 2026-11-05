@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import itertools
 import threading
 import time
 from dataclasses import dataclass
@@ -81,7 +82,7 @@ class RateLimitDecision:
     remaining: int = 0
 
 
-class AuthRateLimiter:
+class SlidingWindowRateLimiter:
     # One client per event loop: TestClient runs handlers in a dedicated loop
     # while unit tests may use another, and a shared client cannot cross loops.
     _redis_by_loop: dict[int, "Redis"] = {}
@@ -89,10 +90,38 @@ class AuthRateLimiter:
     _memory: dict[str, list[float]] = {}
     _lock = threading.Lock()
 
-    @staticmethod
-    def _key(scope: str, identifier: str) -> str:
+    PREFIX = "wwp:rl"
+    # A public endpoint sees arbitrary client identifiers, so the in-process
+    # fallback must not grow without bound.
+    _MAX_TRACKED_KEYS = 20_000
+
+    @classmethod
+    def _enabled(cls) -> bool:
+        return settings.AUTH_RATE_LIMIT_ENABLED
+
+    @classmethod
+    def _key(cls, scope: str, identifier: str) -> str:
         digest = hashlib.sha256(identifier.strip().lower().encode("utf-8")).hexdigest()[:32]
-        return f"wwp:authrl:{scope}:{digest}"
+        return f"{cls.PREFIX}:{scope}:{digest}"
+
+    @classmethod
+    def _prune_locked(cls, now: float) -> None:
+        """Keep the fallback dictionary bounded; caller must hold ``_lock``."""
+        if len(cls._memory) <= cls._MAX_TRACKED_KEYS:
+            return
+        cutoff = now - 3600.0
+        for key, stamps in list(cls._memory.items()):
+            if not stamps or stamps[-1] < cutoff:
+                cls._memory.pop(key, None)
+        overflow = len(cls._memory) - cls._MAX_TRACKED_KEYS
+        for key in list(itertools.islice(cls._memory, max(0, overflow))):
+            cls._memory.pop(key, None)
+
+    @classmethod
+    def snapshot(cls) -> dict[str, int]:
+        """Expose bounded in-process counters for admin diagnostics."""
+        with cls._lock:
+            return {"tracked_keys": len(cls._memory), "entries": sum(len(v) for v in cls._memory.values())}
 
     @classmethod
     async def _client(cls) -> "Redis | None":
@@ -127,7 +156,7 @@ class AuthRateLimiter:
         limit: int,
         window_seconds: int,
     ) -> RateLimitDecision:
-        if not settings.AUTH_RATE_LIMIT_ENABLED or limit <= 0:
+        if not cls._enabled() or limit <= 0:
             return RateLimitDecision(allowed=True, remaining=limit)
 
         client = await cls._client()
@@ -154,6 +183,7 @@ class AuthRateLimiter:
                 cls._redis_by_loop.pop(id(asyncio.get_running_loop()), None)
 
         with cls._lock:
+            cls._prune_locked(time.monotonic())
             entries = cls._memory.setdefault(cls._key(scope, identifier), [])
             cutoff = time.monotonic() - window_seconds
             entries[:] = [stamp for stamp in entries if stamp >= cutoff]
@@ -169,7 +199,7 @@ class AuthRateLimiter:
         identifier: str,
         window_seconds: int,
     ) -> None:
-        if not settings.AUTH_RATE_LIMIT_ENABLED:
+        if not cls._enabled():
             return
 
         client = await cls._client()
@@ -192,6 +222,7 @@ class AuthRateLimiter:
                 cls._redis_by_loop.pop(id(asyncio.get_running_loop()), None)
 
         with cls._lock:
+            cls._prune_locked(time.monotonic())
             entries = cls._memory.setdefault(cls._key(scope, identifier), [])
             cutoff = time.monotonic() - window_seconds
             entries[:] = [stamp for stamp in entries if stamp >= cutoff]
@@ -210,7 +241,7 @@ class AuthRateLimiter:
         Prevents concurrent requests from all passing a check before any of
         them records the attempt.
         """
-        if not settings.AUTH_RATE_LIMIT_ENABLED or limit <= 0:
+        if not cls._enabled() or limit <= 0:
             return RateLimitDecision(allowed=True, remaining=limit)
 
         client = await cls._client()
@@ -241,6 +272,7 @@ class AuthRateLimiter:
                 cls._redis_by_loop.pop(id(asyncio.get_running_loop()), None)
 
         with cls._lock:
+            cls._prune_locked(time.monotonic())
             entries = cls._memory.setdefault(cls._key(scope, identifier), [])
             cutoff = time.monotonic() - window_seconds
             entries[:] = [stamp for stamp in entries if stamp >= cutoff]
@@ -281,7 +313,7 @@ class AuthRateLimiter:
         if client is None:
             return
         try:
-            keys = [key async for key in client.scan_iter(match="wwp:authrl:*")]
+            keys = [key async for key in client.scan_iter(match=f"{cls.PREFIX}:*")]
             if keys:
                 await client.delete(*keys)
         except Exception:
@@ -291,6 +323,10 @@ class AuthRateLimiter:
                 await client.aclose()
             except Exception:
                 pass
+
+
+class AuthRateLimiter(SlidingWindowRateLimiter):
+    PREFIX = "wwp:authrl"
 
 
 def client_ip(request: Request) -> str:

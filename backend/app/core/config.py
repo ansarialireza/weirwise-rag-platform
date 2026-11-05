@@ -57,6 +57,17 @@ class Settings(BaseSettings):
     AUTH_REGISTER_IP_WINDOW_SECONDS: int = 3600
     TRUST_PROXY_HEADERS: bool = False
 
+    # Public runtime abuse protection (widgets and shareable links).
+    # Defaults allow a busy visitor (1 message/sec) and a busy deployment
+    # (10 messages/sec) while stopping scripted floods.
+    PUBLIC_RATE_LIMIT_ENABLED: bool = True
+    PUBLIC_CONFIG_IP_LIMIT: int = 240
+    PUBLIC_CONFIG_IP_WINDOW_SECONDS: int = 60
+    PUBLIC_CHAT_IP_LIMIT: int = 60
+    PUBLIC_CHAT_IP_WINDOW_SECONDS: int = 60
+    PUBLIC_CHAT_DEPLOYMENT_LIMIT: int = 600
+    PUBLIC_CHAT_DEPLOYMENT_WINDOW_SECONDS: int = 60
+
     # HTTP security headers
     ENABLE_HSTS: bool = False
     HSTS_MAX_AGE_SECONDS: int = 31536000

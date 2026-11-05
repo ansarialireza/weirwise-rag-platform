@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from backend.app.api.admin_deps import require_admin_role, require_admin_user
+from backend.app.core.config import settings
 from backend.app.db.session import get_db_session
 from backend.app.models.admin import (
     AdminAuditLog,
@@ -48,6 +49,7 @@ from backend.app.schemas.admin import (
     SubscriptionTierUpdate,
     SystemMetricsResponse,
 )
+from backend.app.services.public_rate_limiter import PublicRateLimiter
 from backend.app.services.vault import encrypt_credential_secret
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -982,6 +984,12 @@ async def get_mission_control_stats(
         "total_tokens_burned": total_tokens,
         "total_ai_spend_usd": total_ai_spend,
         "total_queries_answered": total_queries,
+        "public_rate_limiting": {
+            "enabled": settings.PUBLIC_RATE_LIMIT_ENABLED,
+            "chat_per_ip_per_minute": settings.PUBLIC_CHAT_IP_LIMIT,
+            "chat_per_deployment_per_minute": settings.PUBLIC_CHAT_DEPLOYMENT_LIMIT,
+            **PublicRateLimiter.snapshot(),
+        },
     }
 
 

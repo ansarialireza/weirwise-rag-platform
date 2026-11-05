@@ -5,6 +5,7 @@ import uuid
 from urllib.parse import urlsplit
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.core.security import generate_secure_token
 from backend.app.db.session import get_db_session
@@ -30,14 +31,37 @@ from backend.app.schemas.assistant import (
     HumanHandoffResponse,
     PublicRuntimeConfigResponse,
 )
+from backend.app.services.auth_rate_limiter import client_ip
 from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
+from backend.app.services.public_rate_limiter import enforce_public_limit
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/public", tags=["Public Assistant Runtime"])
+
+_SLOW_DOWN_MESSAGE = "You're sending messages too quickly. Please wait a moment and try again."
+
+
+async def _guard_public_chat(request: Request, assistant: Assistant, deployment: Deployment | None) -> None:
+    """Bound anonymous chat by client IP and by deployment capacity."""
+    await enforce_public_limit(
+        scope="chat_ip",
+        identifier=client_ip(request),
+        limit=settings.PUBLIC_CHAT_IP_LIMIT,
+        window_seconds=settings.PUBLIC_CHAT_IP_WINDOW_SECONDS,
+        message=_SLOW_DOWN_MESSAGE,
+    )
+    deployment_key = str(deployment.id) if deployment else f"assistant:{assistant.id}"
+    await enforce_public_limit(
+        scope="chat_deployment",
+        identifier=deployment_key,
+        limit=settings.PUBLIC_CHAT_DEPLOYMENT_LIMIT,
+        window_seconds=settings.PUBLIC_CHAT_DEPLOYMENT_WINDOW_SECONDS,
+        message="This assistant is receiving a lot of messages right now. Please try again in a moment.",
+    )
 
 
 def _hostname(value: str | None) -> str:
@@ -132,10 +156,18 @@ async def resolve_public_deployment(
 @router.get("/assistants/{assistant_id}/config", response_model=PublicRuntimeConfigResponse)
 async def get_public_runtime_config(
     assistant_id: uuid.UUID,
+    request: Request,
     x_widget_key: str | None = Header(None, alias="X-Widget-Key"),
     db: AsyncSession = Depends(get_db_session),
 ) -> PublicRuntimeConfigResponse:
     """Retrieve public widget styling, greeting, and personality config without exposing prompts or credentials."""
+    await enforce_public_limit(
+        scope="config_ip",
+        identifier=client_ip(request),
+        limit=settings.PUBLIC_CONFIG_IP_LIMIT,
+        window_seconds=settings.PUBLIC_CONFIG_IP_WINDOW_SECONDS,
+        message="Too many requests. Please try again shortly.",
+    )
     a_stmt = select(Assistant).where(Assistant.id == assistant_id)
     a_res = await db.execute(a_stmt)
     assistant = a_res.scalar_one_or_none()
@@ -183,6 +215,9 @@ async def public_chat(
     """
     assistant, deployment = resolved
     start_time = time.perf_counter()
+
+    # Reject scripted floods before spending quota, retrieval, or provider budget.
+    await _guard_public_chat(request, assistant, deployment)
 
     # Get Workspace ID
     p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
