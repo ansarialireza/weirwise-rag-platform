@@ -37,6 +37,11 @@ from httpx import ASGITransport, AsyncClient
 from redis.asyncio import from_url
 from sqlalchemy import select
 
+requires_redis = pytest.mark.skipif(
+    not settings.REDIS_URL,
+    reason="Requires a configured Redis instance for WBI stream integration",
+)
+
 
 @pytest.fixture
 def anyio_backend():
@@ -48,6 +53,7 @@ def anyio_backend():
 # =========================================================================
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_a_normal_processing():
     """Scenario A: Verify all messages are processed, acknowledged, and safe boundary trims acknowledged messages."""
@@ -88,6 +94,7 @@ async def test_stream_trimming_scenario_a_normal_processing():
         await redis.aclose()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_b_pending_message_in_middle():
     """Scenario B: Message acknowledged out-of-order, pending message in middle.
@@ -136,6 +143,7 @@ async def test_stream_trimming_scenario_b_pending_message_in_middle():
         await redis.aclose()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_c_worker_crash_with_pending_message():
     """Scenario C: Worker read messages, processed 1, then crashed before processing message 2.
@@ -177,6 +185,7 @@ async def test_stream_trimming_scenario_c_worker_crash_with_pending_message():
         await redis.aclose()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_d_db_failure_retains_message():
     """Scenario D: When DB transaction fails, message is not acknowledged and remains in stream."""
@@ -206,6 +215,7 @@ async def test_stream_trimming_scenario_d_db_failure_retains_message():
         await redis.aclose()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_stream_trimming_scenario_e_multi_consumer_out_of_order():
     """Scenario E: Two consumers in same group processing in parallel at different speeds.
@@ -279,6 +289,7 @@ async def test_backpressure_threshold_returns_http_429():
 # =========================================================================
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_crash_recovery_between_db_commit_and_xack():
     """Critical Verification B:
@@ -457,6 +468,7 @@ def test_geoip_service_rejection_of_forged_cf_headers():
     assert res_legit["geo_lookup_source"] == "cf_headers_verified"
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_api_endpoint_rejects_spoofed_cloudflare_headers():
     """Integration test: API endpoint receives spoofed CF headers from an untrusted client IP."""

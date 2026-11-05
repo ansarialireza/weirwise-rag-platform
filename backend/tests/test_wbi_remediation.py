@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from backend.app.core.config import settings
 from backend.app.db.session import async_session_factory
 from backend.app.models.auth import User
 from backend.app.models.behavioral import BehavioralEvent, UserBehavioralSession
@@ -22,12 +23,18 @@ from backend.app.services.behavioral_stream import (
 from backend.app.services.behavioral_worker import BehavioralStreamConsumer
 from sqlalchemy import delete, select
 
+requires_redis = pytest.mark.skipif(
+    not settings.REDIS_URL,
+    reason="Requires a configured Redis instance for WBI stream integration",
+)
+
 
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_remediation_session_ownership_and_batch_isolation():
     redis = behavioral_stream_producer.get_redis_client()

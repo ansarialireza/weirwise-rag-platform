@@ -55,6 +55,10 @@ def get_jina_token():
     return None
 
 
+@pytest.mark.skipif(
+    os.getenv("RUN_LIVE_CORE_TESTS") != "1",
+    reason="Non-hermetic live test; set RUN_LIVE_CORE_TESTS=1 with Core PostgreSQL and a reachable Jina provider",
+)
 @pytest.mark.asyncio
 async def test_live_platform_to_core_jina_integration():
     """Execute complete cross-service live verification."""

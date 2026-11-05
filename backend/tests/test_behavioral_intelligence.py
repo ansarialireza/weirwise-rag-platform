@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from backend.app.core.config import settings
 from backend.app.db.session import async_session_factory
 from backend.app.models.auth import User
 from backend.app.models.behavioral import (
@@ -23,6 +24,11 @@ from backend.app.services.geoip import geoip_service
 from backend.app.services.retention import retention_service
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
+
+requires_redis = pytest.mark.skipif(
+    not settings.REDIS_URL,
+    reason="Requires a configured Redis instance for WBI stream integration",
+)
 
 
 @pytest.fixture
@@ -80,6 +86,7 @@ async def test_private_gateway_and_localhost_resolution():
 # --- 2. AUTHENTICATION & OWNERSHIP TESTS ---
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_authenticated_ownership_cannot_be_overridden_by_client():
     """Verify that server-side auth token dictates user_id regardless of payload."""
@@ -143,6 +150,7 @@ async def test_authenticated_ownership_cannot_be_overridden_by_client():
         await db.commit()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_anonymous_session_handling():
     """Verify that unauthenticated telemetry (e.g. embed widget) assigns user_id=None."""
@@ -275,6 +283,7 @@ async def test_idempotent_event_persistence():
         await db.commit()
 
 
+@requires_redis
 @pytest.mark.anyio
 async def test_dead_letter_queue_routing():
     """Verify that malformed poison payloads route to DLQ without crashing the worker."""
