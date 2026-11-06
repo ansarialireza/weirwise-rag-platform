@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { PreferenceControls } from "@/components/ui/preference-controls";
-import { FileText, Globe2, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { FileText, Globe2, SlidersHorizontal } from "lucide-react";
 import { ToastProvider } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -40,17 +40,9 @@ function AuthShell({ children }: { children: React.ReactNode }) {
           <PreferenceControls />
         </header>
 
-        <main className="flex flex-1 items-center justify-center py-6 sm:py-10">
+        <main className="flex flex-1 items-center justify-center py-6 sm:py-10" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 1.5rem))" }}>
           <div className="w-full max-w-sm">{children}</div>
         </main>
-
-        <footer
-          className="mx-auto flex max-w-sm items-start justify-center gap-2 pt-4 pb-2 text-center text-xs leading-relaxed text-muted-foreground"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))" }}
-        >
-          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
-          <span className="text-start sm:text-center">{dict.auth.privacyNote}</span>
-        </footer>
       </div>
 
       <aside className="on-onyx relative hidden overflow-hidden bg-onyx lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
