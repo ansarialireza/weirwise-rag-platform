@@ -38,7 +38,11 @@
     "freePlan": "Free plan",
     "starterPlan": "Team Starter plan",
     "proPlan": "Pro plan",
-    "businessPlan": "Business plan"
+    "businessPlan": "Business plan",
+    "sources": "Sources",
+    "source": "Source",
+    "copyText": "Copy text",
+    "copied": "Copied"
   },
   "auth": {
     "signInTitle": "Sign In",

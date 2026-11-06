@@ -119,6 +119,20 @@ def _session_token(request: Request, body_token: str | None = None) -> str | Non
     return body_token or request.headers.get("X-Session-Token")
 
 
+def _published_behaviour(assistant: Assistant) -> tuple[str, bool]:
+    """The engine mode and source-display flag as they were when the assistant shipped.
+
+    Falls back to the live columns for assistants published before either existed, so
+    an already-live widget keeps answering instead of failing on a missing key.
+    """
+    snapshot = assistant.published_snapshot or {}
+    engine_mode = snapshot.get("engine_mode") or assistant.engine_mode or "ai_answer"
+    show_sources = snapshot.get("show_sources")
+    if show_sources is None:
+        show_sources = bool(assistant.show_sources)
+    return engine_mode, bool(show_sources)
+
+
 def _credential_is_expired(credential: ApiCredential) -> bool:
     if not credential.expires_at:
         return False
@@ -234,12 +248,15 @@ async def get_public_runtime_config(
         )
 
     theme = deployment.theme_config if deployment else {}
+    engine_mode, show_sources = _published_behaviour(assistant)
 
     return PublicRuntimeConfigResponse(
         assistant_id=assistant.id,
         name=assistant.name,
         language=assistant.language or "en",
         tone=assistant.tone or "professional",
+        engine_mode=engine_mode,
+        show_sources=show_sources,
         welcome_message=theme.get("welcome_message", "Hello! How can I assist you with our services today?"),
         placeholder_text=theme.get("placeholder_text", "Ask us a question..."),
         primary_color=theme.get("primary_color", "#3FD0DA"),
@@ -373,8 +390,18 @@ async def public_chat(
     citations = citations[: assistant.top_k]
 
     # 4. Formulate Grounded Answer or Fallback
+    engine_mode, show_sources = _published_behaviour(assistant)
+    # Only a Search Assistant whose publisher enabled sources ever lets original text
+    # cross the wire. Hiding it in the interface would leave the passages one
+    # devtools panel away, so the server decides, and every channel obeys.
+    sources_visible = engine_mode == "search_only" and show_sources
     is_grounded = bool(citations)
-    if is_grounded:
+    if is_grounded and engine_mode == "search_only":
+        # A published Search Assistant hands back the passages it found and never
+        # spends provider budget writing prose over them; the retrieval already is
+        # the answer. What readers may open is decided by show_sources below.
+        assistant_reply = f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
+    elif is_grounded:
         answer = await llm_service.generate_grounded_answer(
             db=db,
             assistant=assistant,
@@ -424,7 +451,7 @@ async def public_chat(
         message_id=assistant_msg.id,
         role="assistant",
         content=assistant_reply,
-        sources=citations,
+        sources=citations if sources_visible else [],
         latency_ms=latency_ms,
         is_grounded=is_grounded,
         suggest_escalation=suggest_escalation,

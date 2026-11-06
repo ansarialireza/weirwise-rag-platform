@@ -43,6 +43,10 @@ export interface TranslationDictionary {
     starterPlan: string;
     proPlan: string;
     businessPlan: string;
+    sources: string;
+    source: string;
+    copyText: string;
+    copied: string;
   };
   auth: {
     signInTitle: string;

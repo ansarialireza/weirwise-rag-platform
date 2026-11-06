@@ -36,6 +36,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
+import { SourcesToggle } from "@/components/assistant/sources-toggle";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate } from "@/lib/i18n/format";
@@ -43,7 +44,7 @@ import { formatDate } from "@/lib/i18n/format";
 export default function AssistantConfigurePage() {
   const params = useParams();
   const assistantId = params.assistantId as string;
-  const { locale } = useI18n();
+  const { locale, dict } = useI18n();
 
   const [assistant, setAssistant] = useState<Assistant | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -56,6 +57,8 @@ export default function AssistantConfigurePage() {
   const [instructions, setInstructions] = useState("");
   const [model, setModel] = useState("Auto");
   const [engineMode, setEngineMode] = useState<"search_only" | "ai_answer">("ai_answer");
+  // Only a Search Assistant can show sources, so this is invisible the rest of the time.
+  const [showSources, setShowSources] = useState(true);
   const [temperature, setTemperature] = useState(0.2);
   const [scoreThreshold, setScoreThreshold] = useState(0.7);
   const [topK, setTopK] = useState(4);
@@ -93,6 +96,7 @@ export default function AssistantConfigurePage() {
         setInstructions(a.system_instructions || "");
         setModel(a.model);
         setEngineMode((a.engine_mode as "search_only" | "ai_answer") || "ai_answer");
+        setShowSources(a.show_sources !== false);
         setTemperature(a.temperature);
         setScoreThreshold(a.score_threshold);
         setTopK(a.top_k || 4);
@@ -154,6 +158,7 @@ export default function AssistantConfigurePage() {
         system_instructions: instructions.trim(),
         model,
         engine_mode: engineMode,
+        show_sources: showSources,
         temperature,
         score_threshold: scoreThreshold,
         top_k: topK,
@@ -178,6 +183,7 @@ export default function AssistantConfigurePage() {
         system_instructions: instructions.trim(),
         model,
         engine_mode: engineMode,
+        show_sources: showSources,
         temperature,
         score_threshold: scoreThreshold,
         top_k: topK,
@@ -405,7 +411,7 @@ export default function AssistantConfigurePage() {
                     {
                       value: "ai_answer" as const,
                       title: "AI answers",
-                      description: "A written answer with its sources attached.",
+                      description: "A written answer, in the assistant's own words.",
                       icon: Sparkles,
                     },
                     {
@@ -446,6 +452,21 @@ export default function AssistantConfigurePage() {
                     );
                   })}
                 </div>
+
+                {engineMode === "search_only" && (
+                  // Passages are the whole answer here, so this is where showing
+                  // them is decided. An AI Assistant never renders this row at all.
+                  <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5">
+                    <span className="text-[11px] leading-relaxed text-muted-foreground">
+                      Readers can open the matching passages.
+                    </span>
+                    <SourcesToggle
+                      enabled={showSources}
+                      onChange={setShowSources}
+                      label={dict.common.sources}
+                    />
+                  </div>
+                )}
               </fieldset>
 
               {engineMode === "ai_answer" && (

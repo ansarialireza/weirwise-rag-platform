@@ -158,6 +158,7 @@ async def create_assistant(
         system_instructions=payload.system_instructions,
         model=payload.model,
         engine_mode=payload.engine_mode,
+        show_sources=payload.show_sources,
         temperature=payload.temperature,
         max_tokens=payload.max_tokens,
         score_threshold=payload.score_threshold,
@@ -362,6 +363,12 @@ async def publish_assistant(
         "model": assistant.model,
         "temperature": assistant.temperature,
         "system_instructions": assistant.system_instructions,
+        # What readers see is frozen here, so an edit made after publishing cannot
+        # silently change a live widget: the mode decides whether an answer is
+        # retrieved passages or generated prose, the flag decides if sources may be
+        # inspected at all.
+        "engine_mode": assistant.engine_mode,
+        "show_sources": assistant.show_sources,
         "language": assistant.language,
         "tone": assistant.tone,
         "fallback_message": assistant.fallback_message,
@@ -671,10 +678,12 @@ async def studio_playground_chat(
     # Handle Mode 1: Semantic Search (Retrieval Only - bypass LLM)
     if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
         latency_ms = int((time.perf_counter() - start_time) * 1000)
+        # This sentence is shown to readers when they have sources switched off, so it
+        # says what happened in plain words instead of naming the mode.
         search_summary = (
-            f"Semantic Search Mode: Retrieved {len(citations)} relevant document passages matching your query."
+            f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
             if citations
-            else "Semantic Search Mode: No matching document passages found above threshold."
+            else "Nothing here matches yet. Try different words."
         )
 
         assistant_msg = Message(
@@ -694,7 +703,7 @@ async def studio_playground_chat(
             conversation_id=conv.id,
             role="assistant",
             content=assistant_msg.content,
-            citations=citations,
+            sources=citations,
             latency_ms=latency_ms,
             is_grounded=assistant_msg.is_grounded,
         )
@@ -789,9 +798,9 @@ async def studio_playground_chat_stream(
         if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
             latency_ms = int((time.perf_counter() - start_time) * 1000)
             summary = (
-                f"Semantic Search Mode: Retrieved {len(citations)} relevant document passages matching your query."
+                f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
                 if citations
-                else "Semantic Search Mode: No matching document passages found above threshold."
+                else "Nothing here matches yet. Try different words."
             )
             assistant_msg = Message(
                 conversation_id=conv.id,

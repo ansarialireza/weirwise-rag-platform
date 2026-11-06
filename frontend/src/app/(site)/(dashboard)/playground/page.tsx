@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Assistant, ChatMessage, CitationItem, KnowledgeSource } from "@/types";
+import { Assistant, ChatMessage, KnowledgeSource } from "@/types";
 import {
   AlertCircle,
   ArrowUp,
@@ -27,6 +27,10 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SourceReferences } from "@/components/assistant/source-references";
+import { SourcesToggle } from "@/components/assistant/sources-toggle";
+import { readSourcePreference, writeSourcePreference } from "@/lib/source-preference";
+import { useI18n } from "@/lib/i18n/context";
 import { useVoiceConversation } from "@/lib/use-voice-conversation";
 import { cn } from "@/lib/utils";
 
@@ -44,43 +48,10 @@ function VoiceBars({ className }: { className?: string }) {
   );
 }
 
-function SourceQuote({
-  source,
-  index,
-  onCopy,
-  copied,
-}: {
-  source: CitationItem;
-  index: number;
-  onCopy: () => void;
-  copied: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-border/70 bg-background px-3 py-2.5">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-foreground">
-          <FileText className="h-3 w-3 shrink-0 text-accent" />
-          <span className="truncate">{source.document_name || `Source ${index + 1}`}</span>
-        </span>
-        <button
-          type="button"
-          onClick={onCopy}
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Copy quote"
-        >
-          {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
-        </button>
-      </div>
-      <p className="line-clamp-4 whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
-        {source.content}
-      </p>
-    </div>
-  );
-}
-
 function PlaygroundPage() {
   const searchParams = useSearchParams();
   const preselectedAssistantId = searchParams.get("assistantId");
+  const { dict } = useI18n();
 
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
@@ -96,6 +67,9 @@ function PlaygroundPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const [showInspector, setShowInspector] = useState(false);
+  // Whether passages may be opened in this conversation. Search assistants only, and
+  // only while the assistant's own configuration allows sources at all.
+  const [sourcesOn, setSourcesOn] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const [speakReplies, setSpeakReplies] = useState(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
@@ -158,6 +132,20 @@ function PlaygroundPage() {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [messages, chatting]);
+
+  // Opening an assistant restores the choice made for it last time; an assistant that
+  // was configured without sources simply has none, and no choice is offered.
+  useEffect(() => {
+    if (!selectedAssistant) return;
+    const allowed =
+      selectedAssistant.engine_mode === "search_only" && selectedAssistant.show_sources !== false;
+    setSourcesOn(allowed && readSourcePreference(selectedAssistant.id, true));
+  }, [selectedAssistant]);
+
+  const handleToggleSources = (assistantId: string, enabled: boolean) => {
+    setSourcesOn(enabled);
+    writeSourcePreference(assistantId, enabled);
+  };
 
   const handleSelectAssistant = (assistantId: string) => {
     const found = assistants.find((assistant) => assistant.id === assistantId);
@@ -329,6 +317,11 @@ function PlaygroundPage() {
 
   const hasAssistants = assistants.length > 0;
   const isSearchMode = selectedAssistant?.engine_mode === "search_only";
+  const sourceLabels = {
+    sourceFallback: (index: number) => `${dict.common.source} ${index + 1}`,
+    copyQuote: dict.common.copyText,
+    copied: dict.common.copied,
+  };
   const attachedSources = sources.filter((source) =>
     selectedAssistant?.knowledge_source_ids?.includes(source.id)
   );
@@ -352,7 +345,7 @@ function PlaygroundPage() {
     <div className="space-y-5">
       <PageHeader
         title="Test assistant"
-        description="Ask the same questions your customers will — and see the answer and its source."
+        description="Ask the same questions your customers will."
         actions={
           hasAssistants ? (
             <>
@@ -417,12 +410,19 @@ function PlaygroundPage() {
                     {selectedAssistant?.name}
                   </div>
                   <div className="text-[11px] text-muted-foreground">
-                    {isSearchMode ? "Shows matching passages" : "Writes answers with sources"}
+                    {isSearchMode ? "Finds matching passages" : "Writes answers"}
                   </div>
                 </div>
               </div>
 
               <div className="flex shrink-0 items-center gap-1.5">
+                {isSearchMode && selectedAssistant.show_sources !== false && (
+                  <SourcesToggle
+                    enabled={sourcesOn}
+                    onChange={(enabled) => handleToggleSources(selectedAssistant.id, enabled)}
+                    label={dict.common.sources}
+                  />
+                )}
                 {voiceAvailable && !isSearchMode && (
                   <button
                     type="button"
@@ -481,7 +481,7 @@ function PlaygroundPage() {
                   <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
                     {isSearchMode
                       ? "You'll see the exact passages that match your question."
-                      : "Answers come only from your knowledge, with the source beside them."}
+                      : "Answers come only from your knowledge."}
                   </p>
 
                   {attachedSources.length > 0 ? (
@@ -522,65 +522,30 @@ function PlaygroundPage() {
                           {message.content}
                         </div>
                       ) : isSearchMode ? (
-                        <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background p-4">
-                          <div className="mb-3 flex items-center justify-between gap-3 border-b border-border/60 pb-2.5">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
-                              <Search className="h-3.5 w-3.5 text-accent" />
-                              Matching passages
-                            </span>
-                            <span className="text-[11px] tabular-nums text-muted-foreground">
-                              {messageSources.length} found
-                            </span>
+                        // Sources on: the passages, one line of origin each, original text
+                        // only for the one you open. Sources off: the assistant's own
+                        // sentence about what it found. Either way the answer is visible.
+                        sourcesOn && messageSources.length > 0 ? (
+                          <SourceReferences
+                            sources={messageSources}
+                            labels={sourceLabels}
+                            showScore
+                            className="w-full max-w-2xl rounded-2xl rounded-es-md shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background px-4 py-3.5 text-sm leading-relaxed text-foreground">
+                            {message.content}
                           </div>
-                          {messageSources.length > 0 ? (
-                            <div className="space-y-2">
-                              {messageSources.map((source, index) => (
-                                <SourceQuote
-                                  key={`${message.id}-${index}`}
-                                  source={source}
-                                  index={index}
-                                  copied={copiedKey === `${message.id}-${index}`}
-                                  onCopy={() => handleCopy(source.content, `${message.id}-${index}`)}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="py-4 text-center text-[13px] text-muted-foreground">
-                              No passages matched. Try different words or add more knowledge.
-                            </p>
-                          )}
-                        </div>
+                        )
                       ) : (
                         <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background">
                           <div className="whitespace-pre-wrap px-4 py-3.5 text-sm leading-relaxed text-foreground">
                             {message.content}
                           </div>
 
-                          {messageSources.length > 0 && (
-                            <div className="border-t border-border/60 px-4 py-3">
-                              <details className="group">
-                                <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-medium text-muted-foreground">
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <FileText className="h-3.5 w-3.5 text-accent" />
-                                    {messageSources.length} source
-                                    {messageSources.length === 1 ? "" : "s"}
-                                  </span>
-                                  <span className="transition-transform group-open:rotate-180">▾</span>
-                                </summary>
-                                <div className="mt-2 space-y-2">
-                                  {messageSources.map((source, index) => (
-                                    <SourceQuote
-                                      key={`${message.id}-${index}`}
-                                      source={source}
-                                      index={index}
-                                      copied={copiedKey === `${message.id}-${index}`}
-                                      onCopy={() => handleCopy(source.content, `${message.id}-${index}`)}
-                                    />
-                                  ))}
-                                </div>
-                              </details>
-                            </div>
-                          )}
+                          {/* An AI Assistant answers in prose and shows nothing else: no
+                              citations, no source controls, no toggle. Its evidence stays
+                              internal — only the assistant's own words are on screen. */}
 
                           <div className="flex items-center justify-end gap-1 border-t border-border/60 px-3 py-1.5">
                             {voiceAvailable && (
@@ -781,8 +746,11 @@ function PlaygroundPage() {
                 <span className="hidden sm:inline">Enter to send · Shift+Enter for a new line</span>
                 <span className="sm:hidden">Tap the arrow to send</span>
                 {attachedSources.length > 0 && (
+                  // "Collection" is the word the Knowledge page already uses for
+                  // what the assistant draws on, so "source" stays free to mean the
+                  // passages a reader can open — one noun, one meaning.
                   <span className="tabular-nums">
-                    {attachedSources.length} source{attachedSources.length === 1 ? "" : "s"} connected
+                    {attachedSources.length} collection{attachedSources.length === 1 ? "" : "s"} attached
                   </span>
                 )}
               </div>

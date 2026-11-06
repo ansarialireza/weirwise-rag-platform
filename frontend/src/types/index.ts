@@ -74,6 +74,8 @@ export interface Assistant {
   system_instructions?: string;
   model: string;
   engine_mode?: EngineMode;
+  /** Only a Search Assistant can show sources; the flag is meaningless for AI answers. */
+  show_sources?: boolean;
   temperature: number;
   max_tokens: number;
   score_threshold: number;
@@ -126,6 +128,8 @@ export interface PublicAssistantConfig {
   name: string;
   language: string;
   tone: string;
+  engine_mode?: EngineMode;
+  show_sources?: boolean;
   welcome_message: string;
   placeholder_text: string;
   primary_color: string;

@@ -38,7 +38,11 @@
     "freePlan": "طرح رایگان",
     "starterPlan": "طرح تیمی شروع",
     "proPlan": "طرح حرفه‌ای",
-    "businessPlan": "طرح کسب‌وکار"
+    "businessPlan": "طرح کسب‌وکار",
+    "sources": "منابع",
+    "source": "منبع",
+    "copyText": "کپی متن",
+    "copied": "کپی شد"
   },
   "auth": {
     "signInTitle": "ورود به حساب",

@@ -287,7 +287,7 @@ export default function AssistantsListPage() {
                 {
                   value: "ai_answer" as const,
                   title: "AI answers",
-                  description: "Writes a clear answer and cites its source.",
+                  description: "A written answer, in the assistant's own words.",
                   icon: Sparkles,
                 },
                 {

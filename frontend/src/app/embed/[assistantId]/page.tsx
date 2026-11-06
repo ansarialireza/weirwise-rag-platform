@@ -2,22 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Send, Bot, User, AlertCircle, FileText } from "lucide-react";
+import { Send, Bot, User, AlertCircle } from "lucide-react";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
+import { SourceReferences } from "@/components/assistant/source-references";
+import { SourcesToggle } from "@/components/assistant/sources-toggle";
+import { readSourcePreference, writeSourcePreference } from "@/lib/source-preference";
 import { friendlyErrorMessage } from "@/lib/errors";
+import type { CitationItem } from "@/types";
 
 interface WidgetConfig {
   name?: string;
   welcome_message?: string;
   placeholder_text?: string;
   primary_color?: string;
+  engine_mode?: string;
+  show_sources?: boolean;
 }
 
-interface Citation {
-  document_name?: string;
-  title?: string;
-  content: string;
-}
+/* This surface answers in English like the rest of the widget; its greeting, placeholder
+   and errors are already server- or literal-provided, not dictionary keys. */
+const sourceLabels = {
+  sourceFallback: (index: number) => `Source ${index + 1}`,
+  copyQuote: "Copy text",
+  copied: "Copied",
+};
 
 export default function AssistantWidgetPage() {
   const params = useParams();
@@ -26,9 +34,12 @@ export default function AssistantWidgetPage() {
   const widgetKey = searchParams.get("key") || undefined;
 
   const [config, setConfig] = useState<WidgetConfig>({});
-  const [messages, setMessages] = useState<Array<{ role: string; content: string; citations?: Citation[] }>>([]);
+  const [messages, setMessages] = useState<Array<{ role: string; content: string; citations?: CitationItem[] }>>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  // A published reader's own choice, remembered on their device per assistant. It can
+  // silence sources; it can never reveal what the publisher did not enable.
+  const [sourcesOn, setSourcesOn] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +66,8 @@ export default function AssistantWidgetPage() {
       .then((data) => {
         setConfig(data);
         document.title = data.name ? `${data.name} · Weirwise` : "Weirwise Assistant";
+        const publisherAllows = data.engine_mode === "search_only" && data.show_sources !== false;
+        setSourcesOn(publisherAllows && readSourcePreference(assistantId, true));
         setMessages([
           {
             role: "assistant",
@@ -153,6 +166,19 @@ export default function AssistantWidgetPage() {
             </div>
           </div>
         </div>
+
+        {/* Only a published Search Assistant that ships with sources gets this control;
+            every other assistant never learns the word exists. */}
+        {config.engine_mode === "search_only" && config.show_sources !== false && (
+          <SourcesToggle
+            enabled={sourcesOn}
+            onChange={(enabled) => {
+              setSourcesOn(enabled);
+              writeSourcePreference(assistantId, enabled);
+            }}
+            label="Sources"
+          />
+        )}
       </div>
 
       <div
@@ -183,25 +209,8 @@ export default function AssistantWidgetPage() {
             >
               <div className="whitespace-pre-wrap">{m.content}</div>
 
-              {m.citations && m.citations.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-border/50 space-y-1.5">
-                  <div className="flex items-center gap-1 text-[10px] font-semibold text-accent-strong">
-                    <FileText className="h-3 w-3" /> Sources
-                  </div>
-                  {m.citations.map((c, cIdx) => (
-                    <div
-                      key={cIdx}
-                      className="rounded-lg bg-secondary/50 p-1.5 text-[10px] text-muted-foreground"
-                    >
-                      {c.document_name || c.title ? (
-                        <div className="font-semibold text-foreground truncate mb-0.5">
-                          {c.document_name || c.title}
-                        </div>
-                      ) : null}
-                      <div className="line-clamp-2">{c.content}</div>
-                    </div>
-                  ))}
-                </div>
+              {sourcesOn && m.citations && m.citations.length > 0 && (
+                <SourceReferences sources={m.citations} labels={sourceLabels} className="mt-2.5" />
               )}
             </div>
             {m.role === "user" && (
