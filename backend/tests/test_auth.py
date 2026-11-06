@@ -166,12 +166,12 @@ def test_auth_validation_edge_cases():
     )
     assert r_short_pass.status_code == 422
 
-    # 3. Missing full_name
+    # 3. Optional full_name defaults to capitalized username when omitted
     r_missing_name = client.post(
         "/api/v1/auth/register",
         json={"email": "missingname@example.com", "password": "Password123!"},
     )
-    assert r_missing_name.status_code == 422
+    assert r_missing_name.status_code == 201
 
     # 4. Invalid login credentials
     r_bad_login = client.post(
