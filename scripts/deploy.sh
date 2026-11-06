@@ -127,11 +127,11 @@ fi
 echo "[Step 2/6] Building Docker container images..."
 echo "Pruning dangling docker images to prevent disk space exhaustion..."
 docker image prune -f || true
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" build
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" build
 
 # 8. Start Database, Redis, and Core-DB
 echo "[Step 3/6] Starting persistence services (${ENV_TYPE}-db, ${ENV_TYPE}-redis, ${ENV_TYPE}-core-db)..."
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d "${ENV_TYPE}-db" "${ENV_TYPE}-redis" "${ENV_TYPE}-core-db"
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" up -d "${ENV_TYPE}-db" "${ENV_TYPE}-redis" "${ENV_TYPE}-core-db"
 
 echo "Waiting for persistence services to report healthy..."
 for i in {1..30}; do
@@ -153,16 +153,16 @@ docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 
 # 9. Execute Database Schema Migrations
 echo "[Step 4/6] Running schema migrations..."
 echo "Applying Platform backend migrations..."
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-backend" alembic -c /app/backend/alembic.ini upgrade head
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-backend" alembic -c /app/backend/alembic.ini upgrade head
 
 echo "Applying Core database migrations..."
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" alembic -c /app/server/alembic.ini upgrade head || true
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" alembic -c /app/server/alembic.ini upgrade head || true
 
 # 10. Seed/Register Core API Key for Platform
 echo "[Step 5/6] Registering Platform Core API key in Core DB..."
 CORE_API_KEY=$(grep '^WEIRWISE_CORE_API_KEY=' "${ENV_FILE}" | cut -d '=' -f2- | tr -d '"\r\n' || true)
 if [ -n "$CORE_API_KEY" ]; then
-    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" \
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" run --rm "${ENV_TYPE}-core" \
         python -m server.app.cli admin create-tenant \
         --name "Weirwise-${ENV_TYPE}" \
         --key-name "platform-${ENV_TYPE}" \
@@ -178,11 +178,11 @@ docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 
 
 # Start application containers and worker if defined in the compose file
 EXTRA_SERVICES=()
-if docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" config --services | grep -q "^${ENV_TYPE}-wbi-worker$"; then
+if docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" config --services | grep -q "^${ENV_TYPE}-wbi-worker$"; then
     EXTRA_SERVICES+=("${ENV_TYPE}-wbi-worker")
 fi
 
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend" "${EXTRA_SERVICES[@]}"
+docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend" "${EXTRA_SERVICES[@]}"
 
 # 12. Health Checks and Verification
 echo "Running post-deployment health verification..."
@@ -234,8 +234,8 @@ else
     echo "=================================================="
     echo "ERROR: Health checks FAILED after deployment!"
     echo "Collecting service diagnostic logs..."
-    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-backend"
-    docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-core"
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-backend"
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" logs --tail 30 "${ENV_TYPE}-core"
     echo "Triggering automated rollback..."
     echo "=================================================="
     
