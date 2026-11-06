@@ -92,13 +92,11 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           <PreferenceControls />
 
           <div className="hidden items-center gap-2 md:flex">
-            <InstallAppButton variant="pill" className="ms-1 border border-border" />
-
             {mounted && !authLoading ? (
               isAuthenticated ? (
                 <Link
                   href="/overview"
-                  className="ms-2 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  className="ms-2 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   {dict.common.openWorkspace}
                 </Link>
@@ -106,20 +104,20 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 <>
                   <Link
                     href="/login"
-                    className="ms-2 inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="ms-1 inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {dict.common.signIn}
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                   >
                     {dict.landing.primaryCta}
                   </Link>
                 </>
               )
             ) : (
-              <span className="ms-2 h-10 w-28 animate-pulse rounded-lg bg-muted" />
+              <span className="ms-2 h-9 w-24 animate-pulse rounded-lg bg-muted" />
             )}
           </div>
 
