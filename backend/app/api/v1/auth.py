@@ -73,13 +73,15 @@ async def register(
             )
         # If unverified account exists, re-issue OTP and update password/name
         existing_user.hashed_password = hash_password(payload.password)
-        existing_user.full_name = payload.full_name
+        if payload.full_name:
+            existing_user.full_name = payload.full_name
         user = existing_user
     else:
+        resolved_name = (payload.full_name or "").strip() or payload.email.split("@")[0].capitalize()
         user = User(
             email=payload.email.lower(),
             hashed_password=hash_password(payload.password),
-            full_name=payload.full_name,
+            full_name=resolved_name,
             is_active=True,
             is_verified=False,
         )

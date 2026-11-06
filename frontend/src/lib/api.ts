@@ -227,7 +227,7 @@ class ApiClient {
   }
 
   // Auth Endpoints
-  async register(data: { email: string; password: string; full_name: string }): Promise<{ message: string; verification_otp?: string }> {
+  async register(data: { email: string; password: string; full_name?: string }): Promise<{ message: string; verification_otp?: string }> {
     return this.request<{ message: string; verification_otp?: string }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),

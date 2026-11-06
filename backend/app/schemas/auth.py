@@ -36,7 +36,7 @@ PasswordStr = Annotated[str, Field(min_length=12, max_length=128), AfterValidato
 class UserRegisterRequest(BaseModel):
     email: EmailStrType
     password: PasswordStr
-    full_name: str = Field(..., min_length=2, max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
 
 
 class UserLoginRequest(BaseModel):

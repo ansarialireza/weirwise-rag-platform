@@ -26,8 +26,8 @@ function AuthShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-background font-sans text-foreground">
-      <div className="flex w-full flex-col px-5 py-6 sm:px-8 lg:w-[54%] lg:px-12 lg:py-8">
-        <div className="flex items-center justify-between">
+      <div className="flex w-full min-h-screen flex-col justify-between px-5 py-4 sm:px-8 sm:py-6 lg:w-[54%] lg:px-12 lg:py-8">
+        <header className="sticky top-0 z-40 -mx-5 -mt-4 mb-2 flex items-center justify-between border-b border-border/40 bg-background/90 px-5 py-4 backdrop-blur-md sm:-mx-8 sm:-mt-6 sm:px-8 lg:-mx-12 lg:-mt-8 lg:px-12">
           <Link
             href="/"
             className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -38,16 +38,19 @@ function AuthShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <PreferenceControls />
-        </div>
+        </header>
 
-        <div className="flex flex-1 items-center justify-center py-10">
+        <main className="flex flex-1 items-center justify-center py-6 sm:py-10">
           <div className="w-full max-w-sm">{children}</div>
-        </div>
+        </main>
 
-        <p className="mx-auto flex max-w-sm items-center justify-center gap-1.5 text-center text-xs leading-relaxed text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
-          {dict.auth.privacyNote}
-        </p>
+        <footer
+          className="mx-auto flex max-w-sm items-start justify-center gap-2 pt-4 pb-2 text-center text-xs leading-relaxed text-muted-foreground"
+          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))" }}
+        >
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+          <span className="text-start sm:text-center">{dict.auth.privacyNote}</span>
+        </footer>
       </div>
 
       <aside className="on-onyx relative hidden overflow-hidden bg-onyx lg:flex lg:w-[46%] lg:flex-col lg:justify-between lg:p-12 xl:p-16">
