@@ -18,7 +18,17 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
     if (!isOpen) return;
     const previous = document.activeElement as HTMLElement | null;
     document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
+
+    // Focus first autofocus or focusable element, or the modal container if none found
+    const timer = setTimeout(() => {
+      if (!panelRef.current) return;
+      const autoFocusEl = panelRef.current.querySelector<HTMLElement>('[autofocus], [data-autofocus]');
+      if (autoFocusEl) {
+        autoFocusEl.focus();
+      } else {
+        panelRef.current.focus();
+      }
+    }, 50);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -41,6 +51,7 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      clearTimeout(timer);
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
       previous?.focus();
