@@ -176,7 +176,13 @@ echo "[Step 6/6] Launching application services (${ENV_TYPE}-core, ${ENV_TYPE}-b
 mkdir -p /mnt/gdrive/weirwise/storage/documents 2>/dev/null || true
 docker run --rm -v "weirwise_${ENV_TYPE}_core_storage:/storage" alpine chown -R 10001:10001 /storage 2>/dev/null || true
 
-docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend"
+# Start application containers and worker if defined in the compose file
+EXTRA_SERVICES=()
+if docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" config --services | grep -q "^${ENV_TYPE}-wbi-worker$"; then
+    EXTRA_SERVICES+=("${ENV_TYPE}-wbi-worker")
+fi
+
+docker compose -f "${COMPOSE_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend" "${EXTRA_SERVICES[@]}"
 
 # 12. Health Checks and Verification
 echo "Running post-deployment health verification..."

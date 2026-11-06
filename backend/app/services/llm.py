@@ -138,8 +138,19 @@ def _model_for(provider_name: str, requested_model: str) -> str:
     aliases = {"auto", "fast", "deep thinking", "deep", "reasoning"}
     if requested_model and requested_model.strip().lower() not in aliases:
         # Concrete model names are passed through for providers that accept them directly.
-        if provider_name in ("openai", "openrouter", "gemini"):
-            return requested_model.strip()
+        req = requested_model.strip()
+        if provider_name in ("openai", "gemini"):
+            return req
+        if provider_name == "openrouter":
+            # If requested model is already namespaced (e.g. openai/gpt-4o-mini), pass it through.
+            # If it's an unqualified model name (e.g. gpt-4o-mini), prefix with openai/
+            if "/" in req:
+                return req
+            if req.startswith("gpt-") or req.startswith("text-"):
+                return f"openai/{req}"
+            if req.startswith("claude-"):
+                return f"anthropic/{req}"
+            return req
     return _PROVIDER_MODELS.get(provider_name, {}).get(tier, "gpt-4o-mini")
 
 
