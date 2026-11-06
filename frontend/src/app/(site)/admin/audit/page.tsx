@@ -275,7 +275,7 @@ export default function AdminAuditPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Permanent, tamper-evident audit log stream tracking administrative security, identity mutations, and system operations.
+            Every administrative and security action.
           </p>
         </div>
 
@@ -420,12 +420,12 @@ export default function AdminAuditPage() {
       {/* Main Professional Audit Table Container */}
       <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
         {/* Table Column Header */}
-        <div className="bg-muted/50 px-4 py-2.5 border-b border-border/70 hidden md:grid grid-cols-12 gap-3 text-[11px] font-semibold text-muted-foreground uppercase font-mono tracking-wider">
-          <div className="col-span-3">Event & Action</div>
-          <div className="col-span-3">Summary / Details</div>
-          <div className="col-span-2">Actor (Admin)</div>
-          <div className="col-span-2">Resource Entity</div>
-          <div className="col-span-2 text-right">Timestamp & Action</div>
+        <div className="bg-muted/50 px-4 py-2.5 border-b border-border/70 hidden md:grid grid-cols-12 gap-3 text-[11px] font-semibold text-muted-foreground">
+          <div className="col-span-3">Event</div>
+          <div className="col-span-3">Details</div>
+          <div className="col-span-2">Actor</div>
+          <div className="col-span-2">Resource</div>
+          <div className="col-span-2 text-right">When</div>
         </div>
 
         {/* Table body: fixed-height scroll region so loading rows and data rows
@@ -607,7 +607,7 @@ export default function AdminAuditPage() {
         {/* Bottom Pagination Bar */}
         <div className="bg-muted/30 px-4 py-2.5 border-t border-border/70 flex items-center justify-between text-xs text-muted-foreground">
           <span className="text-[11px]">
-            Showing {processedLogs.length} of {logs.length} retrieved events on page {page}
+            {processedLogs.length} of {logs.length}
           </span>
           <div className="flex items-center gap-2">
             <Button

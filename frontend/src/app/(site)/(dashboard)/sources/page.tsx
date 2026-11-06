@@ -776,7 +776,7 @@ export default function SourcesKnowledgePage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title="New collection"
-        description="A collection keeps related documents together — like a topic or a team."
+        description="Group documents by topic or team."
         maxWidth="lg"
       >
         <form onSubmit={handleCreateSource} className="space-y-5">

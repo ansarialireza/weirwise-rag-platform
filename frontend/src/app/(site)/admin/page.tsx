@@ -87,7 +87,7 @@ export default function AdminOverviewPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            A live view of usage, storage, and recent actions across the platform.
+            Usage, storage and activity across the platform.
           </p>
         </div>
 
@@ -123,14 +123,14 @@ export default function AdminOverviewPage() {
         {/* Total Accounts */}
         <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Platform Users</span>
+            <span>Users</span>
             <Users className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
             {loading ? "..." : totalUsers.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {loading ? "Loading..." : `${activeUsers.toLocaleString()} active accounts`}
+            {loading ? "Loading..." : `${activeUsers.toLocaleString()} active`}
           </p>
         </div>
 
@@ -151,28 +151,25 @@ export default function AdminOverviewPage() {
         {/* Storage Used */}
         <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Storage Used</span>
+            <span>Storage</span>
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
             {loading ? "..." : formatBytes(storageBytes)}
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Files and their contents
-          </p>
         </div>
 
         {/* Inference Queries Served */}
         <div className="rounded-md border border-border/70 bg-card p-4 shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
-            <span>Queries Answered</span>
+            <span>Queries</span>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2 text-2xl font-semibold tracking-tight font-mono text-foreground">
             {loading ? "..." : totalQueries.toLocaleString()}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground font-mono">
-            {totalTokens.toLocaleString()} tokens used
+            {totalTokens.toLocaleString()} tokens
           </p>
         </div>
       </div>

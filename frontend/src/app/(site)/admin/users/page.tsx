@@ -191,7 +191,7 @@ export default function AdminUsersPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Browse, search and manage all platform member accounts across all workspaces.
+            Every account across every workspace.
           </p>
         </div>
 
@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {r}
+                  {r === "staff" ? "admin" : r}
                 </button>
               ))}
             </div>
@@ -382,7 +382,7 @@ export default function AdminUsersPage() {
                         )}
                         {u.is_superuser ? (
                           <span className="px-1.5 py-0.2 rounded bg-info/10 text-info border border-info/20 text-[10px] font-mono font-medium">
-                            Staff Admin
+                            Admin
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.2 rounded bg-muted text-muted-foreground border border-border/60 text-[10px] font-mono">
@@ -462,7 +462,7 @@ export default function AdminUsersPage() {
         {/* Bottom Pagination Bar */}
         <div className="bg-muted/30 px-4 py-2.5 border-t border-border/70 flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground">
-            Showing {processedUsers.length} of {users.length} retrieved records on page {page}
+            {processedUsers.length} of {users.length}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -494,7 +494,6 @@ export default function AdminUsersPage() {
           isOpen={Boolean(selectedUser)}
           onClose={() => setSelectedUser(null)}
           title="User Account Details"
-          description="Comprehensive platform identity and workspace tenancy metadata."
           maxWidth="md"
         >
           <div className="space-y-4 text-xs">
@@ -506,8 +505,11 @@ export default function AdminUsersPage() {
                 <div className="font-semibold text-sm text-foreground truncate">
                   {selectedUser.full_name || "No display name configured"}
                 </div>
-                <div className="font-mono text-muted-foreground truncate">
+                <div className="font-mono text-muted-foreground break-all sm:truncate">
                   {selectedUser.email}
+                </div>
+                <div className="mt-0.5 text-[11px] text-muted-foreground">
+                  Joined {new Date(selectedUser.created_at).toLocaleDateString()}
                 </div>
               </div>
               <span className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded-full border border-border/60 bg-card">
@@ -516,37 +518,32 @@ export default function AdminUsersPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="p-3 rounded-lg border border-border/70 bg-card">
-                <span className="text-muted-foreground text-[10px] uppercase font-mono block">Account ID</span>
-                <span className="font-mono text-[11px] text-foreground select-all break-all block mt-1">
-                  {selectedUser.id}
+                <span className="text-muted-foreground text-[10px] block">Role</span>
+                <span className="font-semibold text-foreground block mt-1">
+                  {selectedUser.is_superuser ? "Admin" : "Member"}
                 </span>
               </div>
               <div className="p-3 rounded-lg border border-border/70 bg-card">
-                <span className="text-muted-foreground text-[10px] uppercase font-mono block">Role & Permissions</span>
-                <span className="font-semibold text-foreground block mt-1">
-                  {selectedUser.is_superuser ? "Platform Super Admin" : "Standard Platform Member"}
+                <span className="text-muted-foreground text-[10px] block">Workspaces</span>
+                <span className="font-semibold text-foreground block mt-1 tabular-nums">
+                  {selectedUser.workspaces_count}
                 </span>
               </div>
               <div className="p-3 rounded-lg border border-border/70 bg-card">
-                <span className="text-muted-foreground text-[10px] uppercase font-mono block">Workspaces</span>
-                <span className="font-semibold text-foreground block mt-1">
-                  {selectedUser.workspaces_count} {selectedUser.workspaces_count === 1 ? "workspace tenancy" : "workspace tenancies"}
-                </span>
-              </div>
-              <div className="p-3 rounded-lg border border-border/70 bg-card">
-                <span className="text-muted-foreground text-[10px] uppercase font-mono block">Email Verification</span>
-                <span className="font-semibold text-foreground block mt-1">
-                  {selectedUser.is_verified ? "Verified Email Address" : "Pending Verification"}
+                <span className="text-muted-foreground text-[10px] block">Email</span>
+                <span className="mt-1 flex items-center gap-1.5 font-semibold text-foreground">
+                  <span className={`h-1.5 w-1.5 rounded-full ${selectedUser.is_verified ? "bg-success" : "bg-warning"}`} />
+                  {selectedUser.is_verified ? "Verified" : "Unverified"}
                 </span>
               </div>
             </div>
 
             <div className="p-3 rounded-lg border border-border/70 bg-card">
-              <span className="text-muted-foreground text-[10px] uppercase font-mono block">Registered Timestamp</span>
-              <span className="font-mono text-[11px] text-foreground block mt-1">
-                {new Date(selectedUser.created_at).toLocaleString()}
+              <span className="text-muted-foreground text-[10px] block">Account ID</span>
+              <span className="font-mono text-[11px] text-foreground select-all break-all block mt-1">
+                {selectedUser.id}
               </span>
             </div>
 

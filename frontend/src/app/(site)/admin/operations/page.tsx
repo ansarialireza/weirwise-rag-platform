@@ -118,7 +118,7 @@ export default function AdminOperationsPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Global provider routing strategies, automated circuit breaker thresholds, and emergency overrides.
+            Routing, circuit breakers and emergency overrides.
           </p>
         </div>
 
@@ -148,12 +148,11 @@ export default function AdminOperationsPage() {
         <div className="rounded-md border border-border/70 bg-card shadow-xs overflow-hidden">
           <div className="bg-muted/40 px-4 py-2.5 border-b border-border/70">
             <h2 className="text-xs font-semibold text-foreground">Management Mode</h2>
-            <p className="text-[11px] text-muted-foreground">Select how credential failover and recovery decisions are governed.</p>
           </div>
           <div className="p-4 grid gap-3 sm:grid-cols-2">
             {([
-              ["manual", "Manual", "Monitoring only. System operators manually review and switch credential states."],
-              ["automatic", "Automatic", "System continuously enforces failover, rate-limit cooldowns, and recovery rules."],
+              ["manual", "Manual", "You review and switch credential states yourself."],
+              ["automatic", "Automatic", "The system enforces failover, cooldowns and recovery."],
             ] as const).map(([mode, label, description]) => (
               <label
                 key={mode}
@@ -172,7 +171,7 @@ export default function AdminOperationsPage() {
                     onChange={() => setSettings((current) => ({ ...current, management_mode: mode }))}
                     className="accent-primary h-3.5 w-3.5"
                   />
-                  <span className="font-semibold text-xs text-foreground">{label} Mode</span>
+                  <span className="font-semibold text-xs text-foreground">{label}</span>
                 </div>
                 <p className="mt-1.5 pl-6 text-[11px] text-muted-foreground leading-relaxed">{description}</p>
               </label>
@@ -254,8 +253,8 @@ export default function AdminOperationsPage() {
               <h2 className="text-xs font-semibold text-foreground">Emergency Stop Override</h2>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 {settings.emergency_stop
-                  ? "ACTIVE — All external provider credential selection is immediately blocked."
-                  : "Inactive — Provider credentials resolve according to active routing policies."}
+                  ? "Active — every provider credential is blocked."
+                  : "Off — routing follows the policies above."}
               </p>
             </div>
           </div>

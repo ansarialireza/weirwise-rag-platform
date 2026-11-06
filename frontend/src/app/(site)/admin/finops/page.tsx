@@ -105,7 +105,7 @@ export default function AdminFinOpsPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Real-time telemetry of subscription revenue, underlying AI model inference expenditures, and unit economics.
+            Revenue against inference spend, live.
           </p>
         </div>
 

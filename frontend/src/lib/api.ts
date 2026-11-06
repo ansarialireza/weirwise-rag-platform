@@ -36,6 +36,7 @@ class ApiClient {
   private workspaceId: string | null = null;
   private projectId: string | null = null;
   private tenancyPromise: Promise<{ workspaceId: string; projectId: string }> | null = null;
+  private tenancyVerified = false;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -58,6 +59,7 @@ class ApiClient {
     this.workspaceId = null;
     this.projectId = null;
     this.tenancyPromise = null;
+    this.tenancyVerified = false;
     if (typeof window !== "undefined") {
       localStorage.removeItem(WORKSPACE_STORAGE_KEY);
       localStorage.removeItem(PROJECT_STORAGE_KEY);
@@ -70,13 +72,21 @@ class ApiClient {
    * discovered once per session (and created on first login).
    */
   async getTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    if (this.workspaceId && this.projectId) {
+    // The persisted pair is a preference, not a fact: it survives an account switch
+    // in the same browser, and a project belonging to the previous account 404s for
+    // everyone. It is only trusted after the server has agreed it still exists here.
+    if (this.tenancyVerified && this.workspaceId && this.projectId) {
       return { workspaceId: this.workspaceId, projectId: this.projectId };
     }
     if (!this.tenancyPromise) {
-      this.tenancyPromise = this.resolveTenancy().finally(() => {
-        this.tenancyPromise = null;
-      });
+      this.tenancyPromise = this.resolveTenancy()
+        .then((tenancy) => {
+          this.tenancyVerified = true;
+          return tenancy;
+        })
+        .finally(() => {
+          this.tenancyPromise = null;
+        });
     }
     return this.tenancyPromise;
   }

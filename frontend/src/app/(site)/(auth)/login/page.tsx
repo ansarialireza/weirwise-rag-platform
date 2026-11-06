@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ApiError, api } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { Input } from "@/components/ui/input";
@@ -29,24 +29,11 @@ export default function LoginPage() {
       const user = await api.getMe();
       login(res.access_token, user);
 
-      if (user.is_superuser) {
-        router.push("/admin");
-        return;
-      }
-
-      try {
-        const adminAccess = await api.getAdminAccess();
-        if (adminAccess.is_admin) {
-          router.push("/admin");
-          return;
-        }
-      } catch (accessError) {
-        if (!(accessError instanceof ApiError) || accessError.status !== 403) {
-          throw accessError;
-        }
-      }
-
-      router.push("/overview");
+      // `is_superuser` is the same signal the sidebar uses to offer the Admin
+      // section. Probing the admin-guarded /admin/access instead would answer every
+      // ordinary login with a 403, because that endpoint is a gate rather than a
+      // lookup, and no path in the product can grant the role it reports.
+      router.push(user.is_superuser ? "/admin" : "/overview");
     } catch (err: any) {
       if (err.status === 403 && err.message?.toLowerCase().includes("not verified")) {
         setError(dict.auth.accountNotVerified);

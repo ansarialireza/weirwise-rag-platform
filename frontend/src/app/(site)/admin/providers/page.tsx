@@ -462,7 +462,7 @@ export default function AdminProvidersPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Store, validate, and manage encrypted provider API keys with automated health checking and failover priority.
+            Encrypted keys, health checks and failover for every provider.
           </p>
         </div>
 
@@ -514,15 +514,20 @@ export default function AdminProvidersPage() {
               <RouteIcon className="h-3.5 w-3.5 text-muted-foreground" />
               Routing policy
             </span>
-            <span>
+            <span className="flex items-center gap-1.5">
               Mode:{" "}
-              <strong className="text-foreground uppercase font-mono">
+              <strong className="text-foreground">
                 {controlSettings?.management_mode ?? "unknown"}
               </strong>
             </span>
-            <span>
+            <span className="flex items-center gap-1.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  controlSettings?.automatic_failover ? "bg-success" : "bg-muted-foreground/40"
+                }`}
+              />
               Auto failover:{" "}
-              <strong className="text-foreground font-mono">
+              <strong className="text-foreground">
                 {controlSettings ? (controlSettings.automatic_failover ? "on" : "off") : "unknown"}
               </strong>
             </span>
