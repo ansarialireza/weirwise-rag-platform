@@ -381,7 +381,8 @@ def test_dashboard_requires_auth_and_upload_rejects_unknown_source():
     headers = _register_and_login("upload_guard")
     _, _, _ = _create_tenant(headers, "UploadGuard")
 
-    anonymous = client.get("/api/v1/workspaces")
+    anon_client = TestClient(app)
+    anonymous = anon_client.get("/api/v1/workspaces")
     assert anonymous.status_code == 401
 
     upload = client.post(
