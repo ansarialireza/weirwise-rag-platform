@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { useI18n } from "@/lib/i18n/context";
 import { ArrowRight, Check, FileText, Globe2, Info, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -180,13 +181,7 @@ export default function PricingPage() {
         </section>
       </main>
 
-      {/* The sticky header already carries the mark, the navigation and Sign in,
-          so the footer states the copyright and nothing else. */}
-      <footer className="border-t border-border/60">
-        <div className="mx-auto w-full max-w-wide px-4 py-6 text-[11px] text-muted-foreground sm:px-6 lg:px-10">
-          {dict.landing.copyright}
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

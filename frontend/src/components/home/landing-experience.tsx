@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { LivingFlow } from "@/components/brand/living-flow";
 import { FlowConsole, type FlowScenario } from "@/components/home/flow-console";
 import { KnowledgePipeline, type PipelineNode } from "@/components/home/knowledge-pipeline";
@@ -217,13 +218,7 @@ export function LandingExperience() {
         </section>
       </main>
 
-      {/* The header is sticky and already carries the navigation, so the footer
-          adds no links, no tagline and no second logo. */}
-      <footer className="border-t border-border/60">
-        <div className="mx-auto w-full max-w-wide px-4 py-6 text-[11px] text-muted-foreground sm:px-6 lg:px-10">
-          {dict.landing.copyright}
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

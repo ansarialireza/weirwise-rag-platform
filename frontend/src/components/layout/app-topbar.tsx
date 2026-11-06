@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { ModKey } from "@/components/ui/mod-key";
+import { PreferenceControls } from "@/components/ui/preference-controls";
 
 interface AppTopbarProps {
   onOpenMenu: () => void;
@@ -108,6 +109,11 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
                   {user?.full_name || dict.common.user}
                 </div>
                 <div className="truncate text-[11px] text-muted-foreground">{user?.email}</div>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-border/70 px-2.5 py-2">
+                <span className="text-[12px] text-muted-foreground">{dict.common.theme} / {dict.common.language}</span>
+                <PreferenceControls />
               </div>
 
               {/* Administration lives in the sidebar nav, not here too. */}

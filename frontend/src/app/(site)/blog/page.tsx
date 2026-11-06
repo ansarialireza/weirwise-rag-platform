@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Calendar, Clock, ArrowRight, BookOpen, Tag } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -99,13 +100,7 @@ export default function BlogIndexPage() {
         )}
       </main>
 
-      {/* The header carries the mark and the navigation, so this repeats neither. */}
-      <footer className="mt-16 border-t border-border/80">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6">
-          <span>&copy; 2026 Weirwise Inc.</span>
-          <span>Answers with sources. Knowledge under control.</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

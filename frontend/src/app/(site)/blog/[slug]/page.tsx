@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { getAllPosts, getPostBySlug } from "@/lib/blog";
 import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Calendar, Clock, ArrowLeft, CheckCircle2, Bot, Shield, ChevronRight } from "lucide-react";
 
 interface Props {
@@ -219,13 +220,7 @@ export default async function BlogPostPage({ params }: Props) {
         </div>
       </main>
 
-      {/* The header carries the mark and the navigation, so this repeats neither. */}
-      <footer className="border-t border-border/80">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-4 py-6 text-[11px] text-muted-foreground sm:flex-row sm:px-6">
-          <span>&copy; 2026 Weirwise Inc.</span>
-          <span>Answers with sources. Knowledge under control.</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
