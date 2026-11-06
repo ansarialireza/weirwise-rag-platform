@@ -37,10 +37,13 @@ def _owner() -> tuple[dict[str, str], str]:
     uid = uuid.uuid4().hex[:8]
     email = f"srcdisp_{uid}@example.com"
     password = "SourceDisplay2026!"
-    assert client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": password, "full_name": "Source Owner"},
-    ).status_code == 201
+    assert (
+        client.post(
+            "/api/v1/auth/register",
+            json={"email": email, "password": password, "full_name": "Source Owner"},
+        ).status_code
+        == 201
+    )
     login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == 200, login.text
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
@@ -146,9 +149,7 @@ def test_source_display_defaults_on_and_survives_an_update():
 
 def test_publish_freezes_the_mode_and_source_display_for_readers():
     headers, project_id = _owner()
-    assistant_id = _published(
-        headers, project_id, name="Frozen", engine_mode="search_only", show_sources=False
-    )
+    assistant_id = _published(headers, project_id, name="Frozen", engine_mode="search_only", show_sources=False)
 
     with _sync_db() as session:
         snapshot = session.get(Assistant, uuid.UUID(assistant_id)).published_snapshot
@@ -239,9 +240,7 @@ def test_studio_search_chat_returns_its_passages_and_counts_them_aloud(monkeypat
 
     async def _retrieve(_db, _assistant, query: str):
         count = 1 if query == "one" else 2
-        return [
-            CitationItem(content=PASSAGE, similarity_score=0.91, rank=rank) for rank in range(1, count + 1)
-        ]
+        return [CitationItem(content=PASSAGE, similarity_score=0.91, rank=rank) for rank in range(1, count + 1)]
 
     monkeypatch.setattr(assistants_api, "_retrieve_citations", _retrieve)
     headers, project_id = _owner()
@@ -251,15 +250,11 @@ def test_studio_search_chat_returns_its_passages_and_counts_them_aloud(monkeypat
         json={"name": "Studio search", "engine_mode": "search_only"},
     ).json()["id"]
 
-    one = client.post(
-        f"/api/v1/assistants/{assistant_id}/chat", headers=headers, json={"message": "one"}
-    )
+    one = client.post(f"/api/v1/assistants/{assistant_id}/chat", headers=headers, json={"message": "one"})
     assert one.status_code == 200, one.text
     assert one.json()["content"] == "Found 1 matching passage."
     assert [s["content"] for s in one.json()["sources"]] == [PASSAGE]
 
-    two = client.post(
-        f"/api/v1/assistants/{assistant_id}/chat", headers=headers, json={"message": "two"}
-    ).json()
+    two = client.post(f"/api/v1/assistants/{assistant_id}/chat", headers=headers, json={"message": "two"}).json()
     assert two["content"] == "Found 2 matching passages."
     assert len(two["sources"]) == 2

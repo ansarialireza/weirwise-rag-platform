@@ -2,8 +2,10 @@
 
 import asyncio
 import os
+import socket as _socket
 import sys
 import tempfile
+import urllib.parse as _urlparse
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -142,3 +144,30 @@ def setup_test_database():
     else:
         # PostgreSQL already migrated via Alembic, keep schema intact
         yield
+
+
+# ---------------------------------------------------------------------------
+# Redis reachability guard — skip tests that require a live Redis connection
+# if the configured Redis URL is not reachable in the current environment.
+# ---------------------------------------------------------------------------
+
+
+def _redis_is_reachable() -> bool:
+    """Return True only if the Redis URL is configured and the host is reachable."""
+    redis_url = os.environ.get("REDIS_URL", "")
+    if not redis_url:
+        return False
+    try:
+        parsed = _urlparse.urlparse(redis_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or 6379
+        with _socket.create_connection((host, port), timeout=1.0):
+            return True
+    except (OSError, ValueError):
+        return False
+
+
+requires_redis = pytest.mark.skipif(
+    not _redis_is_reachable(),
+    reason="Redis is not reachable; skipping Redis-dependent test.",
+)

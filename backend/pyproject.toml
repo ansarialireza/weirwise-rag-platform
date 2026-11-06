@@ -34,17 +34,22 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.5",
     "pytest-cov>=4.1.0",
+    "anyio>=4.3.0",
     "ruff>=0.3.0",
     "mypy>=1.9.0",
 ]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-q"
+addopts = "-q --tb=short"
 testpaths = ["tests"]
 pythonpath = [".."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.mypy]
 python_version = "3.11"
