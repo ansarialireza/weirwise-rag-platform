@@ -14,6 +14,8 @@ Inspect relevant implementation, tests, docs, configuration, and Git status befo
 
 Codex is explicitly authorized to commit and push changes to `develop` without further approval, including pushes that automatically deploy to development. Create and use feature branches and worktrees when useful. Merging into `main`, pushing directly to `main`, or triggering production deployment always requires explicit user approval. Never perform production deployment without that approval; never assume GitHub environment approval is configured. Do not change deployment scripts without a dedicated implementation plan and review. Keep Platform and Core release versions compatible and record the chosen versions/commits for release work.
 
+For cross-repository agent roles, independent QA, verdict rules, model selection, and installed skills, follow the canonical standards in `../weirwise-brand/governance/AGENT_GOVERNANCE.md`, `../weirwise-brand/governance/QA_WORKFLOW.md`, `../weirwise-brand/governance/MODEL_GOVERNANCE.md`, `../weirwise-brand/governance/MODEL_SELECTION_MATRIX.md`, and `../weirwise-brand/governance/SKILLS_REGISTRY.md`. Use the safe QA runner at `../weirwise-brand/tools/qa/run_qa.py` for clean, isolated checks when that sibling repository is available. A separate QA context must inspect the actual Platform diff; tests alone are not approval. A push to `develop` can automatically deploy to development, so record the actual deployed commit/result after the push.
+
 ## Verification
 
 Run relevant checks when authorized and feasible, and report exact commands and actual results. Never claim verification without evidence. Documented commands include:
@@ -21,6 +23,8 @@ Run relevant checks when authorized and feasible, and report exact commands and 
 - Backend (from `backend/`): `ruff check .`, `ruff format --check .`, `mypy app`, `pytest -v tests`
 - Frontend (from `frontend/`): `npm run lint`, `npm run type-check`, `npm run build`
 - CI uses Python 3.12, Node 20 and Redis; Redis-dependent tests may skip when Redis is unavailable. Report skips and missing infrastructure clearly.
+
+Pull requests must include the independent QA report and actual check evidence required by `.github/pull_request_template.md`.
 
 ## Security and data handling
 
