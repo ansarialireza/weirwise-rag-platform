@@ -207,10 +207,19 @@ export default function AssistantWidgetPage() {
                   : "bg-card border border-border text-foreground rounded-bl-xs"
               }`}
             >
-              <div className="whitespace-pre-wrap">{m.content}</div>
-
-              {sourcesOn && m.citations && m.citations.length > 0 && (
-                <SourceReferences sources={m.citations} labels={sourceLabels} className="mt-2.5" />
+              {/* With the list in view, the count is a caption rather than a second
+                  sentence the reader has already seen drawn. */}
+              {sourcesOn && m.citations && m.citations.length > 0 ? (
+                <>
+                  <p className="text-[11px] font-medium text-muted-foreground">{m.content}</p>
+                  <SourceReferences
+                    sources={m.citations}
+                    labels={sourceLabels}
+                    className="mt-1.5 border-0"
+                  />
+                </>
+              ) : (
+                <div className="whitespace-pre-wrap">{m.content}</div>
               )}
             </div>
             {m.role === "user" && (

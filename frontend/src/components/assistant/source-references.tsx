@@ -21,6 +21,36 @@ interface SourceReferencesProps {
 }
 
 /**
+ * A quote arrives as markdown. The `#` markers are syntax rather than something the
+ * reader came to read, so the heading carries emphasis as weight instead of as
+ * punctuation, and every other character is left exactly as the document has it.
+ */
+function QuoteText({ text }: { text: string }) {
+  return (
+    <div className="text-[12px] leading-relaxed text-muted-foreground">
+      {text.split("\n").map((line, index) => {
+        const heading = /^#{1,3}\s+(.*)$/.exec(line);
+        if (heading) {
+          return (
+            <p key={index} className="pt-1.5 font-medium text-foreground first:pt-0">
+              {heading[1]}
+            </p>
+          );
+        }
+        if (line.trim() === "") {
+          return <span key={index} aria-hidden="true" className="block h-2" />;
+        }
+        return (
+          <p key={index} className="whitespace-pre-wrap">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * The minimal form of a source list: one line per document, no text shown until the
  * line is opened. One passage is readable at a time, so a long result stays a short
  * block, and the original text is always an interaction away rather than a wall.
@@ -73,9 +103,7 @@ export function SourceReferences({ sources, labels, showScore = false, className
 
             {isOpen && (
               <div className="animate-in border-t border-border/60 bg-muted/30 px-2.5 py-2.5">
-                <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-muted-foreground">
-                  {source.content}
-                </p>
+                <QuoteText text={source.content} />
                 <button
                   type="button"
                   onClick={() => copyQuote(source, index)}

@@ -524,14 +524,20 @@ function PlaygroundPage() {
                       ) : isSearchMode ? (
                         // Sources on: the passages, one line of origin each, original text
                         // only for the one you open. Sources off: the assistant's own
-                        // sentence about what it found. Either way the answer is visible.
+                        // sentence about what it found. Either way the answer is visible,
+                        // and the builder sees exactly the shape the reader gets.
                         sourcesOn && messageSources.length > 0 ? (
-                          <SourceReferences
-                            sources={messageSources}
-                            labels={sourceLabels}
-                            showScore
-                            className="w-full max-w-2xl rounded-2xl rounded-es-md shadow-sm"
-                          />
+                          <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background px-3.5 py-3">
+                            <p className="text-[11px] font-medium text-muted-foreground">
+                              {message.content}
+                            </p>
+                            <SourceReferences
+                              sources={messageSources}
+                              labels={sourceLabels}
+                              showScore
+                              className="mt-1.5 border-0"
+                            />
+                          </div>
                         ) : (
                           <div className="w-full max-w-2xl rounded-2xl rounded-es-md border border-border bg-background px-4 py-3.5 text-sm leading-relaxed text-foreground">
                             {message.content}

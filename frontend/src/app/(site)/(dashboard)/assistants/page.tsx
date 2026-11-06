@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { EngineModeCards } from "@/components/assistant/engine-mode-cards";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 
@@ -282,47 +283,7 @@ export default function AssistantsListPage() {
             <legend className="mb-1.5 block text-[13px] font-medium text-foreground">
               How should it respond?
             </legend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[
-                {
-                  value: "ai_answer" as const,
-                  title: "AI answers",
-                  description: "A written answer, in the assistant's own words.",
-                  icon: Sparkles,
-                },
-                {
-                  value: "search_only" as const,
-                  title: "Search only",
-                  description: "Shows matching passages without writing.",
-                  icon: Search,
-                },
-              ].map((option) => {
-                const Icon = option.icon;
-                const selected = newEngineMode === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setNewEngineMode(option.value)}
-                    aria-pressed={selected}
-                    className={cn(
-                      "rounded-xl border p-3.5 text-start transition-colors",
-                      selected
-                        ? "border-accent/50 bg-accent-soft"
-                        : "border-border bg-background hover:bg-muted/50"
-                    )}
-                  >
-                    <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-                      <Icon className={cn("h-4 w-4", selected ? "text-accent" : "text-muted-foreground")} />
-                      {option.title}
-                    </span>
-                    <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <EngineModeCards value={newEngineMode} onChange={setNewEngineMode} />
           </fieldset>
 
           {sources.length > 0 && (

@@ -21,11 +21,9 @@ import {
   KeyRound,
   MessageCircle,
   Save,
-  Search,
   Settings2,
   Share2,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +35,7 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { SourcesToggle } from "@/components/assistant/sources-toggle";
+import { EngineModeCards } from "@/components/assistant/engine-mode-cards";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate } from "@/lib/i18n/format";
@@ -406,67 +405,22 @@ export default function AssistantConfigurePage() {
                 <legend className="mb-1.5 block text-[13px] font-medium text-foreground">
                   How should it respond?
                 </legend>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[
-                    {
-                      value: "ai_answer" as const,
-                      title: "AI answers",
-                      description: "A written answer, in the assistant's own words.",
-                      icon: Sparkles,
-                    },
-                    {
-                      value: "search_only" as const,
-                      title: "Search only",
-                      description: "Matching passages, without a written answer.",
-                      icon: Search,
-                    },
-                  ].map((option) => {
-                    const Icon = option.icon;
-                    const selected = engineMode === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setEngineMode(option.value)}
-                        aria-pressed={selected}
-                        className={cn(
-                          "rounded-xl border p-3.5 text-start transition-colors",
-                          selected
-                            ? "border-accent/50 bg-accent-soft"
-                            : "border-border bg-background hover:bg-muted/50"
-                        )}
-                      >
-                        <span className="flex items-center gap-2 text-[13px] font-medium text-foreground">
-                          <Icon
-                            className={cn(
-                              "h-4 w-4",
-                              selected ? "text-accent" : "text-muted-foreground"
-                            )}
-                          />
-                          {option.title}
-                        </span>
-                        <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {engineMode === "search_only" && (
-                  // Passages are the whole answer here, so this is where showing
-                  // them is decided. An AI Assistant never renders this row at all.
-                  <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5">
-                    <span className="text-[11px] leading-relaxed text-muted-foreground">
-                      Readers can open the matching passages.
-                    </span>
+                {/* The switch lives inside the card it belongs to, and the drawing in
+                    that card is its preview: flip it and the passages the reader gets
+                    appear or collapse. An AI Assistant never renders it at all. */}
+                <EngineModeCards
+                  value={engineMode}
+                  onChange={setEngineMode}
+                  searchControlOn={showSources}
+                  searchControl={
                     <SourcesToggle
                       enabled={showSources}
                       onChange={setShowSources}
                       label={dict.common.sources}
+                      showLabel={false}
                     />
-                  </div>
-                )}
+                  }
+                />
               </fieldset>
 
               {engineMode === "ai_answer" && (

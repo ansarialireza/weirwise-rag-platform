@@ -8,6 +8,9 @@ interface SourcesToggleProps {
   onChange: (enabled: boolean) => void;
   /** The word on the control, so the switch never has to be explained. */
   label: string;
+  /** False where something else already shows what the switch does; the name stays
+   *  on the control for anyone reading the page aloud. */
+  showLabel?: boolean;
   className?: string;
 }
 
@@ -16,12 +19,13 @@ interface SourcesToggleProps {
  * icon button because on/off is the whole job, and a reader should not have to
  * guess what an icon does before they trust it enough to tap it.
  */
-export function SourcesToggle({ enabled, onChange, label, className }: SourcesToggleProps) {
+export function SourcesToggle({ enabled, onChange, label, showLabel = true, className }: SourcesToggleProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={enabled}
+      aria-label={showLabel ? undefined : label}
       onClick={() => onChange(!enabled)}
       className={cn(
         "inline-flex items-center gap-2 rounded-full py-1 pe-1.5 ps-1 text-[11px] font-medium",
@@ -45,7 +49,7 @@ export function SourcesToggle({ enabled, onChange, label, className }: SourcesTo
           )}
         />
       </span>
-      {label}
+      {showLabel && label}
     </button>
   );
 }
