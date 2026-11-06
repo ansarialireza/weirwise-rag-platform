@@ -113,6 +113,13 @@ if [ "$HEALTHY" = true ]; then
     echo "Deployment SUCCESSFUL for ${ENV_TARGET}!"
     echo "All health checks passed."
     echo "========================================================"
+
+    # Post-Deployment Automated Garbage Collection
+    echo "Running post-deployment garbage collection..."
+    docker system prune -a -f
+    docker builder prune -a -f
+    echo "Post-deployment garbage collection complete."
+
     exit 0
 else
     echo "========================================================"

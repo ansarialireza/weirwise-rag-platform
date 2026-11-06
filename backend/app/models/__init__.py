@@ -3,6 +3,7 @@
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from backend.app.models.admin import (
     AdminAuditLog,
+    AdminControlSettings,
     AdminRole,
     AdminUserRole,
     CredentialHealthStatus,
@@ -10,6 +11,8 @@ from backend.app.models.admin import (
     ProviderAccount,
     ProviderCredential,
     ProviderRoutingStrategy,
+    RoutingEvent,
+    RoutingEventOutcome,
     TokenCostLedger,
 )
 from backend.app.models.assistant import (
@@ -46,6 +49,15 @@ from backend.app.models.auth import (
     Workspace,
     WorkspaceRole,
 )
+from backend.app.models.behavioral import (
+    AccessEnvironment,
+    BehavioralEvent,
+    BehavioralInsight,
+    DeviceCategory,
+    EventCategory,
+    UserBehavioralProfile,
+    UserBehavioralSession,
+)
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
@@ -57,8 +69,12 @@ from backend.app.models.project import (
 
 __all__ = [
     "AdminAuditLog",
+    "AdminControlSettings",
     "AdminRole",
     "AdminUserRole",
+    "AccessEnvironment",
+    "BehavioralEvent",
+    "BehavioralInsight",
     "AIRoutingStrategy",
     "AnswerFeedback",
     "ApiCredential",
@@ -73,8 +89,10 @@ __all__ = [
     "CredentialHealthStatus",
     "Deployment",
     "DeploymentType",
+    "DeviceCategory",
     "Document",
     "EvaluationCase",
+    "EventCategory",
     "FinancialInvoice",
     "GUID",
     "HumanHandoffRequest",
@@ -89,12 +107,16 @@ __all__ = [
     "ProviderAccount",
     "ProviderCredential",
     "ProviderRoutingStrategy",
+    "RoutingEvent",
+    "RoutingEventOutcome",
     "SourceProcessingStatus",
     "SubscriptionTier",
     "TokenCostLedger",
     "UnansweredQuery",
     "UsageEvent",
     "User",
+    "UserBehavioralProfile",
+    "UserBehavioralSession",
     "UserSession",
     "WebhookDelivery",
     "WebhookSubscription",

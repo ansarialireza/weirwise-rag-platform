@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.pool import NullPool
 
 # In SQLite, disable check_same_thread for async operation
 connect_args = {}
@@ -18,7 +17,11 @@ if settings.DATABASE_URL.startswith("sqlite"):
 # Use NullPool for PostgreSQL on Windows or in testing to prevent asyncpg connection-sharing across threads/event loops
 engine_kwargs = {"echo": settings.DATABASE_ECHO, "future": True, "connect_args": connect_args}
 if not settings.DATABASE_URL.startswith("sqlite"):
-    engine_kwargs["poolclass"] = NullPool
+    engine_kwargs["pool_size"] = 50
+    engine_kwargs["max_overflow"] = 100
+    engine_kwargs["pool_timeout"] = 60
+    engine_kwargs["pool_recycle"] = 1800
+    engine_kwargs["pool_pre_ping"] = True
 
 engine = create_async_engine(
     settings.DATABASE_URL,

@@ -191,7 +191,7 @@ Target: `http://127.0.0.1:8001`
 Target: `https://dev.weirwise.com`
 - **Test 1 (Responsive Layouts Across 10 Viewports)**: 320px, 360px, 375px, 390px, 430px, 768px, 1024px, 1280px, 1440px, 1920px -> Clean layouts, **zero horizontal scroll**.
 - **Test 1B (Mobile Drawer & Navigation)**: Opened, closed via Escape key and backdrop click.
-- **Test 1C (Theme Engine & Persistence)**: Colorful, Light, and Dark themes toggle and persist in `localStorage`.
+- **Test 1C (Theme Engine & Persistence)**: Light and Dark themes toggle and persist in `localStorage`.
 - **Test 1D (Pricing Page)**: All plan cards render cleanly without overflow across all viewports.
 - **Test 2 (User Registration & Auth)**: Password validation enforced (<8 chars rejected), successful account creation, auto-redirect to workspace dashboard.
 - **Test 3 (Route Guards)**: Non-admin users strictly redirected from `/admin`.

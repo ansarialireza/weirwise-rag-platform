@@ -1,15 +1,12 @@
-import React from "react";
 import { cn } from "@/lib/utils";
 
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
-  className?: string;
-}
-
-export function Skeleton({ className, ...props }: SkeletonProps) {
+export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("animate-pulse rounded-md bg-secondary/80", className)}
-      {...props}
-    />
+      aria-hidden="true"
+      className={cn("relative overflow-hidden rounded-lg bg-muted", className)}
+    >
+      <div className="absolute inset-y-0 w-1/2 animate-shimmer bg-gradient-to-r from-transparent via-card/70 to-transparent" />
+    </div>
   );
 }

@@ -78,6 +78,10 @@ async def trigger_integration_sync(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found.")
 
     sync_result = await integrations_service.sync_integration_knowledge(db, integration.id)
+    if sync_result.get("status") == "not_implemented":
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=sync_result["message"])
+    if sync_result.get("status") == "failed":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=sync_result["error"])
     return sync_result
 
 

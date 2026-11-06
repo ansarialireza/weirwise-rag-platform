@@ -19,6 +19,8 @@ class AssistantCreateRequest(BaseModel):
     description: str | None = None
     system_instructions: str | None = None
     model: str = Field("Auto", max_length=100)
+    engine_mode: str = Field("ai_answer", max_length=50)
+    show_sources: bool = True
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, ge=64, le=4096)
     score_threshold: float = Field(0.7, ge=0.0, le=1.0)
@@ -37,6 +39,8 @@ class AssistantUpdateRequest(BaseModel):
     description: str | None = None
     system_instructions: str | None = None
     model: str | None = Field(None, max_length=100)
+    engine_mode: str | None = Field(None, max_length=50)
+    show_sources: bool | None = None
     temperature: float | None = Field(None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(None, ge=64, le=4096)
     score_threshold: float | None = Field(None, ge=0.0, le=1.0)
@@ -58,6 +62,8 @@ class AssistantResponse(BaseModel):
     description: str | None
     system_instructions: str | None
     model: str
+    engine_mode: str = "ai_answer"
+    show_sources: bool = True
     temperature: float
     max_tokens: int
     score_threshold: float
@@ -108,6 +114,7 @@ class ChatResponse(BaseModel):
     token_usage: dict[str, Any] = {}
     is_grounded: bool = True
     suggest_escalation: bool = False
+    session_token: str | None = None
 
 
 class PublicRuntimeConfigResponse(BaseModel):
@@ -115,6 +122,8 @@ class PublicRuntimeConfigResponse(BaseModel):
     name: str
     language: str
     tone: str
+    engine_mode: str = "ai_answer"
+    show_sources: bool = True
     welcome_message: str
     placeholder_text: str
     primary_color: str
@@ -339,6 +348,13 @@ class DeploymentCreateRequest(BaseModel):
     deployment_type: DeploymentType = DeploymentType.WIDGET
     allowed_domains: list[str] = Field(default_factory=list)
     theme_config: dict[str, Any] = Field(default_factory=dict)
+
+
+class DeploymentUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=255)
+    allowed_domains: list[str] | None = None
+    theme_config: dict[str, Any] | None = None
+    is_active: bool | None = None
 
 
 class DeploymentResponse(BaseModel):

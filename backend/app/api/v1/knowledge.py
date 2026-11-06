@@ -1,10 +1,13 @@
 """Website Crawler, Sitemap Discovery, Page Selection, and Automatic Knowledge Ingestion."""
 
+import logging
 import os
 import uuid
 
+from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
+from backend.app.models.assistant import AssistantKnowledgeSource
 from backend.app.models.auth import Membership, User, Workspace, WorkspaceRole
 from backend.app.models.project import (
     Document,
@@ -25,11 +28,13 @@ from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from backend.app.tasks.ingestion import process_document_ingestion
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Knowledge Sources, Crawler & Ingestion"])
+logger = logging.getLogger(__name__)
 
 
 class CrawlDiscoveryRequest(BaseModel):
@@ -357,3 +362,172 @@ async def list_source_documents(
     stmt = select(Document).where(Document.knowledge_source_id == source_id).order_by(Document.created_at.desc())
     res = await db.execute(stmt)
     return [DocumentResponse.model_validate(d) for d in res.scalars().all()]
+
+
+@router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a document and trigger vector chunk purge."""
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    # Purge vectors in Core before removing the only pointer to them.
+    if doc.core_doc_id:
+        try:
+            await CoreApiClient().delete_document(doc.core_doc_id)
+        except CoreApiException as e:
+            logger.warning(f"Core delete failed for document {doc.id}: {e!s}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="We couldn't delete that file just now. Please try again.",
+            ) from e
+
+    # Delete physical file from storage (both hot or cold vault)
+    storage_service.delete_file(doc.storage_path)
+
+    await db.delete(doc)
+    await db.commit()
+
+
+@router.post("/documents/{document_id}/retry", response_model=DocumentResponse)
+async def retry_document_ingestion(
+    document_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DocumentResponse:
+    """Re-run ingestion for a document that previously failed processing."""
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    if doc.status != SourceProcessingStatus.FAILED.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only documents that failed processing can be retried.",
+        )
+
+    doc.status = SourceProcessingStatus.PENDING.value
+    doc.error_message = None
+    source.status = SourceProcessingStatus.PENDING.value
+    source.error_message = None
+    await db.commit()
+    await db.refresh(doc)
+
+    background_tasks.add_task(process_document_ingestion, doc.id)
+    return DocumentResponse.model_validate(doc)
+
+
+@router.delete("/sources/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_knowledge_source(
+    source_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a knowledge source, its documents, physical files, and Core vectors."""
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    if source.core_kb_id:
+        try:
+            await CoreApiClient().delete_knowledge_base(source.core_kb_id)
+        except CoreApiException as e:
+            logger.warning(f"Core delete failed for knowledge source {source.id}: {e!s}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="We couldn't delete that collection just now. Please try again.",
+            ) from e
+
+    docs_res = await db.execute(select(Document).where(Document.knowledge_source_id == source.id))
+    for doc in docs_res.scalars().all():
+        storage_service.delete_file(doc.storage_path)
+
+    await db.execute(delete(Document).where(Document.knowledge_source_id == source.id))
+    await db.execute(delete(AssistantKnowledgeSource).where(AssistantKnowledgeSource.knowledge_source_id == source.id))
+    await db.delete(source)
+    await db.commit()
+
+
+@router.get("/documents/{document_id}/download")
+async def download_document_stream(
+    document_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """Streamed Network Retrieval:
+    Stream document from cold tier (15TB Google Drive mount) using chunked async streaming.
+    Never loads massive files entirely into RAM.
+    """
+    doc_res = await db.execute(select(Document).where(Document.id == document_id))
+    doc = doc_res.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == doc.knowledge_source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
+
+    try:
+        stream_gen = storage_service.stream_file_chunks(doc.storage_path)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Physical document file not found in storage.",
+        )
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{doc.filename}"',
+        "Content-Length": str(doc.file_size_bytes) if doc.file_size_bytes else "",
+    }
+    return StreamingResponse(
+        stream_gen,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers=headers,
+    )

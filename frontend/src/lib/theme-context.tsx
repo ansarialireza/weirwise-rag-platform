@@ -2,11 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
-export type Theme = "dark" | "colorful" | "light" | "system";
+export type Theme = "dark" | "light" | "system";
 
 interface ThemeContextType {
   theme: Theme;
-  resolvedTheme: "dark" | "colorful" | "light";
+  resolvedTheme: "dark" | "light";
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
@@ -23,7 +23,7 @@ const STORAGE_KEY = "wwp_theme";
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Default preference is strictly "system"
   const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "colorful" | "light">("dark");
+  const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
   const [mounted, setMounted] = useState(false);
 
   const getSystemTheme = useCallback((): "dark" | "light" => {
@@ -34,9 +34,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const applyTheme = useCallback((t: Theme) => {
     if (typeof document === "undefined") return;
     const root = document.documentElement;
-    root.classList.remove("dark", "light", "colorful", "theme-obsidian", "theme-light", "theme-cyber");
+    root.classList.remove("dark", "light");
 
-    let effective: "dark" | "colorful" | "light";
+    let effective: "dark" | "light";
     if (t === "system") {
       effective = getSystemTheme();
     } else {
@@ -44,9 +44,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     setResolvedTheme(effective);
 
-    if (effective === "colorful") {
-      root.classList.add("colorful");
-    } else if (effective === "light") {
+    if (effective === "light") {
       root.classList.add("light");
     } else {
       root.classList.add("dark");
@@ -57,7 +55,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
     let initial: Theme = "system";
 
-    if (stored === "dark" || stored === "colorful" || stored === "light") {
+    if (stored === "dark" || stored === "light") {
       initial = stored;
     } else if (stored === "system") {
       initial = "system";
@@ -84,7 +82,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     if (newTheme === "system") {
-      // Clear explicit override or persist "system"
       localStorage.setItem(STORAGE_KEY, "system");
     } else {
       localStorage.setItem(STORAGE_KEY, newTheme);
@@ -93,9 +90,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTheme = () => {
-    // When toggling manually, rotate between dark -> colorful -> light -> dark
-    const next: Theme =
-      resolvedTheme === "dark" ? "colorful" : resolvedTheme === "colorful" ? "light" : "dark";
+    const next: Theme = resolvedTheme === "dark" ? "light" : "dark";
     setTheme(next);
   };
 

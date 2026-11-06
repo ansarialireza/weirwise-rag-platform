@@ -37,7 +37,7 @@
 | Automated Enterprise Data Retention Cleanup | VERIFIED | VERIFIED | VERIFIED | N/A | VERIFIED | **VERIFIED** |
 | Staff Administration Center & Demo Lockdown | VERIFIED | VERIFIED | VERIFIED | N/A | VERIFIED | **VERIFIED** |
 | Multi-Viewport Layout (10 Responsive Viewports) | VERIFIED | N/A | N/A | N/A | VERIFIED | **VERIFIED** |
-| Color / Light / Dark Theme Persistence | VERIFIED | N/A | N/A | N/A | VERIFIED | **VERIFIED** |
+| Light / Dark Theme Persistence | VERIFIED | N/A | N/A | N/A | VERIFIED | **VERIFIED** |
 
 ---
 

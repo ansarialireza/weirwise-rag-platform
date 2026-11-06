@@ -40,6 +40,7 @@ def auth_context():
 
     # Create workspace & project
     ws = client.post("/api/v1/workspaces", headers=headers, json={"name": f"Org {uid}"}).json()
+    assert "id" in ws, ws
     proj = client.post(f"/api/v1/workspaces/{ws['id']}/projects", headers=headers, json={"name": f"Proj {uid}"}).json()
 
     return {
@@ -100,7 +101,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     # 2. Check Publish Readiness (Should report missing knowledge source)
     readiness = client.get(f"/api/v1/assistants/{ast_id}/publish-readiness", headers=headers).json()
     assert readiness["is_ready"] is False
-    assert "No knowledge sources are attached" in readiness["issues"][0]
+    assert "This assistant has no knowledge yet" in readiness["issues"][0]
 
     # 3. Create KnowledgeSource & attach to assistant
     ks_resp = client.post(
@@ -161,7 +162,7 @@ def test_assistant_publish_lifecycle_and_public_runtime(auth_context):
     cfg = cfg_resp.json()
     assert cfg["name"] == "E-Commerce Support Bot"
     assert cfg["tone"] == "friendly"
-    assert cfg["primary_color"] == "#2563EB"
+    assert cfg["primary_color"] == "#3FD0DA"
 
     # 7. Execute Public Chat Turn (Widget communication)
     chat_resp = client.post(
@@ -213,10 +214,12 @@ def test_feedback_unanswered_and_evaluations(auth_context):
     ).json()
     msg_id = chat["message_id"]
     conv_id = chat["conversation_id"]
+    session_headers = {"X-Session-Token": chat["session_token"]}
 
     # 1. Submit Customer Feedback
     fb_resp = client.post(
         f"/api/v1/public/messages/{msg_id}/feedback",
+        headers=session_headers,
         json={"rating": "negative", "reason": "unhelpful", "comment": "Bot had no delivery info"},
     )
     assert fb_resp.status_code == 200
@@ -251,6 +254,7 @@ def test_feedback_unanswered_and_evaluations(auth_context):
     # 5. Customer Human Handoff Request
     handoff_resp = client.post(
         f"/api/v1/public/conversations/{conv_id}/handoff",
+        headers=session_headers,
         json={"customer_email": "customer@tokyo.jp", "reason": "Need international shipping inquiry"},
     )
     assert handoff_resp.status_code == 200
@@ -286,10 +290,14 @@ def test_business_integrations_and_webhooks(auth_context):
     assert len(get_res) == 1
     assert "access_token" not in str(get_res)
 
-    # 2. Trigger Integration Sync
+    # 2. Trigger Integration Sync — no provider import adapter exists yet, so the API
+    # must report that honestly instead of returning fabricated item counts.
     sync_resp = client.post(f"/api/v1/workspaces/{ws_id}/integrations/{integration_id}/sync", headers=headers)
-    assert sync_resp.status_code == 200
-    assert sync_resp.json()["status"] == "completed"
+    assert sync_resp.status_code == 501
+    assert "not available" in sync_resp.json()["detail"]
+
+    listed = client.get(f"/api/v1/workspaces/{ws_id}/integrations", headers=headers).json()
+    assert listed[0]["sync_status"] == "unsupported"
 
     # 3. Create Webhook Subscription (SSRF Protection)
     unsafe_sub = client.post(

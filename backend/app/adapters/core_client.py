@@ -1,11 +1,39 @@
 """Typed HTTP client adapter for Weirwise Core REST API (v1.0.0)."""
 
+import asyncio
 import uuid
 from typing import Any
 
 import httpx
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
+
+# Keep-alive connection pool per event loop. Opening a fresh client for every
+# retrieval call paid a TCP/TLS handshake per chat turn.
+_core_clients: dict[tuple[int, float], httpx.AsyncClient] = {}
+
+
+def _core_client(timeout: float) -> httpx.AsyncClient:
+    key = (id(asyncio.get_running_loop()), float(timeout))
+    client = _core_clients.get(key)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=timeout,
+            limits=httpx.Limits(max_connections=40, max_keepalive_connections=20, keepalive_expiry=120.0),
+        )
+        _core_clients[key] = client
+    return client
+
+
+async def close_core_clients() -> None:
+    """Close pooled Core clients during application shutdown."""
+    clients = list(_core_clients.values())
+    _core_clients.clear()
+    for client in clients:
+        try:
+            await client.aclose()
+        except Exception:
+            pass
 
 
 class CoreApiException(Exception):
@@ -38,20 +66,20 @@ class CoreApiClient:
         """Check Core readiness probe (/health/ready) and guard against self-referential loops."""
         url = f"{self.base_url}/health/ready"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    # Self-loop detection: Platform returns "environment" in /health/*, Core does not
-                    if "environment" in data:
-                        return {
-                            "status": "unhealthy",
-                            "error": "WEIRWISE_CORE_BASE_URL is misconfigured to Platform itself",
-                        }
-                    if data.get("status") in ("ready", "ok", "alive"):
-                        return data
-                    return {"status": "degraded", "details": data}
-                return {"status": "unhealthy", "code": resp.status_code}
+            client = _core_client(self.timeout)
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                # Self-loop detection: Platform returns "environment" in /health/*, Core does not
+                if "environment" in data:
+                    return {
+                        "status": "unhealthy",
+                        "error": "WEIRWISE_CORE_BASE_URL is misconfigured to Platform itself",
+                    }
+                if data.get("status") in ("ready", "ok", "alive"):
+                    return data
+                return {"status": "degraded", "details": data}
+            return {"status": "unhealthy", "code": resp.status_code}
         except Exception as e:
             logger.warning(f"Core health check failed: {e!s}")
             return {"status": "unreachable", "error": str(e)}
@@ -61,11 +89,11 @@ class CoreApiClient:
         url = f"{self.base_url}/api/v1/knowledge-bases"
         payload = {"name": name, "description": description}
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload, headers=self._get_headers())
-                if resp.status_code in (200, 201):
-                    return resp.json()
-                raise CoreApiException(f"Core KB creation failed: {resp.text}", resp.status_code)
+            client = _core_client(self.timeout)
+            resp = await client.post(url, json=payload, headers=self._get_headers())
+            if resp.status_code in (200, 201):
+                return resp.json()
+            raise CoreApiException(f"Core KB creation failed: {resp.text}", resp.status_code)
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)
 
@@ -81,11 +109,35 @@ class CoreApiClient:
         data = {"knowledge_base_id": str(kb_id)}
         files = {"file": (filename, content, mime_type)}
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, data=data, files=files, headers=self._get_headers())
-                if resp.status_code in (200, 201, 202):
-                    return resp.json()
-                raise CoreApiException(f"Core document upload failed: {resp.text}", resp.status_code)
+            client = _core_client(self.timeout)
+            resp = await client.post(url, data=data, files=files, headers=self._get_headers())
+            if resp.status_code in (200, 201, 202):
+                return resp.json()
+            raise CoreApiException(f"Core document upload failed: {resp.text}", resp.status_code)
+        except httpx.RequestError as e:
+            raise CoreApiException(f"Core connection error: {e!s}", 503)
+
+    async def delete_knowledge_base(self, kb_id: uuid.UUID) -> None:
+        """Delete a Core knowledge base together with its documents and vector chunks."""
+        url = f"{self.base_url}/api/v1/knowledge-bases/{kb_id}"
+        try:
+            client = _core_client(self.timeout)
+            resp = await client.delete(url, headers=self._get_headers())
+            if resp.status_code in (200, 202, 204, 404):
+                return
+            raise CoreApiException(f"Core KB deletion failed: {resp.text}", resp.status_code)
+        except httpx.RequestError as e:
+            raise CoreApiException(f"Core connection error: {e!s}", 503)
+
+    async def delete_document(self, doc_id: uuid.UUID) -> None:
+        """Delete a Core document and all of its vector chunks."""
+        url = f"{self.base_url}/api/v1/documents/{doc_id}"
+        try:
+            client = _core_client(self.timeout)
+            resp = await client.delete(url, headers=self._get_headers())
+            if resp.status_code in (200, 202, 204, 404):
+                return
+            raise CoreApiException(f"Core document deletion failed: {resp.text}", resp.status_code)
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)
 
@@ -93,11 +145,11 @@ class CoreApiClient:
         """Poll Core document indexing status."""
         url = f"{self.base_url}/api/v1/documents/{doc_id}"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(url, headers=self._get_headers())
-                if resp.status_code == 200:
-                    return resp.json()
-                raise CoreApiException(f"Core document fetch failed: {resp.text}", resp.status_code)
+            client = _core_client(self.timeout)
+            resp = await client.get(url, headers=self._get_headers())
+            if resp.status_code == 200:
+                return resp.json()
+            raise CoreApiException(f"Core document fetch failed: {resp.text}", resp.status_code)
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)
 
@@ -117,11 +169,11 @@ class CoreApiClient:
             "score_threshold": score_threshold,
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload, headers=self._get_headers())
-                if resp.status_code == 200:
-                    return resp.json()
-                raise CoreApiException(f"Core vector search failed: {resp.text}", resp.status_code)
+            client = _core_client(self.timeout)
+            resp = await client.post(url, json=payload, headers=self._get_headers())
+            if resp.status_code == 200:
+                return resp.json()
+            raise CoreApiException(f"Core vector search failed: {resp.text}", resp.status_code)
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)
 
@@ -138,10 +190,10 @@ class CoreApiClient:
             "conversation_id": str(conversation_id) if conversation_id else None,
         }
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload, headers=self._get_headers())
-                if resp.status_code == 200:
-                    return resp.json()
-                raise CoreApiException(f"Core chat execution failed: {resp.text}", resp.status_code)
+            client = _core_client(self.timeout)
+            resp = await client.post(url, json=payload, headers=self._get_headers())
+            if resp.status_code == 200:
+                return resp.json()
+            raise CoreApiException(f"Core chat execution failed: {resp.text}", resp.status_code)
         except httpx.RequestError as e:
             raise CoreApiException(f"Core connection error: {e!s}", 503)

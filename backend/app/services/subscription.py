@@ -40,7 +40,7 @@ PLAN_DEFINITIONS: dict[str, PlanLimits] = {
     "starter": PlanLimits(
         tier="starter",
         name="Team Starter",
-        monthly_price_usd=49,
+        monthly_price_usd=29,
         max_assistants=10,
         max_documents=100,
         max_chat_turns_monthly=2500,
@@ -73,7 +73,7 @@ PLAN_DEFINITIONS: dict[str, PlanLimits] = {
     ),
     "enterprise": PlanLimits(
         tier="enterprise",
-        name="Business Pro",
+        name="Business",
         monthly_price_usd=199,
         max_assistants=50,
         max_documents=1000,
@@ -114,14 +114,35 @@ class SubscriptionService:
         return res.scalars().first()
 
     @staticmethod
+    def document_limit_for_tier(tier: Optional[SubscriptionTier], fallback_plan: PlanLimits) -> int:
+        """Single source of truth for the per-workspace document limit."""
+        return int(tier.max_assistants) * 50 if tier else fallback_plan.max_documents
+
+    @staticmethod
     async def get_workspace_usage(workspace_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
-        """Aggregate all billing usage events for the current workspace billing cycle."""
+        """Aggregate usage events for the current workspace billing cycle."""
+        from datetime import UTC, datetime, timedelta
+
+        from backend.app.models.assistant import WorkspacePlanEntitlement
+
+        ent = (
+            await db.execute(
+                select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.workspace_id == workspace_id)
+            )
+        ).scalar_one_or_none()
+
+        period_start = ent.period_start if ent and ent.period_start else None
+        if period_start is not None and period_start.tzinfo is None:
+            period_start = period_start.replace(tzinfo=UTC)
+        if period_start is None:
+            period_start = datetime.now(UTC) - timedelta(days=30)
+
         stmt = (
             select(
                 UsageEvent.event_type,
                 func.coalesce(func.sum(UsageEvent.quantity), 0).label("total"),
             )
-            .where(UsageEvent.workspace_id == workspace_id)
+            .where(UsageEvent.workspace_id == workspace_id, UsageEvent.created_at >= period_start)
             .group_by(UsageEvent.event_type)
         )
         res = await db.execute(stmt)
@@ -142,7 +163,7 @@ class SubscriptionService:
         )
         res = await db.execute(stmt)
         total_bytes = res.scalar() or 0
-        return total_bytes / (1024 * 1024)
+        return float(total_bytes) / (1024 * 1024)
 
     @classmethod
     async def check_chat_entitlement(cls, workspace: Workspace, db: AsyncSession) -> None:
@@ -206,7 +227,7 @@ class SubscriptionService:
     ) -> None:
         """Enforce limit on total documents indexed per workspace."""
         tier = await cls.get_workspace_tier(workspace, db) if db else None
-        max_docs = int(tier.max_assistants * 50) if tier else cls.get_plan(workspace.plan_tier).max_documents
+        max_docs = cls.document_limit_for_tier(tier, cls.get_plan(workspace.plan_tier))
         tier_name = tier.name if tier else workspace.plan_tier
 
         if (current_count + additional_docs) > max_docs:
@@ -233,10 +254,10 @@ class SubscriptionService:
         max_storage_mb = int(tier.max_storage_mb) if tier else cls.get_plan(workspace.plan_tier).max_file_size_mb
         tier_name = tier.name if tier else workspace.plan_tier
 
-        current_storage_mb = await cls.get_workspace_storage_mb(workspace.id, db)
-        incoming_storage_mb = additional_bytes / (1024 * 1024)
+        current_storage_mb = float(await cls.get_workspace_storage_mb(workspace.id, db))
+        incoming_storage_mb = float(additional_bytes) / (1024 * 1024)
 
-        if (current_storage_mb + incoming_storage_mb) > max_storage_mb:
+        if (current_storage_mb + incoming_storage_mb) > float(max_storage_mb):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={

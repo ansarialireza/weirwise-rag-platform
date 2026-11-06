@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback } from "react";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,16 +32,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    ({ type = "info", title, message, duration = 4000 }: Omit<Toast, "id">) => {
+    ({ type = "info", title, message, duration = 4200 }: Omit<Toast, "id">) => {
       const id = Math.random().toString(36).substring(2, 9);
-      const newToast: Toast = { id, type, title, message, duration };
-      setToasts((prev) => [...prev, newToast]);
-
-      if (duration > 0) {
-        setTimeout(() => {
-          dismiss(id);
-        }, duration);
-      }
+      setToasts((prev) => [...prev.slice(-3), { id, type, title, message, duration }]);
+      if (duration > 0) setTimeout(() => dismiss(id), duration);
     },
     [dismiss]
   );
@@ -49,35 +43,34 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toasts, toast, dismiss }}>
       {children}
-      {/* Toast Render Viewport */}
       <div
         aria-live="polite"
-        className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
+        className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-center gap-2 sm:inset-x-auto sm:end-5 sm:items-end"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
             role="alert"
             className={cn(
-              "pointer-events-auto flex items-start gap-3 p-3.5 rounded-lg border bg-card/95 backdrop-blur-md shadow-lg text-xs transition-all animate-in slide-in-from-bottom-2 fade-in duration-200",
-              t.type === "success" && "border-emerald-500/30 text-foreground",
-              t.type === "error" && "border-destructive/30 text-foreground",
-              t.type === "info" && "border-primary/30 text-foreground"
+              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-card p-3.5 text-[13px] shadow-lift animate-in",
+              t.type === "success" && "border-success/30",
+              t.type === "error" && "border-destructive/30",
+              t.type === "info" && "border-border"
             )}
           >
-            {t.type === "success" && <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />}
-            {t.type === "error" && <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />}
-            {t.type === "info" && <Info className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />}
+            {t.type === "success" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />}
+            {t.type === "error" && <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
+            {t.type === "info" && <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />}
 
             <div className="flex-1 space-y-0.5">
               {t.title && <div className="font-semibold text-foreground">{t.title}</div>}
-              <div className="text-muted-foreground leading-relaxed">{t.message}</div>
+              <div className="leading-relaxed text-muted-foreground">{t.message}</div>
             </div>
 
             <button
               onClick={() => dismiss(t.id)}
-              className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
-              aria-label="Dismiss toast"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Dismiss notification"
             >
               <X className="h-3.5 w-3.5" />
             </button>

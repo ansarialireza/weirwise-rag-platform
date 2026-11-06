@@ -6,6 +6,7 @@ import uuid
 from backend.app.db.base import GUID, Base, CompatibleJSON, utc_now
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -40,7 +41,15 @@ class ProviderRoutingStrategy(str, enum.Enum):
     ROUND_ROBIN = "round_robin"
     WEIGHTED = "weighted"
     LEAST_RECENTLY_USED = "least_recently_used"
+    LEAST_LOADED = "least_loaded"
     LOWEST_COST = "lowest_cost"
+
+
+class RoutingEventOutcome(str, enum.Enum):
+    SELECTED = "selected"
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NO_CREDENTIAL = "no_credential"
 
 
 class AdminUserRole(Base):
@@ -54,6 +63,41 @@ class AdminUserRole(Base):
     assigned_by = Column(GUID, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class AdminControlSettings(Base):
+    """Persisted global operating mode and bounded automatic recovery policies."""
+
+    __tablename__ = "admin_control_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    management_mode = Column(String(16), default="manual", nullable=False)
+    emergency_stop = Column(Boolean, default=False, nullable=False)
+    automatic_failover = Column(Boolean, default=True, nullable=False)
+    auto_disable_unhealthy = Column(Boolean, default=True, nullable=False)
+    auto_recover_credentials = Column(Boolean, default=True, nullable=False)
+    rate_limit_cooldown_seconds = Column(Integer, default=60, nullable=False)
+    circuit_breaker_failure_threshold = Column(Integer, default=3, nullable=False)
+    circuit_breaker_cooldown_seconds = Column(Integer, default=300, nullable=False)
+    updated_by = Column(GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_admin_control_settings_singleton"),
+        CheckConstraint("management_mode IN ('manual', 'automatic')", name="ck_admin_control_mode"),
+        CheckConstraint(
+            "rate_limit_cooldown_seconds BETWEEN 10 AND 3600",
+            name="ck_admin_control_rate_limit_cooldown",
+        ),
+        CheckConstraint(
+            "circuit_breaker_failure_threshold BETWEEN 1 AND 20",
+            name="ck_admin_control_failure_threshold",
+        ),
+        CheckConstraint(
+            "circuit_breaker_cooldown_seconds BETWEEN 30 AND 86400",
+            name="ck_admin_control_circuit_cooldown",
+        ),
+    )
 
 
 class ProviderAccount(Base):
@@ -71,6 +115,12 @@ class ProviderAccount(Base):
     global_monthly_budget_usd = Column(Numeric(12, 6), default=5000.00, nullable=False)
     current_month_spend_usd = Column(Numeric(12, 6), default=0.00, nullable=False)
     supported_models = Column(CompatibleJSON, default=list, nullable=False)  # list of model identifiers
+
+    # Account-wide limits. Providers often enforce limits across the whole
+    # account, so these are shared by every token and 0 means "not configured".
+    account_rate_limit_rpm = Column(Integer, default=0, nullable=False)
+    account_rate_limit_tpm = Column(Integer, default=0, nullable=False)
+    account_max_concurrency = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -90,7 +140,8 @@ class ProviderCredential(Base):
     secret_hash = Column(String(64), nullable=False, index=True)  # SHA-256 hash for deduplication/verification
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     health_status = Column(String(50), default=CredentialHealthStatus.HEALTHY.value, nullable=False, index=True)
-    priority = Column(Integer, default=1, nullable=False)  # Higher is higher priority
+    remaining_balance = Column(String(100), nullable=True)  # e.g., "4.5M tokens left"
+    priority = Column(Integer, default=1, nullable=False)  # Lower number = higher priority
     routing_weight = Column(Integer, default=10, nullable=False)
     models_allowed = Column(CompatibleJSON, default=list, nullable=False)  # If empty, all provider models allowed
 
@@ -100,6 +151,7 @@ class ProviderCredential(Base):
     warning_threshold_pct = Column(Integer, default=85, nullable=False)
     rate_limit_rpm = Column(Integer, default=500, nullable=False)
     rate_limit_tpm = Column(Integer, default=100000, nullable=False)
+    max_concurrency = Column(Integer, default=0, nullable=False)
 
     # Operational Telemetry
     total_requests_served = Column(Integer, default=0, nullable=False)
@@ -107,6 +159,9 @@ class ProviderCredential(Base):
     consecutive_failures = Column(Integer, default=0, nullable=False)
     last_error_reason = Column(String(255), nullable=True)
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_failure_at = Column(DateTime(timezone=True), nullable=True)
+    last_health_check_at = Column(DateTime(timezone=True), nullable=True)
     cooling_down_until = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
@@ -129,14 +184,52 @@ class TokenCostLedger(Base):
     output_tokens = Column(Integer, default=0, nullable=False)
     total_tokens = Column(Integer, default=0, nullable=False)
     cost_usd = Column(Numeric(12, 6), default=0.000000, nullable=False)  # 6 decimal precision for microcents
+    cost_source = Column(String(20), default="estimated", nullable=False)  # "estimated" or "provider"
     latency_ms = Column(Integer, default=0, nullable=False)
     is_success = Column(Boolean, default=True, nullable=False)
     error_type = Column(String(100), nullable=True)
+    routing_id = Column(GUID, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
     __table_args__ = (
         Index("ix_ledger_workspace_time", "workspace_id", "created_at"),
         Index("ix_ledger_provider_model_time", "provider_name", "model_name", "created_at"),
+    )
+
+
+class RoutingEvent(Base):
+    """Immutable observability record for every credential selection attempt.
+
+    One row is created when a credential is selected and is updated with the
+    terminal outcome (success/failure). Failed-over attempts each get their own
+    row so the full failover chain can be reconstructed without guessing.
+    """
+
+    __tablename__ = "admin_routing_events"
+
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    routing_id = Column(GUID, nullable=False, index=True)
+    workspace_id = Column(GUID, nullable=True, index=True)
+    provider_name = Column(String(50), nullable=False, index=True)
+    model_name = Column(String(100), nullable=True)
+    credential_id = Column(GUID, nullable=True, index=True)
+    credential_label = Column(String(100), nullable=True)
+    key_prefix = Column(String(32), nullable=True)
+    routing_mode = Column(String(16), nullable=False)  # "manual" or "automatic"
+    strategy = Column(String(50), nullable=False)
+    decision_reason = Column(String(255), nullable=True)
+    attempt_number = Column(Integer, default=1, nullable=False)
+    is_failover = Column(Boolean, default=False, nullable=False)
+    outcome = Column(String(20), default=RoutingEventOutcome.SELECTED.value, nullable=False, index=True)
+    error_category = Column(String(50), nullable=True)  # auth, rate_limit, timeout, provider, unknown
+    error_message = Column(String(500), nullable=True)
+    retry_after_seconds = Column(Integer, nullable=True)
+    latency_ms = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+    __table_args__ = (
+        Index("ix_routing_provider_time", "provider_name", "created_at"),
+        Index("ix_routing_credential_time", "credential_id", "created_at"),
     )
 
 

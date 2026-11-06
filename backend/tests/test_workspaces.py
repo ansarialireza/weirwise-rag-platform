@@ -22,6 +22,7 @@ def test_workspace_and_rbac_flow():
         "/api/v1/auth/login",
         json={"email": owner_email, "password": "Password123!"},
     )
+    assert login_resp.status_code == 200, login_resp.text
     owner_token = login_resp.json()["access_token"]
     owner_headers = {"Authorization": f"Bearer {owner_token}"}
 
@@ -35,6 +36,7 @@ def test_workspace_and_rbac_flow():
         "/api/v1/auth/login",
         json={"email": member_email, "password": "Password123!"},
     )
+    assert m_login_resp.status_code == 200, m_login_resp.text
     member_token = m_login_resp.json()["access_token"]
     member_headers = {"Authorization": f"Bearer {member_token}"}
 
@@ -72,7 +74,7 @@ def test_workspace_and_rbac_flow():
         headers=member_headers,
         json={"role": "admin"},
     )
-    assert bad_role_change.status_code == 403
+    assert bad_role_change.status_code == 403, bad_role_change.text
 
     # 7. Owner cannot demote themselves if they are the last Owner
     owner_members_resp = client.get(f"/api/v1/workspaces/{ws_id}/members", headers=owner_headers)

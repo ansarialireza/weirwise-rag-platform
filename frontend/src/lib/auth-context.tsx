@@ -22,13 +22,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      if (api.getToken()) {
-        const u = await api.getMe();
-        setUser(u);
-      } else {
-        setUser(null);
-      }
+      // First attempt: try getMe directly (handles memory token or valid access_token cookie)
+      const u = await api.getMe();
+      setUser(u);
     } catch {
+      // Second attempt: if initial fetch failed (e.g. access token expired but 30-day refresh cookie is present), attempt token refresh
+      try {
+        const refreshedToken = await api.refreshToken();
+        if (refreshedToken) {
+          const u = await api.getMe();
+          setUser(u);
+          return;
+        }
+      } catch {
+        // Fall-through to null state
+      }
       setUser(null);
       api.setToken(null);
     } finally {

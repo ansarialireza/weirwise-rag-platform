@@ -63,6 +63,38 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    access_token_cookie: str | None = Cookie(None, alias="access_token"),
+    db: AsyncSession = Depends(get_db_session),
+) -> User | None:
+    """Optional authentication resolver: returns User if valid token is provided, None otherwise."""
+    token = None
+    if credentials:
+        token = credentials.credentials
+    elif access_token_cookie:
+        token = access_token_cookie
+
+    if not token:
+        return None
+
+    payload = decode_jwt_token(token)
+    if not payload or "sub" not in payload:
+        return None
+
+    try:
+        user_id = uuid.UUID(payload["sub"])
+    except ValueError:
+        return None
+
+    stmt = select(User).where(User.id == user_id)
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+    if not user or not user.is_active:
+        return None
+    return user
+
+
 class WorkspaceContext:
     """Encapsulates authenticated workspace membership and permissions."""
 

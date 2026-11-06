@@ -18,6 +18,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   platform-redis:
     image: redis:7-alpine
@@ -32,6 +37,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   platform-minio:
     image: minio/minio:latest
@@ -46,6 +56,11 @@ services:
       - "9001:9001"
     volumes:
       - platform_minio_data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   platform_postgres_data:

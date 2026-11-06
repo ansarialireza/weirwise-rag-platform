@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
+from backend.app.core.security import password_policy_error
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.functional_validators import AfterValidator
 
@@ -22,9 +23,19 @@ def validate_email_str(v: str) -> str:
 EmailStrType = Annotated[str, AfterValidator(validate_email_str)]
 
 
+def validate_password_str(v: str) -> str:
+    error = password_policy_error(v)
+    if error:
+        raise ValueError(error)
+    return v
+
+
+PasswordStr = Annotated[str, Field(min_length=12, max_length=128), AfterValidator(validate_password_str)]
+
+
 class UserRegisterRequest(BaseModel):
     email: EmailStrType
-    password: str = Field(..., min_length=8, max_length=128)
+    password: PasswordStr
     full_name: str = Field(..., min_length=2, max_length=255)
 
 
@@ -41,7 +52,7 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -49,8 +60,18 @@ class PasswordResetRequest(BaseModel):
 
 
 class PasswordResetConfirmRequest(BaseModel):
-    token: str
-    new_password: str = Field(..., min_length=8, max_length=128)
+    email: EmailStrType | None = None
+    token: str = Field(..., min_length=1)
+    new_password: PasswordStr
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStrType
+    otp: str = Field(..., min_length=6, max_length=64)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStrType
 
 
 class UserResponse(BaseModel):
@@ -60,6 +81,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     is_active: bool
+    is_verified: bool = False
     is_superuser: bool
     created_at: datetime
     updated_at: datetime
@@ -68,3 +90,4 @@ class UserResponse(BaseModel):
 class AuthMessageResponse(BaseModel):
     message: str
     reset_token: str | None = None  # Returned in development mode when email is not configured
+    verification_otp: str | None = None  # Returned in development mode

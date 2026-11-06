@@ -5,11 +5,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-emerald.svg" alt="Backend CI"></a>
-  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-emerald.svg" alt="Frontend CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
-  <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-14-black.svg" alt="Next.js 14"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/backend-ci.yml"><img src="https://img.shields.io/badge/Backend%20CI-passing-25C4D8.svg" alt="Backend CI"></a>
+  <a href="https://github.com/ansarialireza/weirwise-rag-platform/actions/workflows/frontend-ci.yml"><img src="https://img.shields.io/badge/Frontend%20CI-passing-25C4D8.svg" alt="Frontend CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-6B7078.svg" alt="License: MIT"></a>
+  <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-6B7078.svg" alt="Python 3.11+"></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/next.js-15-101114.svg" alt="Next.js 15"></a>
 </p>
 
 ---
@@ -37,7 +37,7 @@ See [Product Vision](docs/PRODUCT_VISION.md) for the product definition, current
 
 ```mermaid
 flowchart TD
-    subgraph Client["Frontend (Next.js 14 App Router)"]
+    subgraph Client["Frontend (Next.js 15 App Router)"]
         UI[Workspace & Assistant Studio]
         Playground[Interactive Grounding Playground]
         Admin[Super Admin Control Center]
@@ -81,8 +81,12 @@ flowchart TD
 ### 1. Intelligent AI Provider Routing & Failover
 - **Multi-Key Credential Pools**: Register multiple API keys per provider family (OpenAI, Anthropic, Gemini).
 - **Adaptive Routing Strategies**: Choose between `Round-Robin`, `Priority-Based`, `Weighted-Random`, or `Lowest-Cost`.
-- **Automatic Circuit Breaking**: 60-second cooldown on HTTP 429 rate limits; 300-second circuit breaker upon 3 consecutive failures.
+- **Provider Account Controls**: Create and update provider display name, routing strategy, model allowlist, availability, and monthly budget from `/admin/providers`.
+- **Configurable Operations Policy**: Routing starts in manual mode. Super Admins can enable automatic failover, emergency stop, recovery, rate-limit cooldown, and circuit-breaker thresholds in `/admin/operations`.
+- **Live Credential Validation**: OpenAI, Anthropic, Gemini, Deepgram, Jina, OpenRouter, and Resend credentials are checked against fixed provider endpoints. Jina validation sends a minimal test embedding and may incur provider usage charges. Invalid credentials remain inactive, and re-enabling a credential requires fresh validation.
 - **Cryptographic Vault**: Credentials encrypted at rest using AES-128-CBC + HMAC-SHA256 (Fernet) with SHA-256 deduplication and prefix masking (`sk-proj-...a1b2`).
+
+The current assistant chat endpoint performs retrieval and returns grounded excerpts or its configured fallback; it does not yet invoke these provider credentials. Accordingly, chat turns do not create provider token/cost ledger entries, and routing controls do not affect chat generation until that integration is implemented.
 
 ### 2. FinOps Unit Economics & Ledger
 - **Token Cost Ledger**: Immutable per-request token consumption accounting (prompt, completion, estimated cost in micro-dollars, and latency).
@@ -97,7 +101,7 @@ flowchart TD
 ## Tech Stack
 
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2, Pytest, Ruff.
-- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons.
+- **Frontend**: Next.js 15 (App Router), React 18, TypeScript, Tailwind CSS, Lucide Icons.
 - **Storage & Security**: PostgreSQL / SQLite (compatible dual-driver), Fernet symmetric encryption, JWT authentication.
 
 ---
@@ -190,7 +194,7 @@ weirwise-rag-platform/
 ├── docs/                     # Technical specifications, architecture, and ADRs
 │   ├── adr/                  # Architectural Decision Records
 │   └── ARCHITECTURE.md       # Comprehensive system architecture documentation
-├── frontend/                 # Next.js 14 Web Application
+├── frontend/                 # Next.js 15 Web Application
 │   ├── public/               # Brand assets and SVG icons
 │   └── src/                  # App Router pages, components, hooks, and lib
 ├── docker-compose.yml        # Docker service orchestration manifest
@@ -213,6 +217,28 @@ weirwise-rag-platform/
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Security Policy](SECURITY.md)
 - [Architectural Decision Records (ADRs)](docs/adr/)
+
+---
+
+## Brand & Identity
+
+The Weirwise mark ships from one authoritative source: [`frontend/public/weirwise-mark.svg`](frontend/public/weirwise-mark.svg). Its geometry is never redrawn per surface — every other asset in `frontend/public/` is derived from it by `scripts/brand/build-official-mark.mjs`, which also emits the React path data used by `WeirwiseMark`.
+
+| Asset | Purpose |
+| --- | --- |
+| `weirwise-mark.svg` | Master symbol (official geometry, C2PA provenance intact) |
+| `weirwise-mark-ink.svg` / `-mono-ink.svg` / `-mono-paper.svg` | Light-background, knockout, and single-colour marks |
+| `weirwise-wordmark*.svg`, `weirwise-horizontal*.svg` | Wordmark and lockups |
+| `weirwise-app-icon*.svg`, `icon-192.png`, `icon-512*.png` | PWA icons, including maskable and monochrome |
+| `favicon.svg`, `favicon.ico`, `favicon-*.png`, `apple-touch-icon.png` | Browser and OS icons |
+| `weirwise-og.png` | Social preview card |
+
+Rules for usage — minimum size, clear space, background compatibility and incorrect usage — live in the private `weirwise-brand` repository (`identity/logo-guidelines.md`). Colour tokens are defined in `frontend/src/app/globals.css` as `--ww-mark-1/2/3` and `--ww-mark-accent`, so the mark re-tints per theme instead of carrying hard-coded fills.
+
+Two operational notes:
+
+- `scripts/brand/sync-brand-repo.mjs` publishes the generated set to the brand repository and `--check` verifies the two copies byte-for-byte. Run it after any regeneration.
+- `next start` snapshots `public/` at build time. New assets return 404 until `next build` is re-run.
 
 ---
 

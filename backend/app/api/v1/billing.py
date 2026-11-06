@@ -5,6 +5,7 @@ import uuid
 from backend.app.api.dependencies import WorkspaceContext, require_workspace
 from backend.app.db.session import get_db_session
 from backend.app.models.auth import SubscriptionTier, WorkspaceRole
+from backend.app.services.metering import metering_service
 from backend.app.services.subscription import PLAN_DEFINITIONS, subscription_service
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -100,7 +101,7 @@ async def get_workspace_billing_status(
     plan_name = tier.name if tier else ws.plan_tier
     monthly_price = int(tier.monthly_price) if tier else fallback_plan.monthly_price_usd
     max_turns = int(tier.max_monthly_messages) if tier else fallback_plan.max_chat_turns_monthly
-    max_docs = int(tier.max_assistants * 50) if tier else fallback_plan.max_documents
+    max_docs = subscription_service.document_limit_for_tier(tier, fallback_plan)
 
     usage = await subscription_service.get_workspace_usage(ws.id, db)
 
@@ -152,6 +153,21 @@ async def change_workspace_plan(
     else:
         ws.plan_tier = target
 
+    # Mirror the new plan into the entitlement row that quota enforcement reads.
+    fallback_plan = subscription_service.get_plan(ws.plan_tier)
+    entitlement = await metering_service.get_or_create_entitlements(db, ws.id)
+    if db_tier:
+        entitlement.plan_tier = ws.plan_tier
+        entitlement.max_assistants = int(db_tier.max_assistants)
+        entitlement.monthly_chat_turns_limit = int(db_tier.max_monthly_messages)
+        entitlement.max_storage_mb = int(db_tier.max_storage_mb)
+    else:
+        entitlement.plan_tier = fallback_plan.tier
+        entitlement.max_assistants = fallback_plan.max_assistants
+        entitlement.monthly_chat_turns_limit = fallback_plan.max_chat_turns_monthly
+        entitlement.max_storage_mb = fallback_plan.max_file_size_mb
+    entitlement.max_knowledge_sources = max(entitlement.max_assistants, 1) * 3
+
     await db.commit()
     await db.refresh(ws)
 
@@ -161,7 +177,7 @@ async def change_workspace_plan(
     plan_name = tier.name if tier else ws.plan_tier
     monthly_price = int(tier.monthly_price) if tier else fallback_plan.monthly_price_usd
     max_turns = int(tier.max_monthly_messages) if tier else fallback_plan.max_chat_turns_monthly
-    max_docs = int(tier.max_assistants * 50) if tier else fallback_plan.max_documents
+    max_docs = subscription_service.document_limit_for_tier(tier, fallback_plan)
 
     usage = await subscription_service.get_workspace_usage(ws.id, db)
 

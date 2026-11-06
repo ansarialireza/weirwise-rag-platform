@@ -37,6 +37,10 @@ class Assistant(Base):
     description = Column(Text, nullable=True)
     system_instructions = Column(Text, nullable=True)
     model = Column(String(100), default="Auto", nullable=False)
+    engine_mode = Column(String(50), default="ai_answer", nullable=False)  # search_only | ai_answer
+    # Whether readers may inspect the passages behind an answer. Meaningful only for
+    # search_only assistants; AI answers never present sources.
+    show_sources = Column(Boolean, default=True, nullable=False)
     temperature = Column(Float, default=0.2, nullable=False)
     max_tokens = Column(Integer, default=1024, nullable=False)
     score_threshold = Column(Float, default=0.7, nullable=False)
@@ -139,7 +143,7 @@ class Deployment(Base):
     theme_config = Column(
         CompatibleJSON,
         default=lambda: {
-            "primary_color": "#2563EB",
+            "primary_color": "#3FD0DA",
             "assistant_title": "AI Assistant",
             "welcome_message": "Hello! How can I assist you with our business services today?",
             "placeholder_text": "Ask us a question...",
@@ -249,7 +253,7 @@ class BusinessIntegration(Base):
     encrypted_credentials = Column(Text, nullable=False)  # Fernet encrypted payload
     config = Column(CompatibleJSON, default=dict, nullable=False)
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
-    sync_status = Column(String(50), default="idle", nullable=False)  # idle, syncing, completed, failed
+    sync_status = Column(String(50), default="idle", nullable=False)  # idle, syncing, completed, failed, unsupported
     last_error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)

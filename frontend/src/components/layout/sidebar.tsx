@@ -2,112 +2,85 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Bot,
   Database,
-  Sliders,
-  Settings,
-  LogOut,
-  ChevronDown,
-  Search,
+  MessageSquare,
   X,
+  ShieldCheck,
 } from "lucide-react";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { Workspace, Project } from "@/types";
-import { CompactThemeMenu } from "@/components/ui/compact-theme-menu";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { useState } from "react";
+import { useI18n } from "@/lib/i18n/context";
+import { PreferenceControls } from "@/components/ui/preference-controls";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
+import { InstallAppButton } from "@/components/ui/install-app-button";
 
 interface SidebarProps {
-  currentWorkspace: Workspace | null;
-  currentProject: Project | null;
-  workspaces: Workspace[];
-  projects: Project[];
   onItemClick?: () => void;
   onClose?: () => void;
   isMobileDrawer?: boolean;
 }
 
-export function Sidebar({
-  currentWorkspace,
-  currentProject,
-  workspaces,
-  projects,
-  onItemClick,
-  onClose,
-  isMobileDrawer = false,
-}: SidebarProps) {
+export function Sidebar({ onItemClick, onClose, isMobileDrawer = false }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { dict } = useI18n();
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  const [planTier, setPlanTier] = useState<string | null>(null);
 
-  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
-  const [projDropdownOpen, setProjDropdownOpen] = useState(false);
-
-  const wsId = currentWorkspace?.id;
-  const pId = currentProject?.id;
-
-  const baseProjUrl = wsId && pId ? `/workspaces/${wsId}/projects/${pId}` : "";
-  const baseWsUrl = wsId ? `/workspaces/${wsId}` : "";
+  useEffect(() => {
+    let active = true;
+    api
+      .getWorkspaces()
+      .then((list) => {
+        if (!active) return;
+        const activeId = api.getWorkspaceId();
+        const ws = list.find((w) => w.id === activeId) || list[0];
+        if (ws) {
+          setWorkspaceName(ws.name);
+          setPlanTier(ws.plan_tier);
+        }
+      })
+      .catch(() => {
+        /* Non-critical: workspace label falls back to the product name. */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const navItems = [
-    {
-      label: "Overview",
-      href: baseProjUrl ? `${baseProjUrl}/overview` : "#",
-      icon: LayoutDashboard,
-      active: pathname.endsWith("/overview") || (baseProjUrl && pathname === baseProjUrl),
-      disabled: !baseProjUrl,
-    },
-    {
-      label: "Knowledge",
-      href: baseProjUrl ? `${baseProjUrl}/sources` : "#",
-      icon: Database,
-      active: pathname.includes("/sources"),
-      disabled: !baseProjUrl,
-    },
-    {
-      label: "Assistants",
-      href: baseProjUrl ? `${baseProjUrl}/assistants` : "#",
-      icon: Bot,
-      active: pathname.includes("/assistants") && !pathname.includes("/playground"),
-      disabled: !baseProjUrl,
-    },
-    {
-      label: "Playground",
-      href: baseProjUrl ? `${baseProjUrl}/playground` : "#",
-      icon: Sliders,
-      active: pathname.includes("/playground"),
-      disabled: !baseProjUrl,
-    },
-    {
-      label: "Settings",
-      href: baseWsUrl ? `${baseWsUrl}/settings` : "#",
-      icon: Settings,
-      active: pathname.includes("/settings"),
-      disabled: !baseWsUrl,
-    },
+    { label: dict.common.overview, href: "/overview", icon: LayoutDashboard, active: pathname === "/overview" },
+    { label: dict.common.knowledge, href: "/sources", icon: Database, active: pathname.startsWith("/sources") },
+    { label: dict.common.assistants, href: "/assistants", icon: Bot, active: pathname.startsWith("/assistants") },
+    { label: dict.common.playground, href: "/playground", icon: MessageSquare, active: pathname.startsWith("/playground") },
   ];
+
+  const planLabels: Record<string, string> = {
+    free: dict.common.freePlan,
+    starter: dict.common.starterPlan,
+    pro: dict.common.proPlan,
+    enterprise: dict.common.businessPlan,
+  };
+  const planLabel = planTier ? planLabels[planTier] || planTier : dict.common.workspace;
 
   return (
     <aside
       className={cn(
-        "flex flex-col border-r border-border bg-card transition-colors select-none",
-        isMobileDrawer ? "h-full w-full" : "h-screen w-64"
+        "flex select-none flex-col border-border bg-card transition-colors",
+        isMobileDrawer ? "h-full w-full" : "h-screen w-[248px] border-r"
       )}
-      aria-label="Workspace Navigation Sidebar"
+      aria-label={dict.common.mainNavigation}
     >
-      {/* Brand Header & Mobile Close Button */}
-      <div className="flex h-16 items-center justify-between border-b border-border px-4 shrink-0">
-        <Link
-          href={baseProjUrl ? `${baseProjUrl}/overview` : "/"}
-          onClick={() => onItemClick?.()}
-          className="flex items-center gap-3 group"
-        >
-          <WeirwiseSymbol className="h-8 w-auto" priority />
-          <span className="text-base font-bold tracking-tight text-foreground flex items-center gap-1.5">
+      <div className="flex h-16 shrink-0 items-center justify-between px-4">
+        <Link href="/overview" onClick={() => onItemClick?.()} className="group flex items-center gap-2.5">
+          <WeirwiseMark className="h-7 w-auto" />
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">
             Weirwise
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
           </span>
         </Link>
 
@@ -115,187 +88,89 @@ export function Sidebar({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Close navigation drawer"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={dict.common.closeNavigation}
           >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {/* Scope Pickers: Workspace & Project */}
-      <div className="p-3.5 space-y-2 border-b border-border/80 bg-card/40 text-xs shrink-0">
-        {/* Workspace Dropdown */}
-        <div className="relative">
-          <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Workspace
-          </label>
-          <button
-            type="button"
-            onClick={() => {
-              setWsDropdownOpen(!wsDropdownOpen);
-              setProjDropdownOpen(false);
-            }}
-            className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-            aria-expanded={wsDropdownOpen}
-          >
-            <span className="truncate">{currentWorkspace?.name || "Select Workspace"}</span>
-            <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", wsDropdownOpen && "rotate-180")} />
-          </button>
-
-          {wsDropdownOpen && workspaces.length > 0 && (
-            <div className="absolute left-0 right-0 mt-1.5 z-30 rounded-lg border border-border bg-card shadow-xl py-1 max-h-56 overflow-y-auto text-xs">
-              {workspaces.map((ws) => (
-                <Link
-                  key={ws.id}
-                  href={`/workspaces/${ws.id}`}
-                  onClick={() => {
-                    setWsDropdownOpen(false);
-                    onItemClick?.();
-                  }}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2 transition-colors hover:bg-secondary",
-                    ws.id === wsId ? "text-primary font-bold bg-primary/10" : "text-foreground"
-                  )}
-                >
-                  <span className="truncate">{ws.name}</span>
-                  {ws.id === wsId && <span className="h-2 w-2 rounded-full bg-primary" />}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Project Dropdown */}
-        {wsId && (
-          <div className="relative">
-            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Project
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                setProjDropdownOpen(!projDropdownOpen);
-                setWsDropdownOpen(false);
-              }}
-              className="w-full flex items-center justify-between rounded-md border border-border/70 bg-secondary/40 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-secondary hover:border-border transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-              aria-expanded={projDropdownOpen}
-            >
-              <span className="truncate">{currentProject?.name || "Select Project"}</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0", projDropdownOpen && "rotate-180")} />
-            </button>
-
-            {projDropdownOpen && projects.length > 0 && (
-              <div className="absolute left-0 right-0 mt-1.5 z-30 rounded-lg border border-border bg-card shadow-xl py-1 max-h-56 overflow-y-auto text-xs">
-                {projects.map((proj) => (
-                  <Link
-                    key={proj.id}
-                    href={`/workspaces/${wsId}/projects/${proj.id}/overview`}
-                    onClick={() => {
-                      setProjDropdownOpen(false);
-                      onItemClick?.();
-                    }}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-2 transition-colors hover:bg-secondary",
-                      proj.id === pId ? "text-primary font-bold bg-primary/10" : "text-foreground"
-                    )}
-                  >
-                    <span className="truncate">{proj.name}</span>
-                    {proj.id === pId && <span className="h-2 w-2 rounded-full bg-primary" />}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Quick Command Palette Shortcut Trigger */}
-      <div className="px-3.5 pt-3 shrink-0">
-        <button
-          type="button"
-          onClick={() => {
-            window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
-            onItemClick?.();
-          }}
-          className="w-full flex items-center justify-between rounded-lg border border-border/80 bg-input/70 px-3 py-2 text-xs text-muted-foreground hover:bg-input hover:text-foreground transition-colors"
-        >
+      <div className="px-3 pb-4">
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            <span>Search &amp; Jump</span>
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-onyx text-[10px] font-semibold text-white">
+              {(workspaceName || "W").charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13px] font-medium leading-tight text-foreground">
+                {workspaceName || dict.common.workspace}
+              </div>
+              <div className="truncate text-[11px] leading-tight text-muted-foreground">
+                {planLabel}
+              </div>
+            </div>
           </div>
-          <kbd className="px-1.5 py-0.5 rounded border border-border bg-secondary text-[10px] font-mono">
-            Ctrl+K
-          </kbd>
-        </button>
+        </div>
       </div>
 
-      {/* Main Navigation Links */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3">
+        <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-label text-muted-foreground">
+          {dict.common.workspace}
+        </p>
         {navItems.map((item) => {
           const Icon = item.icon;
-          if (item.disabled) {
-            return (
-              <div
-                key={item.label}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/40 cursor-not-allowed"
-              >
-                <Icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </div>
-            );
-          }
-
           return (
             <Link
-              key={item.label}
+              key={item.href}
               href={item.href}
               onClick={() => onItemClick?.()}
+              aria-current={item.active ? "page" : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                "group relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors",
                 item.active
-                  ? "bg-secondary text-primary font-semibold shadow-xs"
-                  : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                  ? "bg-muted font-medium text-foreground"
+                  : "font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground"
               )}
             >
-              <Icon className={cn("h-4 w-4", item.active ? "text-primary" : "text-muted-foreground")} />
+              {item.active && (
+                <span className="absolute inset-y-2 start-0 w-[3px] rounded-full bg-signal" aria-hidden="true" />
+              )}
+              <Icon className={cn("h-[18px] w-[18px]", item.active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")} />
               <span>{item.label}</span>
             </Link>
           );
         })}
+
+        {user?.is_superuser && (
+          <>
+            <p className="px-3 pb-1.5 pt-5 text-[11px] font-medium uppercase tracking-label text-muted-foreground">
+              {dict.common.administration}
+            </p>
+            <Link
+              href="/admin"
+              onClick={() => onItemClick?.()}
+              className={cn(
+                "flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors",
+                pathname.startsWith("/admin")
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              )}
+            >
+              <ShieldCheck className="h-[18px] w-[18px]" />
+              <span>{dict.common.admin}</span>
+            </Link>
+          </>
+        )}
       </nav>
 
-      {/* User Profile & Theme Preference Footer */}
-      <div className="border-t border-border p-3.5 space-y-2.5 bg-card/60 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary border border-border text-xs font-bold text-foreground shrink-0">
-              {user?.full_name?.charAt(0) || "U"}
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-xs font-semibold text-foreground truncate">
-                {user?.full_name || "User"}
-              </span>
-              <span className="text-[11px] text-muted-foreground truncate">
-                {user?.email || "Account"}
-              </span>
-            </div>
-          </div>
+      <div className="shrink-0 border-t border-border p-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
+        {/* Search, the account menu and sign-out all belong to the top bar; a
+            second copy of each here would be three duplicated controls. */}
+        <InstallAppButton variant="row" className="min-h-10 py-1.5 text-[12px]" />
 
-          <button
-            onClick={logout}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors focus:outline-none"
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Compact theme selector */}
-        <div className="flex items-center justify-between pt-2 border-t border-border/50">
-          <span className="text-xs text-muted-foreground font-medium">Appearance</span>
-          <CompactThemeMenu />
+        <div className="mt-2 flex items-center justify-end gap-2 px-1">
+          <PreferenceControls />
         </div>
       </div>
     </aside>

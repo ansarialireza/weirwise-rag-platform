@@ -2,9 +2,13 @@
 
 import time
 import uuid
+from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
+from backend.app.core.security import generate_secure_token, hash_token
 from backend.app.db.session import get_db_session
 from backend.app.models.assistant import (
     AnswerFeedback,
@@ -17,6 +21,7 @@ from backend.app.models.assistant import (
     Message,
     UnansweredQuery,
 )
+from backend.app.models.audit import ApiCredential
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     AnswerFeedbackRequest,
@@ -28,7 +33,10 @@ from backend.app.schemas.assistant import (
     HumanHandoffResponse,
     PublicRuntimeConfigResponse,
 )
+from backend.app.services.auth_rate_limiter import client_ip
+from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
+from backend.app.services.public_rate_limiter import enforce_public_limit
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
@@ -36,15 +44,137 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/public", tags=["Public Assistant Runtime"])
 
+_SLOW_DOWN_MESSAGE = "You're sending messages too quickly. Please wait a moment and try again."
+
+
+async def _guard_public_chat(
+    request: Request,
+    assistant: Assistant,
+    deployment: Deployment | None,
+    credential: ApiCredential | None,
+) -> None:
+    """Bound anonymous chat by client IP and by deployment capacity."""
+    await enforce_public_limit(
+        scope="chat_ip",
+        identifier=client_ip(request),
+        limit=settings.PUBLIC_CHAT_IP_LIMIT,
+        window_seconds=settings.PUBLIC_CHAT_IP_WINDOW_SECONDS,
+        message=_SLOW_DOWN_MESSAGE,
+    )
+    if credential:
+        deployment_key = f"api:{credential.id}"
+    elif deployment:
+        deployment_key = str(deployment.id)
+    else:
+        deployment_key = f"assistant:{assistant.id}"
+    await enforce_public_limit(
+        scope="chat_deployment",
+        identifier=deployment_key,
+        limit=settings.PUBLIC_CHAT_DEPLOYMENT_LIMIT,
+        window_seconds=settings.PUBLIC_CHAT_DEPLOYMENT_WINDOW_SECONDS,
+        message="This assistant is receiving a lot of messages right now. Please try again in a moment.",
+    )
+
+
+def _hostname(value: str | None) -> str:
+    """Extract a lowercase hostname from an Origin, Referer, or domain entry."""
+    if not value:
+        return ""
+    candidate = value if "://" in value else f"https://{value}"
+    try:
+        return (urlsplit(candidate).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def origin_is_allowed(request_origin: str | None, allowed_domains: list[str] | None) -> bool:
+    """Match the request hostname exactly, allowing explicit wildcard subdomains.
+
+    Substring matching is intentionally not used: it would accept
+    `mycompany.com.attacker.net` for an allowlisted `mycompany.com`.
+    """
+    if not allowed_domains:
+        return True
+    if "*" in allowed_domains:
+        return True
+
+    request_host = _hostname(request_origin)
+    if not request_host:
+        return False
+
+    for entry in allowed_domains:
+        allowed_host = _hostname(entry)
+        if not allowed_host:
+            continue
+        if allowed_host.startswith("*."):
+            suffix = allowed_host[2:]
+            if request_host == suffix or request_host.endswith(f".{suffix}"):
+                return True
+        elif request_host == allowed_host:
+            return True
+    return False
+
+
+def _session_token(request: Request, body_token: str | None = None) -> str | None:
+    return body_token or request.headers.get("X-Session-Token")
+
+
+def _published_behaviour(assistant: Assistant) -> tuple[str, bool]:
+    """The engine mode and source-display flag as they were when the assistant shipped.
+
+    Falls back to the live columns for assistants published before either existed, so
+    an already-live widget keeps answering instead of failing on a missing key.
+    """
+    snapshot = assistant.published_snapshot or {}
+    engine_mode = snapshot.get("engine_mode") or assistant.engine_mode or "ai_answer"
+    show_sources = snapshot.get("show_sources")
+    if show_sources is None:
+        show_sources = bool(assistant.show_sources)
+    return engine_mode, bool(show_sources)
+
+
+def _credential_is_expired(credential: ApiCredential) -> bool:
+    if not credential.expires_at:
+        return False
+    expires_at = credential.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at <= datetime.now(UTC)
+
+
+async def _active_api_credential(x_api_key: str, db: AsyncSession) -> ApiCredential:
+    stmt = select(ApiCredential).where(
+        ApiCredential.key_hash == hash_token(x_api_key),
+        ApiCredential.is_active.is_(True),
+    )
+    credential = (await db.execute(stmt)).scalar_one_or_none()
+    if not credential or credential.revoked_at or _credential_is_expired(credential):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked API key.")
+    return credential
+
+
+async def _active_deployment(assistant_id: uuid.UUID, db: AsyncSession) -> Deployment | None:
+    stmt = (
+        select(Deployment)
+        .where(Deployment.assistant_id == assistant_id, Deployment.is_active.is_(True))
+        .order_by(Deployment.created_at.desc())
+    )
+    return (await db.execute(stmt)).scalars().first()
+
 
 async def resolve_public_deployment(
     assistant_id: uuid.UUID,
     x_widget_key: str | None = Header(None, alias="X-Widget-Key"),
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
     origin: str | None = Header(None, alias="Origin"),
     referer: str | None = Header(None, alias="Referer"),
     db: AsyncSession = Depends(get_db_session),
-) -> tuple[Assistant, Deployment | None]:
-    """Verify that assistant is PUBLISHED and deployment key/domains are valid."""
+) -> tuple[Assistant, Deployment | None, ApiCredential | None]:
+    """Verify that the assistant is published and the caller is allowed to use it.
+
+    Three access modes are supported: a server-to-server API key, a browser widget
+    key bound to allowed domains, or the public share link with no key.
+    """
     a_stmt = select(Assistant).where(Assistant.id == assistant_id)
     a_res = await db.execute(a_stmt)
     assistant = a_res.scalar_one_or_none()
@@ -55,10 +185,22 @@ async def resolve_public_deployment(
     if assistant.status != AssistantStatus.PUBLISHED.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Assistant is not published. Live runtime access requires published status.",
+            detail="This assistant isn't live yet.",
         )
 
-    # If widget key is provided, validate deployment
+    # Server-to-server API keys bypass browser domain rules but stay workspace-scoped.
+    if x_api_key:
+        credential = await _active_api_credential(x_api_key, db)
+        project_workspace = (
+            await db.execute(select(Project.workspace_id).where(Project.id == assistant.project_id))
+        ).scalar_one_or_none()
+        if project_workspace != credential.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This API key can't access this assistant.",
+            )
+        return assistant, await _active_deployment(assistant_id, db), credential
+
     deployment = None
     if x_widget_key:
         dep_stmt = select(Deployment).where(
@@ -72,57 +214,52 @@ async def resolve_public_deployment(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid widget public key.")
 
         # Origin / Domain restriction check
-        if deployment.allowed_domains and len(deployment.allowed_domains) > 0:
+        if deployment.allowed_domains:
             request_origin = origin or referer or ""
-            allowed = False
-            for domain in deployment.allowed_domains:
-                if domain in request_origin or domain == "*":
-                    allowed = True
-                    break
-            if not allowed:
+            if not origin_is_allowed(request_origin, deployment.allowed_domains):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Origin domain is not permitted by this assistant deployment policy.",
+                    detail="This website isn't allowed to use this assistant.",
                 )
 
-    return assistant, deployment
+    return assistant, deployment, None
 
 
 @router.get("/assistants/{assistant_id}/config", response_model=PublicRuntimeConfigResponse)
 async def get_public_runtime_config(
     assistant_id: uuid.UUID,
-    x_widget_key: str | None = Header(None, alias="X-Widget-Key"),
-    db: AsyncSession = Depends(get_db_session),
+    request: Request,
+    resolved: tuple[Assistant, Deployment | None, ApiCredential | None] = Depends(resolve_public_deployment),
 ) -> PublicRuntimeConfigResponse:
     """Retrieve public widget styling, greeting, and personality config without exposing prompts or credentials."""
-    a_stmt = select(Assistant).where(Assistant.id == assistant_id)
-    a_res = await db.execute(a_stmt)
-    assistant = a_res.scalar_one_or_none()
-
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    # Retrieve active deployment theme
-    dep_stmt = select(Deployment).where(
-        Deployment.assistant_id == assistant_id,
-        Deployment.is_active.is_(True),
+    await enforce_public_limit(
+        scope="config_ip",
+        identifier=client_ip(request),
+        limit=settings.PUBLIC_CONFIG_IP_LIMIT,
+        window_seconds=settings.PUBLIC_CONFIG_IP_WINDOW_SECONDS,
+        message="Too many requests. Please try again shortly.",
     )
-    if x_widget_key:
-        dep_stmt = dep_stmt.where(Deployment.public_key == x_widget_key)
+    assistant, deployment, credential = resolved
 
-    dep_res = await db.execute(dep_stmt)
-    deployment = dep_res.scalars().first()
+    if credential and "assistants:read" not in (credential.scopes or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This API key isn't allowed to read assistant configuration.",
+        )
 
     theme = deployment.theme_config if deployment else {}
+    engine_mode, show_sources = _published_behaviour(assistant)
 
     return PublicRuntimeConfigResponse(
         assistant_id=assistant.id,
         name=assistant.name,
         language=assistant.language or "en",
         tone=assistant.tone or "professional",
+        engine_mode=engine_mode,
+        show_sources=show_sources,
         welcome_message=theme.get("welcome_message", "Hello! How can I assist you with our services today?"),
         placeholder_text=theme.get("placeholder_text", "Ask us a question..."),
-        primary_color=theme.get("primary_color", "#2563EB"),
+        primary_color=theme.get("primary_color", "#3FD0DA"),
         position=theme.get("position", "bottom-right"),
         show_branding=theme.get("show_branding", True),
         allowed_domains=deployment.allowed_domains if deployment else [],
@@ -134,14 +271,23 @@ async def public_chat(
     assistant_id: uuid.UUID,
     payload: ChatMessageRequest,
     request: Request,
-    resolved: tuple[Assistant, Deployment | None] = Depends(resolve_public_deployment),
+    resolved: tuple[Assistant, Deployment | None, ApiCredential | None] = Depends(resolve_public_deployment),
     db: AsyncSession = Depends(get_db_session),
 ) -> ChatResponse:
     """Submit a real user prompt from website widget or shareable assistant link.
     Grounded strictly in published knowledge base snapshot.
     """
-    assistant, deployment = resolved
+    assistant, deployment, credential = resolved
     start_time = time.perf_counter()
+
+    if credential and "assistants:chat" not in (credential.scopes or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This API key isn't allowed to start conversations.",
+        )
+
+    # Reject scripted floods before spending quota, retrieval, or provider budget.
+    await _guard_public_chat(request, assistant, deployment, credential)
 
     # Get Workspace ID
     p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
@@ -156,6 +302,7 @@ async def public_chat(
     )
 
     # 1. Resolve or Create Conversation
+    incoming_token = _session_token(request, payload.session_token)
     conv = None
     if payload.conversation_id:
         conv_stmt = select(Conversation).where(
@@ -163,15 +310,24 @@ async def public_chat(
             Conversation.assistant_id == assistant.id,
         )
         conv = (await db.execute(conv_stmt)).scalar_one_or_none()
+        if conv and conv.session_token and incoming_token != conv.session_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your conversation expired. Please refresh and try again.",
+            )
 
+    session_token = incoming_token
     if not conv:
+        session_token = incoming_token or generate_secure_token("wws_")[0]
         conv = Conversation(
             assistant_id=assistant.id,
-            session_token=payload.session_token or request.headers.get("X-Session-Token"),
+            session_token=session_token,
             title=payload.message[:60],
         )
         db.add(conv)
         await db.flush()
+    else:
+        session_token = conv.session_token or session_token
 
     # 2. Record User Message
     user_msg = Message(
@@ -234,12 +390,26 @@ async def public_chat(
     citations = citations[: assistant.top_k]
 
     # 4. Formulate Grounded Answer or Fallback
+    engine_mode, show_sources = _published_behaviour(assistant)
+    # Only a Search Assistant whose publisher enabled sources ever lets original text
+    # cross the wire. Hiding it in the interface would leave the passages one
+    # devtools panel away, so the server decides, and every channel obeys.
+    sources_visible = engine_mode == "search_only" and show_sources
     is_grounded = bool(citations)
-    if is_grounded:
-        context_block = "\n\n".join(retrieved_contexts[:2])
-        assistant_reply = (
-            f"Based on our business knowledge: {context_block}\n\nLet me know if you would like more assistance!"
+    if is_grounded and engine_mode == "search_only":
+        # A published Search Assistant hands back the passages it found and never
+        # spends provider budget writing prose over them; the retrieval already is
+        # the answer. What readers may open is decided by show_sources below.
+        assistant_reply = f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
+    elif is_grounded:
+        answer = await llm_service.generate_grounded_answer(
+            db=db,
+            assistant=assistant,
+            query=payload.message,
+            passages=[c.content for c in citations],
+            workspace_id=ws_id,
         )
+        assistant_reply = answer.content
     else:
         assistant_reply = assistant.fallback_message
         # Track unanswered query for analytics
@@ -281,10 +451,11 @@ async def public_chat(
         message_id=assistant_msg.id,
         role="assistant",
         content=assistant_reply,
-        sources=citations,
+        sources=citations if sources_visible else [],
         latency_ms=latency_ms,
         is_grounded=is_grounded,
         suggest_escalation=suggest_escalation,
+        session_token=session_token,
     )
 
 
@@ -292,6 +463,7 @@ async def public_chat(
 async def submit_answer_feedback(
     message_id: uuid.UUID,
     payload: AnswerFeedbackRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> AnswerFeedbackResponse:
     """Submit thumbs up/down customer feedback on an assistant message."""
@@ -305,6 +477,12 @@ async def submit_answer_feedback(
     conv = (await db.execute(c_stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+
+    if conv.session_token and _session_token(request) != conv.session_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your conversation expired. Please refresh and try again.",
+        )
 
     # Check existing feedback
     fb_stmt = select(AnswerFeedback).where(AnswerFeedback.message_id == message_id)
@@ -334,6 +512,7 @@ async def submit_answer_feedback(
 async def request_human_handoff(
     conversation_id: uuid.UUID,
     payload: HumanHandoffCreateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db_session),
 ) -> HumanHandoffResponse:
     """Escalate a conversation when customer requests human help."""
@@ -341,6 +520,12 @@ async def request_human_handoff(
     conv = (await db.execute(c_stmt)).scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
+
+    if conv.session_token and _session_token(request) != conv.session_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your conversation expired. Please refresh and try again.",
+        )
 
     conv.is_escalated = True
     conv.escalation_reason = payload.reason

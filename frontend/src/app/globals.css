@@ -3,122 +3,630 @@
 @tailwind utilities;
 
 @layer base {
-  /* Dark Theme (Default) - Weirwise Onyx Charcoal, #CCFF00 Electric Lime & #2563FF Electric Blue */
+  /*
+   * Weirwise design tokens — Signal & Stone.
+   *
+   *   Ink        #0B0E0D  primary surface, primary action on light
+   *   Paper      #F7F6F3  warm light canvas
+   *   Verdigris  #0E7B6D  signal on light surfaces
+   *   Mint       #5CD6C2  signal on ink surfaces
+   *
+   * The interface signal is a green-teal that reads as instrumentation, not
+   * decoration; dark surfaces re-pin it to mint because verdigris loses
+   * contrast on ink. The mark keeps its own registered cyan edge, pinned by
+   * the --ww-mark-* tokens: those are presentation-only recolouring of the
+   * delivered artwork, never a re-hue of the accent.
+   */
   :root,
-  .dark {
-    --background: 240 10% 4%;        /* #090A0C */
-    --foreground: 0 0% 96%;           /* #F5F5F5 (18.17:1 WCAG AAA) */
-    --card: 240 12% 7%;               /* #101217 */
-    --card-foreground: 0 0% 96%;
-    --popover: 240 12% 7%;
-    --popover-foreground: 0 0% 96%;
-    --primary: 72 100% 50%;           /* #CCFF00 Electric Lime (Primary Orchestration & CTA, 16.85:1 vs background) */
-    --primary-foreground: 0 0% 0%;    /* #000000 (17.87:1 WCAG AAA text on #CCFF00) */
-    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue (Cognition & Memory, 4.06:1 AA graphical/large text) */
-    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF (4.88:1 WCAG AA text on #2563FF) */
-    --secondary: 220 18% 16%;         /* #222731 elevated interactive surface */
-    --secondary-foreground: 0 0% 94%; /* #F0F0F0 */
-    --muted: 225 15% 12%;             /* #171A22 */
-    --muted-foreground: 220 15% 69%;  /* #A3ACBD (8.20:1 WCAG AAA text on #101217) */
-    --accent: 72 100% 50%;            /* #CCFF00 */
-    --accent-foreground: 0 0% 0%;
-    --destructive: 4 90% 58%;         /* #FF453A */
-    --destructive-foreground: 0 0% 100%;
-    --border: 222 18% 22%;            /* #2E3444 well-defined boundaries */
-    --input: 220 16% 14%;             /* #1D212A */
-    --ring: 72 100% 50%;              /* #CCFF00 */
-    --radius: 0.5rem;
-    --brand-glow: rgba(204, 255, 0, 0.12);
-    --brand-glow-secondary: rgba(37, 99, 255, 0.18);
-  }
-
-  /* Light Theme - Soft neutral off-white surfaces, crisp typography, accessible UI fills & cobalt blue */
   .light {
-    --background: 220 14% 96%;        /* #F3F4F6 */
-    --foreground: 240 10% 4%;         /* #090A0C Onyx */
-    --card: 0 0% 100%;                /* #FFFFFF */
-    --card-foreground: 240 10% 4%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 240 10% 4%;            /* #090A0C Onyx */
-    --primary-foreground: 72 100% 50%; /* #CCFF00 Electric Lime */
-    --brand-secondary: 223 100% 57%;  /* #2563FF Electric Blue */
-    --brand-secondary-foreground: 0 0% 100%; /* #FFFFFF */
-    --secondary: 220 13% 91%;         /* #E2E8F0 */
-    --secondary-foreground: 240 10% 4%;
-    --muted: 220 14% 92%;             /* #E5E7EB */
-    --muted-foreground: 215 16% 37%;  /* #505D6E */
-    --accent: 223 100% 57%;           /* #2563FF Electric Blue */
+    color-scheme: light;
+    --background: 48 19% 96%;         /* #F7F6F3 Paper */
+    --foreground: 160 12% 5%;         /* #0B0E0D Ink */
+    --card: 45 33% 99%;               /* #FDFDFC */
+    --card-foreground: 160 12% 5%;
+    --popover: 45 33% 99%;
+    --popover-foreground: 160 12% 5%;
+    --primary: 160 12% 5%;            /* Ink — primary action */
+    --primary-foreground: 48 19% 97%;
+    --signal: 172 79% 27%;            /* #0E7B6D Verdigris */
+    --signal-foreground: 0 0% 100%;
+    --accent: 172 79% 27%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 56%;         /* #DC2626 */
+    --accent-strong: 172 84% 21%;     /* #096357, AA text on Paper */
+    --accent-soft: 170 43% 94%;       /* #E9F6F4 */
+    --volt: 172 79% 27%;
+    --volt-foreground: 0 0% 100%;
+    --onyx: 160 12% 5%;
+    --secondary: 45 14% 91%;          /* #EBEAE5 */
+    --secondary-foreground: 160 10% 9%;
+    --muted: 45 12% 93%;
+    --muted-foreground: 165 5% 38%;   /* #5C6663, AA on Paper */
+    --destructive: 356 68% 43%;       /* #B8232D */
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 84%;            /* #C5D0DE */
-    --input: 220 14% 94%;             /* #EFF1F5 */
-    --ring: 223 100% 57%;             /* #2563FF Electric Blue */
+    --success: 158 58% 25%;           /* #1B654A, AA text on tinted chips */
+    --warning: 35 90% 30%;            /* #915808 */
+    --info: 200 70% 32%;              /* #18658B */
+    --border: 45 10% 84%;             /* #DAD8D2 */
+    --border-strong: 45 6% 50%;       /* #878378 — 3.50:1 vs Paper, clears 1.4.11 */
+    --input: 45 33% 99%;
+    --ring: 172 79% 30%;
     --radius: 0.5rem;
-    --brand-glow: rgba(37, 99, 255, 0.16);
-    --brand-glow-secondary: rgba(9, 10, 12, 0.12);
+
+    /* Semantic roles (ADR-013). Intelligence and discovery are new; flow reuses
+       the existing signal rather than adding a second near-identical teal, and
+       system reuses --info. Values are contrast-tuned, not copied from the brief. */
+    --role-intelligence: 260 57% 52%;  /* #6E3FCB — 6.00:1 on Paper, 5.68:1 on its tint */
+    --role-discovery: 9 67% 46.5%;     /* #C63F27 — 4.69:1 on Paper, 4.55:1 on its tint */
+    --tint-intelligence: 258 62% 96%;  /* #F2EEFB */
+    --tint-discovery: 12 80% 96%;      /* #FDF0ED */
+    --shadow-soft: 0 1px 2px rgba(11, 14, 13, 0.04), 0 8px 24px -18px rgba(11, 14, 13, 0.3);
+    --shadow-lift: 0 2px 4px rgba(11, 14, 13, 0.05), 0 18px 44px -22px rgba(11, 14, 13, 0.36);
+    --grid-line: rgba(11, 14, 13, 0.055);
+
+    /* Official mark presentation on light surfaces: graphite strokes, and the
+       cyan accent darkened to keep 3:1 graphic contrast on paper. */
+    --ww-mark-1: #3a4441;
+    --ww-mark-2: #1d2624;
+    --ww-mark-3: #0b0e0d;
+    --ww-mark-accent: #1d9aaa;
   }
 
-  /* Colorful Theme - Cosmic Twilight Indigo with Radiant Violet & Cyan Accents (Interface Theme) */
-  .colorful {
-    --background: 234 40% 9%;         /* #0d1124 */
-    --foreground: 210 40% 98%;        /* #f8fafc */
-    --card: 235 32% 14%;              /* #181e36 */
-    --card-foreground: 210 40% 98%;
-    --popover: 235 32% 14%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 262 83% 66%;           /* #8b5cf6 UI action accent */
-    --primary-foreground: 0 0% 100%;  /* #ffffff (4.80:1 WCAG AA text) */
-    --brand-secondary: 188 95% 48%;   /* #06b6d4 UI secondary intelligence token */
-    --brand-secondary-foreground: 0 0% 100%; /* #ffffff */
-    --secondary: 235 28% 22%;         /* #283054 */
-    --secondary-foreground: 220 35% 96%;
-    --muted: 235 30% 16%;             /* #1c223c */
-    --muted-foreground: 228 32% 74%;  /* #A8B3D4 (>8.9:1) */
-    --accent: 188 95% 48%;            /* #06b6d4 */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 348 88% 60%;       /* #f43f5e */
-    --destructive-foreground: 0 0% 100%;
-    --border: 235 24% 24%;            /* #2E365E */
-    --input: 235 28% 18%;             /* #202644 */
-    --ring: 262 83% 66%;
-    --radius: 0.5rem;
-    --brand-glow: rgba(139, 92, 246, 0.28);
-    --brand-glow-secondary: rgba(6, 182, 212, 0.24);
+  .dark {
+    color-scheme: dark;
+    --background: 160 12% 5%;         /* #0B0E0D Ink */
+    --foreground: 48 19% 96%;         /* #F7F6F3 Paper */
+    --card: 160 9% 8%;                /* #131615 */
+    --card-foreground: 48 19% 96%;
+    --popover: 160 8% 11%;
+    --popover-foreground: 48 19% 96%;
+    --primary: 170 60% 60%;           /* #5CD6C2 Mint */
+    --primary-foreground: 160 12% 5%; /* Ink text on mint */
+    --signal: 170 60% 60%;
+    --signal-foreground: 160 12% 5%;
+    --accent: 170 60% 60%;
+    --accent-foreground: 160 12% 5%;
+    --accent-strong: 170 60% 68%;
+    --accent-soft: 168 32% 14%;
+    --volt: 170 60% 60%;
+    --volt-foreground: 160 12% 5%;
+    --onyx: 160 12% 5%;
+    --secondary: 160 7% 14%;
+    --secondary-foreground: 48 19% 94%;
+    --muted: 160 8% 11%;
+    --muted-foreground: 45 8% 68%;    /* #B4B1A7 */
+    --destructive: 3 85% 68%;
+    --destructive-foreground: 160 12% 5%;
+    --success: 158 50% 56%;
+    --warning: 38 85% 60%;
+    --info: 199 65% 62%;
+    --border: 160 7% 18%;
+    --border-strong: 160 6% 42%;      /* #65726D — 3.35:1 vs dark input fill, clears 1.4.11 */
+    --input: 160 8% 11%;
+    --ring: 170 60% 60%;
+    --role-intelligence: 257 100% 80%; /* #B79BFF — 8.45:1 on Ink, 6.99:1 on its tint */
+    --role-discovery: 10 100% 75%;     /* #FF9681 — 9.17:1 on Ink, 6.94:1 on its tint */
+    --tint-intelligence: 258 35% 17%;  /* #251C3B */
+    --tint-discovery: 12 40% 17%;      /* #3D211A */
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.32), 0 10px 28px -20px rgba(0, 0, 0, 0.72);
+    --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.36), 0 24px 56px -24px rgba(0, 0, 0, 0.82);
+    --grid-line: rgba(244, 243, 239, 0.055);
+
+    /* Official mark colours, unchanged from the delivered artwork. */
+    --ww-mark-1: #f6f6f7;
+    --ww-mark-2: #cfd0d3;
+    --ww-mark-3: #85868b;
+    --ww-mark-accent: #25c4d8;
+  }
+
+  /* Applied by WeirwiseMark when a mark sits on an ink panel inside a light
+     theme, so the artwork keeps its official silver-and-cyan reading. */
+  .ww-on-ink {
+    --ww-mark-1: #f6f6f7;
+    --ww-mark-2: #cfd0d3;
+    --ww-mark-3: #85868b;
+    --ww-mark-accent: #25c4d8;
+  }
+
+  /* Brand spectrum and motion language (ADR-013). Theme-independent: these are
+     the signature's own colours, not UI colours. On Paper the stops measure
+     1.40–1.79:1, which is exactly why they are confined to signature surfaces
+     and never used for text, borders or controls. */
+  :root {
+    --flow-1: 174 62% 51%;   /* #35CFC0 turquoise — data flow */
+    --flow-2: 189 80% 52%;   /* #22C7E6 cyan */
+    --flow-3: 223 100% 57%;  /* #2563FF electric blue — signature only, still deprecated as a UI accent */
+    --flow-4: 261 73% 62%;   /* #8957E5 violet — intelligence */
+    --flow-5: 322 62% 60%;   /* #D85BAA magenta */
+    --flow-6: 7 100% 70%;    /* #FF7867 coral — discovery */
+    --flow-7: 21 100% 83%;   /* #FFC6A8 peach */
+    --flow-ink: 274 28% 10%;    /* #1A1220 deep aubergine signature ground */
+    --flow-ivory: 25 100% 98%;  /* #FFF8F3 warm ivory signature ground */
+
+    --gradient-flow: linear-gradient(
+      118deg,
+      hsl(var(--flow-1)) 0%, hsl(var(--flow-2)) 17%, hsl(var(--flow-3)) 35%,
+      hsl(var(--flow-4)) 53%, hsl(var(--flow-5)) 70%, hsl(var(--flow-6)) 86%,
+      hsl(var(--flow-7)) 100%
+    );
+    --gradient-flow-soft: linear-gradient(
+      118deg,
+      hsl(var(--flow-1) / 0.55), hsl(var(--flow-4) / 0.55) 55%, hsl(var(--flow-6) / 0.55)
+    );
+
+    --dur-instant: 90ms;
+    --dur-fast: 140ms;
+    --dur-standard: 220ms;
+    --dur-enter: 320ms;
+    --dur-flow: 1200ms;
+    --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-soft: cubic-bezier(0.16, 0.84, 0.44, 1);
+    --ease-flow: cubic-bezier(0.65, 0, 0.35, 1);
+
+    /* Language-specific stacks. The switch is `data-font` on <html>, written by
+       the same locale spec that writes `lang` and `dir`, so a new language is a
+       registry row rather than a new CSS rule or a new branch in a component.
+       Inter carries no Arabic-script coverage, so letting it win a fallback
+       chain is how Persian ends up rendered by whatever the OS happens to have. */
+    --font-stack-body: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-stack-display: var(--font-inter-tight), "Inter Tight", var(--font-inter), "Inter", -apple-system,
+      BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-stack-arabic: var(--font-vazirmatn), "Vazirmatn", "Noto Naskh Arabic", "Segoe UI", Tahoma, sans-serif;
+
+    --leading-body: 1.65;
+    --leading-snug: 1.25;
+    --leading-tight: 1.12;
+    --leading-hero: 1.05;
+    --leading-section: 1.12;
+    --tracking-display: -0.03em;
+    --tracking-snug: -0.022em;
+    --tracking-hero: -0.035em;
+    --tracking-section: -0.025em;
+    --tracking-eyebrow: 0.18em;
+    --tracking-label: 0.08em;
+    --tracking-normal: 0;
+    /* OpenType calls that belong to Inter and mean nothing elsewhere. */
+    --font-features: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Arabic script needs more leading (descenders and diacritics collide) and no
+     tracking in either direction: negative tracking closes the joins that make
+     the script readable, and the wide tracking an uppercase label wants tears a
+     joined word into separate letters. */
+  [data-font="arabic"] {
+    --font-stack-body: var(--font-stack-arabic);
+    --font-stack-display: var(--font-stack-arabic);
+    --leading-body: 1.95;
+    --leading-snug: 1.6;
+    --leading-tight: 1.55;
+    --leading-hero: 1.3;
+    --leading-section: 1.42;
+    --tracking-display: var(--tracking-normal);
+    --tracking-snug: var(--tracking-normal);
+    --tracking-hero: var(--tracking-normal);
+    --tracking-section: var(--tracking-normal);
+    --tracking-eyebrow: var(--tracking-normal);
+    --tracking-label: var(--tracking-normal);
+    --font-features: normal;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+    font-family: var(--font-stack-body);
+    font-feature-settings: var(--font-features);
+    line-height: var(--leading-body);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color 0.18s ease, color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-stack-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+    text-wrap: balance;
+  }
+
+  h3,
+  h4 {
+    letter-spacing: var(--tracking-snug);
+    line-height: var(--leading-snug);
+    text-wrap: balance;
+  }
+
+  p,
+  article,
+  pre,
+  code,
+  input,
+  textarea,
+  [data-selectable="true"],
+  .selectable-text {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.55);
+    background-clip: content-box;
   }
 }
 
-body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  overflow-x: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
+@layer components {
+  .surface {
+    @apply rounded-xl border border-border bg-card;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .surface-flat {
+    @apply rounded-xl border border-border bg-card;
+  }
+
+  .surface-muted {
+    @apply rounded-xl border border-border bg-muted/50;
+  }
+
+  .label {
+    @apply text-xs font-medium text-muted-foreground;
+  }
+
+  /*
+   * Hardcoded onyx surfaces (auth panel, hero console, CTA blocks) re-pin
+   * the palette so signal and onyx text stay correct in light mode.
+   */
+  .on-onyx {
+    --background: 160 12% 5%;
+    --foreground: 48 19% 96%;
+    --card: 160 9% 8%;
+    --card-foreground: 48 19% 96%;
+    --popover: 160 8% 11%;
+    --popover-foreground: 48 19% 96%;
+    --primary: 170 60% 60%;
+    --primary-foreground: 160 12% 5%;
+    --signal: 170 60% 60%;
+    --signal-foreground: 160 12% 5%;
+    --accent: 170 60% 60%;
+    --accent-foreground: 160 12% 5%;
+    --accent-soft: 168 32% 14%;
+    --volt: 170 60% 60%;
+    --volt-foreground: 160 12% 5%;
+    --secondary: 160 7% 14%;
+    --secondary-foreground: 48 19% 94%;
+    --muted: 160 8% 11%;
+    --muted-foreground: 45 8% 68%;
+    --border: 160 7% 18%;
+    --border-strong: 160 6% 42%;      /* #65726D — 3.35:1 vs dark input fill, clears 1.4.11 */
+    --input: 160 8% 11%;
+    --ring: 170 60% 60%;
+    --ww-mark-1: #f6f6f7;
+    --ww-mark-2: #cfd0d3;
+    --ww-mark-3: #85868b;
+    --ww-mark-accent: #25c4d8;
+  }
+
+  .flow-line {
+    stroke-dasharray: 5 9;
+    animation: flow-dash 7s linear infinite;
+  }
+
+  /*
+   * The knowledge pipeline (§15). The route from sources to answers is the
+   * explanation, so it is drawn rather than written: a rail that warms toward
+   * its destination, one comet crossing it, and each node answering in turn.
+   * Reduced motion collapses both animations to the resting frame.
+   */
+  .flow-rail {
+    position: absolute;
+    inset-inline: 12.5%;
+    top: 0.875rem;
+    height: 1px;
+    /* Warmer at the end, so direction survives a static screenshot. */
+    background-image: linear-gradient(
+      to right,
+      hsl(var(--border)) 0%,
+      hsl(var(--border)) 55%,
+      hsl(var(--signal) / 0.5) 100%
+    );
+  }
+
+  @media (min-width: 640px) {
+    .flow-rail {
+      top: 1rem;
+    }
+  }
+
+  .flow-comet {
+    position: absolute;
+    inset-block: -1px;
+    left: 0;
+    width: 20%;
+    opacity: 0;
+    background-image: linear-gradient(
+      to right,
+      hsl(var(--signal) / 0),
+      hsl(var(--signal)) 78%,
+      hsl(var(--signal) / 0.9)
+    );
+    filter: drop-shadow(0 0 5px hsl(var(--signal) / 0.45));
+    animation: flow-travel 4s linear infinite;
+  }
+
+  /* RTL mirrors the rail with a transform, so the comet and the warm end both
+     run with the reading direction instead of against it. */
+  [dir="rtl"] .flow-rail {
+    transform: scaleX(-1);
+  }
+
+  .flow-node {
+    animation: flow-arrive 4s linear infinite;
+  }
+
+  .flow-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  .onyx-grid {
+    --grid-line: rgba(244, 243, 239, 0.055);
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .flow-panel {
+    @apply relative overflow-hidden rounded-2xl border border-white/10;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(14, 122, 107, 0.28), transparent 70%),
+      #0b0e0d;
+  }
+
+  .signal-underline {
+    text-decoration-line: underline;
+    text-decoration-color: hsl(var(--signal));
+    text-decoration-thickness: 0.055em;
+    text-underline-offset: 0.16em;
+    text-decoration-skip-ink: none;
+  }
+
+  /* Editorial type scale. Size is fluid so one declaration covers every
+     breakpoint, and the leading and tracking come from the language tokens so
+     a Persian headline gets room to breathe instead of a Latin fit. */
+  .hero-display {
+    font-family: var(--font-stack-display);
+    font-size: clamp(2.4rem, 1.25rem + 4.1vw, 3.75rem);
+    line-height: var(--leading-hero);
+    letter-spacing: var(--tracking-hero);
+  }
+
+  .section-title {
+    font-family: var(--font-stack-display);
+    font-size: clamp(1.65rem, 1.1rem + 1.5vw, 2.25rem);
+    line-height: var(--leading-section);
+    letter-spacing: var(--tracking-section);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: hsl(var(--accent-strong));
+  }
+
+  /* The flow is a living object, not a framed picture: feathering the edges of
+     its box is what lets it sit on the page instead of floating above it. */
+  .flow-feather {
+    -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 50%, black 45%, transparent 82%);
+    mask-image: radial-gradient(ellipse 72% 62% at 50% 50%, black 45%, transparent 82%);
+  }
+
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:start-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground;
+  }
 }
 
-/* Custom scrollbars matching active theme */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: hsl(var(--background));
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: ui-enter 0.28s cubic-bezier(0.22, 0.72, 0.3, 1) both;
+  }
+
+  .animate-signal {
+    animation: signal-pulse 2.4s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  .animate-voice-bar {
+    animation: voice-bar 1s ease-in-out infinite;
+  }
+
+  /* Bidi isolation (§6). Tailwind already ships the logical spacing utilities
+     (ms/me/ps/pe, start/end, text-start, border-s/e) and an `rtl:` variant —
+     those are the right tool for layout. These three cover what layout
+     utilities cannot: a URL, code sample, email or Latin product name sitting
+     inside RTL prose will steal its neighbour's punctuation unless the run is
+     isolated, because the bidi algorithm reorders it, not the CSS. */
+  .bidi-isolate {
+    unicode-bidi: isolate;
+  }
+
+  .bidi-ltr {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
+  .bidi-rtl {
+    direction: rtl;
+    unicode-bidi: isolate;
+  }
 }
 
-/* Reduced motion preference */
+@keyframes ui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -140;
+  }
+}
+
+/*
+ * The comet's leading edge covers the rail in exactly 3s of a 4s cycle, so the
+ * four nodes (at 0, 1/3, 2/3 and 1 of the rail) take delays of 0s, 1s, 2s, 3s
+ * and light up as it arrives rather than on their own clock.
+ */
+@keyframes flow-travel {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  69% {
+    opacity: 1;
+  }
+  75%,
+  100% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+}
+
+@keyframes flow-arrive {
+  0%,
+  16%,
+  100% {
+    border-color: hsl(var(--border));
+    box-shadow: 0 0 0 0 hsl(var(--signal) / 0);
+  }
+  5% {
+    border-color: hsl(var(--signal) / 0.55);
+    box-shadow: 0 0 0 3px hsl(var(--signal) / 0.14);
+  }
+}
+
+@keyframes signal-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  ::before,
+  ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  }
+  .flow-line {
+    animation: none;
+  }
+  .flow-comet,
+  .flow-node {
+    animation: none;
+  }
+}
+
+/*
+ * Touch ergonomics. The admin and data surfaces are sized for a pointer;
+ * the same 28px pills and inputs are missable under a thumb. Raise real
+ * controls to a tappable height on phones and coarse pointers only, so
+ * desktop density is untouched. Inline text links keep their own sizing.
+ */
+@media (max-width: 767px), (pointer: coarse) {
+  button,
+  [role="button"],
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]) {
+    min-height: 40px;
+  }
+
+  table,
+  .data-grid {
+    font-size: 0.8125rem;
   }
 }

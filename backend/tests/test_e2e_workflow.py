@@ -96,7 +96,7 @@ def test_complete_product_workflow(mock_core_client):
         headers=auth_headers,
         json={"name": "HR Policies Assistant Project", "description": "Internal HR Assistant"},
     )
-    assert proj_resp.status_code == 201
+    assert proj_resp.status_code == 201, proj_resp.text
     project_id = proj_resp.json()["id"]
 
     # 4. Create KnowledgeSource & Upload Document

@@ -138,25 +138,25 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 1. Website Crawler & SSRF Protection
 - **Status:** **Verified** (Local Service Level), **Not Integrated to Production Container**
-- **File:** [`backend/app/services/scraper.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/scraper.py)
+- **File:** [`backend/app/services/scraper.py`](../backend/app/services/scraper.py)
 - **Evidence:** Tested with 14 comprehensive edge cases (`127.0.0.1`, `localhost`, `169.254.169.254`, `10.0.0.1`, `192.168.1.1`, `172.16.0.1`, `[::1]`, `[fe80::1]`, octal `0177.0.0.1`, integer `2130706433`, hex `0x7f000001`, `ftp://`, `file://`). All 13 SSRF attack vectors were rejected; valid public targets (`https://google.com`) were permitted.
 - **Gaps:** The crawler runs synchronously within request handlers instead of using Celery or Redis background workers. Large websites will cause HTTP request timeouts.
 
 #### 2. Sitemap Discovery & Parsing
 - **Status:** **Implemented**
-- **File:** [`backend/app/services/scraper.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/scraper.py#L90-L135)
+- **File:** [`backend/app/services/scraper.py`](../backend/app/services/scraper.py#L90-L135)
 - **Evidence:** XML parser handles both `<sitemapindex>` and `<urlset>` safely using Python standard `xml.etree.ElementTree`.
 - **Gaps:** Does not handle `.gz` compressed sitemaps (common in production e-commerce sites like Shopify).
 
 #### 3. Assistant Creation & Publishing Lifecycle
 - **Status:** **Integrated (Local Backend)**, **Not Deployed to Dev Container**
-- **Files:** [`backend/app/api/v1/assistants.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/assistants.py), [`backend/app/models/assistant.py`](file:///home/agyops/weirwise-rag-platform/backend/app/models/assistant.py)
+- **Files:** [`backend/app/api/v1/assistants.py`](../backend/app/api/v1/assistants.py), [`backend/app/models/assistant.py`](../backend/app/models/assistant.py)
 - **Evidence:** `/publish-readiness` endpoint checks for associated knowledge sources and ready status. `/publish` increments assistant version and sets `last_published_at`.
 - **Gaps:** In the running dev container, `/publish-readiness` returns 404 because the container has not been updated.
 
 #### 4. Embeddable Widget & Public Runtime API
 - **Status:** **Integrated (Host Source)**, **404 in Running Environment**
-- **Files:** [`backend/app/api/v1/public_runtime.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/public_runtime.py), [`frontend/src/app/embed/[assistantId]/page.tsx`](file:///home/agyops/weirwise-rag-platform/frontend/src/app/embed/[assistantId]/page.tsx)
+- **Files:** [`backend/app/api/v1/public_runtime.py`](../backend/app/api/v1/public_runtime.py), [`frontend/src/app/embed/[assistantId]/page.tsx`](../frontend/src/app/embed/[assistantId]/page.tsx)
 - **Evidence:** Public chat endpoint permits anonymous visitors with `visitor_id`, queries the RAG Core API, and structures citation objects. Thumbs feedback and handoff escalation endpoints exist.
 - **Gaps:** Rate limiting on `/public/*` is a simple memory-based stub, not distributed via Redis. A DDoS attack on the widget endpoint will exhaust server resources.
 
@@ -166,25 +166,25 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 1. Grounded Citations & Source Inspection
 - **Status:** **Integrated**
-- **File:** [`backend/app/models/assistant.py`](file:///home/agyops/weirwise-rag-platform/backend/app/models/assistant.py#L182-L215)
+- **File:** [`backend/app/models/assistant.py`](../backend/app/models/assistant.py#L182-L215)
 - **Evidence:** `Message` model has `is_grounded` boolean and citation json payload with snippet, document ID, and score.
 - **Gaps:** Ingestion of crawler markdown generates synthetic document records rather than real chunks tied to Core vector IDs.
 
 #### 2. Thumbs Feedback & Knowledge Gap Analytics
 - **Status:** **Verified (Unit Level)**
-- **Files:** [`backend/app/models/assistant.py`](file:///home/agyops/weirwise-rag-platform/backend/app/models/assistant.py#L220-L260), [`backend/app/api/v1/assistants.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/assistants.py#L380-L420)
+- **Files:** [`backend/app/models/assistant.py`](../backend/app/models/assistant.py#L220-L260), [`backend/app/api/v1/assistants.py`](../backend/app/api/v1/assistants.py#L380-L420)
 - **Evidence:** `AnswerFeedback` stores rating (`1` / `-1`) and text reason. `/analytics/knowledge-gaps` groups unanswered queries.
 - **Gaps:** Knowledge gap clustering is a simple SQL `GROUP BY query_text` rather than semantic vector clustering. Varied phrasings of the same question will not group together.
 
 #### 3. Golden Fact Evaluations
 - **Status:** **Implemented (Deterministic Only)**
-- **File:** [`backend/app/services/evaluations.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/evaluations.py)
+- **File:** [`backend/app/services/evaluations.py`](../backend/app/services/evaluations.py)
 - **Evidence:** `EvaluationService.calculate_score` checks whether `expected_facts` strings appear in the generated lower-case answer.
 - **Critique:** **This is NOT AI evaluation.** It is a basic substring match (`fact.lower() in gen_lower`). It cannot detect paraphrased, semantically identical, or negated answers.
 
 #### 4. Human Handoff & Escalation
 - **Status:** **Integrated**
-- **Files:** [`backend/app/models/assistant.py`](file:///home/agyops/weirwise-rag-platform/backend/app/models/assistant.py#L270-L310), [`backend/app/api/v1/public_runtime.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/public_runtime.py#L150-L190)
+- **Files:** [`backend/app/models/assistant.py`](../backend/app/models/assistant.py#L270-L310), [`backend/app/api/v1/public_runtime.py`](../backend/app/api/v1/public_runtime.py#L150-L190)
 - **Evidence:** Creates `HumanHandoffRequest` and marks `conversation.is_escalated = True`.
 - **Gaps:** Notification dispatch only logs a message; it does not send real emails or trigger webhooks unless manually hooked up.
 
@@ -194,7 +194,7 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 1. Outbound Webhooks & HMAC Signatures
 - **Status:** **Verified**
-- **File:** [`backend/app/services/webhooks.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/webhooks.py)
+- **File:** [`backend/app/services/webhooks.py`](../backend/app/services/webhooks.py)
 - **Evidence:** Independently verified HMAC-SHA256 signature algorithm against RFC 2104 standard:
   ```python
   # Output: t=1793436517,v1=39c0d92cb4fe71d23f2c3e1847d059c6eb5359976da2159c8a1f01ebfd1327ac
@@ -204,7 +204,7 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 2. Business Integrations (Shopify, Zendesk, Gorgias, Google Drive, Notion)
 - **Status:** **INCOMPLETE / FAKE IMPLEMENTATION**
-- **File:** [`backend/app/services/integrations.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/integrations.py#L88-L97)
+- **File:** [`backend/app/services/integrations.py`](../backend/app/services/integrations.py#L88-L97)
 - **Direct Code Evidence:**
   ```python
   # In backend/app/services/integrations.py:
@@ -225,13 +225,13 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 1. Usage Metering & Quota Enforcement
 - **Status:** **Integrated (Local Backend)**
-- **File:** [`backend/app/services/metering.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/metering.py)
+- **File:** [`backend/app/services/metering.py`](../backend/app/services/metering.py)
 - **Evidence:** `MeteringService` tracks `current_period_chat_turns` against `monthly_chat_turns_limit` and logs `UsageEvent` rows. Blocks turns with `429 Too Many Requests` when limit is reached without overage opt-in.
 - **Gaps:** Quota check and increment are not atomic (`SELECT` followed by `UPDATE`). Under high concurrency, simultaneous requests can race and exceed the quota.
 
 #### 2. Commercial Plans & Billing
 - **Status:** **INCOMPLETE / MISSING**
-- **File:** [`backend/app/api/v1/billing.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/billing.py)
+- **File:** [`backend/app/api/v1/billing.py`](../backend/app/api/v1/billing.py)
 - **Audit Finding:** There is **zero payment processing**. No Stripe SDK, no Paddle, no LemonSqueezy, no checkout sessions, no invoice webhooks, no card tokenization, and no billing cycle management. Plan upgrades in `/api/v1/workspaces/{id}/billing/change-plan` simply set `ws.plan_tier = target` without checking any financial transaction.
 
 ---
@@ -240,13 +240,13 @@ Furthermore, critical claims regarding "Working Business Integrations (Shopify, 
 
 #### 1. BYOK (Bring Your Own Key) & Azure OpenAI
 - **Status:** **Incomplete (Storage Only)**
-- **Files:** [`backend/app/api/v1/enterprise.py`](file:///home/agyops/weirwise-rag-platform/backend/app/api/v1/enterprise.py), [`backend/app/models/assistant.py`](file:///home/agyops/weirwise-rag-platform/backend/app/models/assistant.py#L323-L342)
+- **Files:** [`backend/app/api/v1/enterprise.py`](../backend/app/api/v1/enterprise.py), [`backend/app/models/assistant.py`](../backend/app/models/assistant.py#L323-L342)
 - **Evidence:** `WorkspaceBYOKCredential` stores Fernet-encrypted keys, endpoints, and deployment names.
 - **Audit Finding:** The stored BYOK credentials are **never used**. A codebase-wide grep for `WorkspaceBYOKCredential` shows references only in model declarations, schemas, and the `/byok` CRUD endpoint. The Core RAG client and routing engine do not read from `WorkspaceBYOKCredential` during chat completion calls.
 
 #### 2. Data Retention & Pruning
 - **Status:** **Implemented**
-- **File:** [`backend/app/services/retention.py`](file:///home/agyops/weirwise-rag-platform/backend/app/services/retention.py)
+- **File:** [`backend/app/services/retention.py`](../backend/app/services/retention.py)
 - **Evidence:** `RetentionService.cleanup_expired_data` calculates cutoff dates and issues SQL `DELETE` queries against `conversations` and `audit_events`.
 - **Gaps:** Retention pruning is not scheduled via any cron, Celery beat, or background task. It only runs if explicitly invoked via HTTP endpoint.
 

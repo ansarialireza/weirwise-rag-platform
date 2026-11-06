@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
-import { ThemeSwitcher } from "@/components/ui/theme-switcher";
-import { WeirwiseSymbol } from "@/components/ui/weirwise-symbol";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
+import { PreferenceControls } from "@/components/ui/preference-controls";
+import { WeirwiseMark } from "@/components/ui/weirwise-mark";
+import { InstallAppButton } from "@/components/ui/install-app-button";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SiteHeaderProps {
@@ -15,159 +16,186 @@ interface SiteHeaderProps {
 }
 
 export function SiteHeader({ className }: SiteHeaderProps) {
-  const { user, loading } = useAuth();
-  const [dashboardUrl, setDashboardUrl] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  const { dict } = useI18n();
+  const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!loading && user) {
-      api
-        .getWorkspaces()
-        .then((workspaces) => {
-          if (workspaces.length > 0) {
-            setDashboardUrl(`/workspaces/${workspaces[0].id}`);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user, loading]);
+    setMounted(true);
+  }, []);
 
-  // Close mobile menu when pathname changes
+  const isAuthenticated = mounted && !authLoading && Boolean(user);
+
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
 
-  // Handle escape key and lock scroll on mobile menu open
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && mobileMenuOpen) {
-        setMobileMenuOpen(false);
-      }
+      if (e.key === "Escape" && mobileMenuOpen) setMobileMenuOpen(false);
     };
     if (mobileMenuOpen) {
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
+      window.addEventListener("keydown", handleKeyDown);
     }
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
 
-  const navLinks = [
-    { label: "Pricing", href: "/pricing", active: pathname === "/pricing" },
-    { label: "Blog", href: "/blog", active: pathname.startsWith("/blog") },
-    ...(dashboardUrl
-      ? [{ label: "Dashboard", href: dashboardUrl, active: pathname.startsWith("/workspaces") }]
-      : [{ label: "Sign In", href: "/login", active: pathname === "/login" }]),
+  const links = [
+    { label: dict.common.howItWorks, href: "/#how-it-works" },
+    { label: dict.common.pricing, href: "/pricing" },
+    { label: dict.common.blog, href: "/blog" },
   ];
 
   return (
     <header
       className={cn(
-        "w-full border-b border-border/80 bg-background/90 backdrop-blur-md sticky top-0 z-40 transition-colors",
+        "sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 backdrop-blur-md",
         className
       )}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-        {/* Brand identity on the left: Balanced, intentional, clean */}
-        <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0 select-none">
-          <WeirwiseSymbol className="h-7 sm:h-8 w-auto" priority />
-          <span className="font-bold text-sm sm:text-base tracking-tight text-foreground flex items-center gap-1.5">
-            Weirwise
-            <span
-              className="inline-block h-1.5 w-1.5 rounded-full bg-primary"
-              title="Platform online"
-              aria-hidden="true"
-            />
+      <div className="mx-auto flex h-16 w-full max-w-content items-center justify-between px-4 sm:px-6 lg:px-10">
+        <Link
+          href="/"
+          className="flex shrink-0 select-none items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <WeirwiseMark className="h-7 w-auto" />
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">
+            {dict.common.brand}
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-3 lg:gap-4 text-xs font-medium">
-          {navLinks.map((link) => (
+        <nav
+          aria-label={dict.common.mainNavigation}
+          className="hidden items-center gap-7 text-sm md:flex"
+        >
+          {links.map((link) => (
             <Link
-              key={link.label}
+              key={link.href}
               href={link.href}
-              className={cn(
-                "whitespace-nowrap px-2 py-1.5 rounded-md transition-colors",
-                link.active
-                  ? "text-foreground font-semibold bg-secondary/60"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-              )}
+              className="text-muted-foreground transition-colors hover:text-foreground"
             >
               {link.label}
             </Link>
           ))}
-
-          <div className="pl-1">
-            <ThemeSwitcher />
-          </div>
-
-          <Link
-            href={dashboardUrl || "/register"}
-            className="whitespace-nowrap rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:opacity-90 active:scale-[0.98] transition-all flex items-center gap-1.5"
-          >
-            <span>{dashboardUrl ? "Open Studio" : "Get Started"}</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
         </nav>
 
-        {/* Mobile Header Controls: Theme Switcher & Menu Toggle */}
-        <div className="flex md:hidden items-center gap-2">
-          <ThemeSwitcher />
+        {/* One preference pair for the whole bar, at every width. The mobile
+            sheet used to carry its own copy, which meant the header held two
+            theme buttons and two language buttons at once. */}
+        <div className="flex items-center gap-2">
+          <PreferenceControls />
+
+          <div className="hidden items-center gap-2 md:flex">
+            <InstallAppButton variant="pill" className="ms-1 border border-border" />
+
+            {mounted && !authLoading ? (
+              isAuthenticated ? (
+                <Link
+                  href="/overview"
+                  className="ms-2 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  {dict.common.openWorkspace}
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="ms-2 inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    {dict.common.signIn}
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    {dict.landing.primaryCta}
+                  </Link>
+                </>
+              )
+            ) : (
+              <span className="ms-2 h-10 w-28 animate-pulse rounded-lg bg-muted" />
+            )}
+          </div>
 
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label={mobileMenuOpen ? dict.common.closeNavigation : dict.common.openNavigation}
             aria-expanded={mobileMenuOpen}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/80 bg-card text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-controls="site-mobile-menu"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground md:hidden"
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      {/* Accessible Mobile Drawer / Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-border bg-card/98 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 shadow-xl">
-          <div ref={menuRef} className="px-4 py-4 space-y-3 max-w-sm mx-auto">
-            <div className="space-y-1">
-              {navLinks.map((link) => (
+        <>
+          <div
+            className="fixed inset-0 top-16 z-30 bg-background/70 backdrop-blur-sm md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            id="site-mobile-menu"
+            className="fixed inset-x-0 top-16 z-40 max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-4 pb-8 pt-2 shadow-lift md:hidden"
+          >
+            <nav aria-label={dict.common.mainNavigation} className="flex flex-col">
+              {links.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                    link.active
-                      ? "bg-secondary text-primary font-semibold"
-                      : "text-foreground hover:bg-secondary/70 hover:text-foreground"
-                  )}
+                  className="flex items-center justify-between border-b border-border/60 py-3.5 text-[15px] font-medium text-foreground"
                 >
-                  <span>{link.label}</span>
-                  {link.active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  {link.label}
                 </Link>
               ))}
+            </nav>
+
+            <div className="mt-6 space-y-2.5">
+              {mounted && !authLoading ? (
+                isAuthenticated ? (
+                  <Link
+                    href="/overview"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
+                  >
+                    {dict.common.openWorkspace}
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
+                    >
+                      {dict.landing.primaryCta}
+                    </Link>
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground"
+                    >
+                      {dict.common.signIn}
+                    </Link>
+                  </>
+                )
+              ) : (
+                <div className="h-11 w-full animate-pulse rounded-xl bg-muted" />
+              )}
             </div>
 
-            <div className="pt-2 border-t border-border">
-              <Link
-                href={dashboardUrl || "/register"}
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-xs font-semibold text-primary-foreground shadow-xs hover:opacity-90 active:scale-[0.98] transition-all"
-              >
-                <span>{dashboardUrl ? "Open Studio" : "Get Started Free"}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            <InstallAppButton variant="row" className="mt-6" />
           </div>
-        </div>
+        </>
       )}
     </header>
   );

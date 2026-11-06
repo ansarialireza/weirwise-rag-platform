@@ -66,7 +66,11 @@ class IntegrationsService:
 
     @staticmethod
     async def sync_integration_knowledge(db: AsyncSession, integration_id: uuid.UUID) -> dict[str, Any]:
-        """Simulate/Execute verified synchronization for an integration."""
+        """Report sync availability without fabricating imported items.
+
+        Credentials are stored, but no provider-specific import adapter exists yet.
+        Returning a truthful status is preferable to inventing item counts.
+        """
         stmt = select(BusinessIntegration).where(BusinessIntegration.id == integration_id)
         res = await db.execute(stmt)
         integration = res.scalar_one_or_none()
@@ -80,29 +84,18 @@ class IntegrationsService:
             await db.commit()
             return {"status": "failed", "error": integration.last_error}
 
-        # Handle provider-specific sync protocol
         provider = integration.provider.lower()
-        logger.info(f"Triggering sync for provider '{provider}' in workspace {integration.workspace_id}")
+        logger.info(f"Sync requested for provider '{provider}' in workspace {integration.workspace_id}")
 
-        # In absence of external live credentials, mock contract handles validation
-        items_synced = 0
-        if provider == "shopify":
-            # Verify shop URL and access token presence
-            if "access_token" in creds or "shop_url" in integration.config:
-                items_synced = 15  # e.g., products synced
-        elif provider in ("zendesk", "gorgias"):
-            items_synced = 25  # e.g., macro/help-center articles synced
-        elif provider in ("google_drive", "notion"):
-            items_synced = 10  # documents synced
-
-        integration.sync_status = "completed"
-        integration.last_error = None
+        integration.sync_status = "unsupported"
+        integration.last_error = "Automatic content import is not available for this provider yet."
         await db.commit()
 
         return {
-            "status": "completed",
+            "status": "not_implemented",
             "provider": provider,
-            "items_synced": items_synced,
+            "items_synced": 0,
+            "message": integration.last_error,
         }
 
 

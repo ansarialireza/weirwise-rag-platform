@@ -1,5 +1,6 @@
 """Comprehensive Assistant Lifecycle, Conversations, Citations, Golden Evaluations, and Knowledge Gap Analytics."""
 
+import json
 import time
 import uuid
 from datetime import UTC, datetime
@@ -10,6 +11,7 @@ from backend.app.api.dependencies import (
     get_current_user,
     require_workspace,
 )
+from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.core.security import generate_secure_token
 from backend.app.db.session import get_db_session
@@ -24,8 +26,8 @@ from backend.app.models.assistant import (
     Message,
     UnansweredQuery,
 )
-from backend.app.models.audit import ApiCredential, UsageEvent
-from backend.app.models.auth import AIRoutingStrategy, Membership, User, Workspace, WorkspaceRole
+from backend.app.models.audit import ApiCredential
+from backend.app.models.auth import Membership, User, WorkspaceRole
 from backend.app.models.project import Document, KnowledgeSource, Project
 from backend.app.schemas.assistant import (
     ApiCredentialCreateRequest,
@@ -39,6 +41,7 @@ from backend.app.schemas.assistant import (
     ConversationResponse,
     DeploymentCreateRequest,
     DeploymentResponse,
+    DeploymentUpdateRequest,
     EvaluationCaseCreateRequest,
     EvaluationCaseResponse,
     KnowledgeGapAnalyticsResponse,
@@ -46,11 +49,11 @@ from backend.app.schemas.assistant import (
     PublishValidationResponse,
 )
 from backend.app.services.evaluations import evaluation_service
+from backend.app.services.llm import llm_service
 from backend.app.services.metering import metering_service
-from backend.app.services.routing_engine import IntelligentRoutingEngine
-from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,6 +71,62 @@ async def verify_project_access(project_id: uuid.UUID, user_id: uuid.UUID, db: A
     if not proj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found or access denied.")
     return proj
+
+
+async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str) -> list[CitationItem]:
+    """Query every linked Core knowledge base and merge citations by similarity."""
+    core_client = CoreApiClient()
+    citations: list[CitationItem] = []
+
+    sources_stmt = (
+        select(KnowledgeSource)
+        .join(AssistantKnowledgeSource, AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id)
+        .where(AssistantKnowledgeSource.assistant_id == assistant.id)
+        .order_by(AssistantKnowledgeSource.priority.desc())
+    )
+    s_res = await db.execute(sources_stmt)
+    linked_sources = s_res.scalars().all()
+
+    for ks in linked_sources:
+        if not ks.core_kb_id:
+            continue
+        try:
+            # Never trust a per-assistant threshold below the platform safety floor.
+            effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
+            search_data = await core_client.search(
+                kb_id=ks.core_kb_id,
+                query=query,
+                top_k=assistant.top_k,
+                score_threshold=effective_threshold,
+            )
+            for item in search_data.get("results", []):
+                metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+                citations.append(
+                    CitationItem(
+                        chunk_id=str(item.get("chunk_id")),
+                        content=item.get("content", ""),
+                        similarity_score=item.get("similarity_score", 0.0),
+                        rank=item.get("rank", 1),
+                        document_name=metadata.get("document_name") or metadata.get("filename"),
+                    )
+                )
+        except CoreApiException as e:
+            logger.warning(f"Vector search failed: {e!s}")
+
+    citations.sort(key=lambda x: x.similarity_score, reverse=True)
+    return citations[: assistant.top_k]
+
+
+async def _conversation_history(db: AsyncSession, conversation_id: uuid.UUID) -> list[dict[str, str]]:
+    stmt = (
+        select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.desc()).limit(6)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return [{"role": m.role, "content": m.content} for m in reversed(rows)]
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event, default=str)}\n\n"
 
 
 # --- Assistant Management & Creation Wizard ---
@@ -98,6 +157,8 @@ async def create_assistant(
         description=payload.description,
         system_instructions=payload.system_instructions,
         model=payload.model,
+        engine_mode=payload.engine_mode,
+        show_sources=payload.show_sources,
         temperature=payload.temperature,
         max_tokens=payload.max_tokens,
         score_threshold=payload.score_threshold,
@@ -120,7 +181,7 @@ async def create_assistant(
             if not ks_res.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"KnowledgeSource {sid} does not belong to this project.",
+                    detail="That knowledge selection isn't available in this workspace.",
                 )
             link = AssistantKnowledgeSource(assistant_id=assistant.id, knowledge_source_id=sid)
             db.add(link)
@@ -251,7 +312,7 @@ async def check_publish_readiness(
 
     issues: list[str] = []
     if not sources:
-        issues.append("No knowledge sources are attached to this assistant.")
+        issues.append("This assistant has no knowledge yet. Add files or pages first.")
 
     docs_count_stmt = (
         select(func.count(Document.id))
@@ -262,7 +323,7 @@ async def check_publish_readiness(
     ready_docs = (await db.execute(docs_count_stmt)).scalar() or 0
 
     if ready_docs == 0:
-        issues.append("No processed documents or website pages are ready in attached knowledge sources.")
+        issues.append("Your files and pages are still being prepared. Wait a moment, then try again.")
 
     return PublishValidationResponse(
         is_ready=len(issues) == 0,
@@ -291,7 +352,7 @@ async def publish_assistant(
     if not readiness.is_ready:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot publish assistant: {'; '.join(readiness.issues)}",
+            detail=f"This assistant isn't ready to share yet: {' '.join(readiness.issues)}",
         )
 
     assistant.status = AssistantStatus.PUBLISHED.value
@@ -302,6 +363,12 @@ async def publish_assistant(
         "model": assistant.model,
         "temperature": assistant.temperature,
         "system_instructions": assistant.system_instructions,
+        # What readers see is frozen here, so an edit made after publishing cannot
+        # silently change a live widget: the mode decides whether an answer is
+        # retrieved passages or generated prose, the flag decides if sources may be
+        # inspected at all.
+        "engine_mode": assistant.engine_mode,
+        "show_sources": assistant.show_sources,
         "language": assistant.language,
         "tone": assistant.tone,
         "fallback_message": assistant.fallback_message,
@@ -311,7 +378,7 @@ async def publish_assistant(
 
     # Ensure a default widget deployment exists
     dep_stmt = select(Deployment).where(Deployment.assistant_id == assistant.id)
-    deployment = (await db.execute(dep_stmt)).scalar_one_or_none()
+    deployment = (await db.execute(dep_stmt)).scalars().first()
     if not deployment:
         raw_key, _ = generate_secure_token("wwp_pub_")
         deployment = Deployment(
@@ -321,7 +388,7 @@ async def publish_assistant(
             public_key=raw_key,
             allowed_domains=["*"],
             theme_config={
-                "primary_color": "#2563EB",
+                "primary_color": "#3FD0DA",
                 "assistant_title": assistant.name,
                 "welcome_message": f"Hello! I am your {assistant.name}. How can I assist you today?",
                 "placeholder_text": "Ask us a question...",
@@ -570,11 +637,13 @@ async def studio_playground_chat(
 
     project = await verify_project_access(assistant.project_id, current_user.id, db)
 
-    # Quota check: ensure workspace has not exceeded monthly message quota
-    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
-    workspace = ws_res.scalar_one_or_none()
-    if workspace:
-        await subscription_service.check_chat_entitlement(workspace, db)
+    # Quota check and usage metering share one accounting path with the public runtime.
+    await metering_service.check_and_increment_chat_turn(
+        db=db,
+        workspace_id=project.workspace_id,
+        project_id=assistant.project_id,
+        assistant_id=assistant.id,
+    )
 
     # 1. Resolve or create conversation
     conv = None
@@ -594,6 +663,7 @@ async def studio_playground_chat(
         await db.flush()
 
     # 2. Record User Message
+    history = await _conversation_history(db, conv.id)
     user_msg = Message(
         conversation_id=conv.id,
         role="user",
@@ -603,92 +673,56 @@ async def studio_playground_chat(
     await db.flush()
 
     # 3. Retrieve Context via Core Adapter
-    core_client = CoreApiClient()
-    citations: list[CitationItem] = []
-    retrieved_contexts: list[str] = []
+    citations = await _retrieve_citations(db, assistant, payload.message)
 
-    sources_stmt = (
-        select(KnowledgeSource)
-        .join(AssistantKnowledgeSource, AssistantKnowledgeSource.knowledge_source_id == KnowledgeSource.id)
-        .where(AssistantKnowledgeSource.assistant_id == assistant.id)
-        .order_by(AssistantKnowledgeSource.priority.desc())
-    )
-    s_res = await db.execute(sources_stmt)
-    linked_sources = s_res.scalars().all()
+    # Handle Mode 1: Semantic Search (Retrieval Only - bypass LLM)
+    if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
+        # This sentence is shown to readers when they have sources switched off, so it
+        # says what happened in plain words instead of naming the mode.
+        search_summary = (
+            f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
+            if citations
+            else "Nothing here matches yet. Try different words."
+        )
 
-    for ks in linked_sources:
-        if ks.core_kb_id:
-            try:
-                search_data = await core_client.search(
-                    kb_id=ks.core_kb_id,
-                    query=payload.message,
-                    top_k=assistant.top_k,
-                    score_threshold=assistant.score_threshold,
-                )
-                for item in search_data.get("results", []):
-                    c_item = CitationItem(
-                        chunk_id=str(item.get("chunk_id")),
-                        content=item.get("content", ""),
-                        similarity_score=item.get("similarity_score", 0.0),
-                        rank=item.get("rank", 1),
-                    )
-                    citations.append(c_item)
-                    retrieved_contexts.append(item.get("content", ""))
-            except CoreApiException as e:
-                logger.warning(f"Vector search failed: {e!s}")
+        assistant_msg = Message(
+            conversation_id=conv.id,
+            role="assistant",
+            content=search_summary,
+            citations=[c.model_dump(mode="json") for c in citations],
+            latency_ms=latency_ms,
+            is_grounded=bool(citations),
+        )
+        db.add(assistant_msg)
+        await db.commit()
+        await db.refresh(assistant_msg)
 
-    citations.sort(key=lambda x: x.similarity_score, reverse=True)
-    citations = citations[: assistant.top_k]
+        return ChatResponse(
+            message_id=assistant_msg.id,
+            conversation_id=conv.id,
+            role="assistant",
+            content=assistant_msg.content,
+            sources=citations,
+            latency_ms=latency_ms,
+            is_grounded=assistant_msg.is_grounded,
+        )
 
+    # Mode 2: AI Answer (RAG)
     if citations:
-        context_block = "\n\n".join(retrieved_contexts[:2])
-        assistant_reply = f"Based on verified knowledge in {linked_sources[0].name}:\n\n{context_block}"
+        answer = await llm_service.generate_grounded_answer(
+            db=db,
+            assistant=assistant,
+            query=payload.message,
+            passages=[c.content for c in citations],
+            workspace_id=project.workspace_id,
+            history=history,
+        )
+        assistant_reply = answer.content
     else:
         assistant_reply = assistant.fallback_message
 
     latency_ms = int((time.perf_counter() - start_time) * 1000)
-
-    # 4. Route via Intelligent AI Credential Engine
-    # Resolve black-box model routing strategy if UI alias was provided (e.g. Auto, Fast, Deep Thinking)
-    actual_model = assistant.model
-    strat_res = await db.execute(
-        select(AIRoutingStrategy).where(
-            AIRoutingStrategy.ui_name == assistant.model,
-            AIRoutingStrategy.is_active.is_(True),
-        )
-    )
-    routing_strat = strat_res.scalar_one_or_none()
-    if routing_strat:
-        actual_model = routing_strat.target_llm_model
-
-    provider_name = "openai"
-    if "claude" in actual_model.lower():
-        provider_name = "anthropic"
-    elif "gemini" in actual_model.lower():
-        provider_name = "gemini"
-
-    resolution = await IntelligentRoutingEngine.select_credential(
-        db=db,
-        provider_name=provider_name,
-        model_name=actual_model,
-    )
-
-    approx_input_tokens = len(payload.message.split()) * 2 + len(retrieved_contexts) * 50
-    approx_output_tokens = len(assistant_reply.split()) * 2
-    cost_usd = (approx_input_tokens * 0.00000015) + (approx_output_tokens * 0.0000006)
-
-    if resolution:
-        await IntelligentRoutingEngine.record_success(
-            db=db,
-            credential_id=str(resolution.credential.id),
-            workspace_id=str(project.workspace_id),
-            provider_name=provider_name,
-            model_name=actual_model,
-            input_tokens=approx_input_tokens,
-            output_tokens=approx_output_tokens,
-            cost_usd=cost_usd,
-            latency_ms=latency_ms,
-        )
 
     # 5. Record Assistant Message
     assistant_msg = Message(
@@ -700,16 +734,6 @@ async def studio_playground_chat(
         is_grounded=bool(citations),
     )
     db.add(assistant_msg)
-
-    # 6. Usage Event
-    usage = UsageEvent(
-        workspace_id=project.workspace_id,
-        project_id=assistant.project_id,
-        assistant_id=assistant.id,
-        event_type="chat_turn",
-        quantity=1,
-    )
-    db.add(usage)
     await db.commit()
     await db.refresh(assistant_msg)
 
@@ -721,6 +745,182 @@ async def studio_playground_chat(
         sources=citations,
         latency_ms=latency_ms,
         is_grounded=bool(citations),
+    )
+
+
+@router.post("/assistants/{assistant_id}/chat/stream")
+async def studio_playground_chat_stream(
+    assistant_id: uuid.UUID,
+    payload: ChatMessageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> StreamingResponse:
+    """Stream grounded answers as Server-Sent Events for live voice and chat UIs.
+
+    Events: ``meta`` (routing/provider), ``delta`` (token text), ``error``,
+    and ``done`` (persisted message id, citations, latency, usage).
+    """
+    start_time = time.perf_counter()
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = a_res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    project = await verify_project_access(assistant.project_id, current_user.id, db)
+    await metering_service.check_and_increment_chat_turn(
+        db=db,
+        workspace_id=project.workspace_id,
+        project_id=assistant.project_id,
+        assistant_id=assistant.id,
+    )
+
+    conv = None
+    if payload.conversation_id:
+        conv = (
+            await db.execute(
+                select(Conversation).where(
+                    Conversation.id == payload.conversation_id, Conversation.assistant_id == assistant.id
+                )
+            )
+        ).scalar_one_or_none()
+    if not conv:
+        conv = Conversation(assistant_id=assistant.id, user_id=current_user.id, title=payload.message[:60])
+        db.add(conv)
+        await db.flush()
+
+    history = await _conversation_history(db, conv.id)
+    db.add(Message(conversation_id=conv.id, role="user", content=payload.message))
+    await db.commit()
+
+    citations = await _retrieve_citations(db, assistant, payload.message)
+
+    async def event_stream():
+        if getattr(assistant, "engine_mode", "ai_answer") == "search_only":
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            summary = (
+                f"Found {len(citations)} matching passage{'s' if len(citations) != 1 else ''}."
+                if citations
+                else "Nothing here matches yet. Try different words."
+            )
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=summary,
+                citations=[c.model_dump(mode="json") for c in citations],
+                latency_ms=latency_ms,
+                is_grounded=bool(citations),
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+            yield _sse({"type": "delta", "text": summary})
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": summary,
+                    "sources": [c.model_dump(mode="json") for c in citations],
+                    "latency_ms": latency_ms,
+                    "is_grounded": bool(citations),
+                    "truncated": False,
+                }
+            )
+            return
+
+        if not citations:
+            latency_ms = int((time.perf_counter() - start_time) * 1000)
+            content = assistant.fallback_message
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=content,
+                citations=[],
+                latency_ms=latency_ms,
+                is_grounded=False,
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+            yield _sse({"type": "delta", "text": content})
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": content,
+                    "sources": [],
+                    "latency_ms": latency_ms,
+                    "is_grounded": False,
+                    "truncated": False,
+                }
+            )
+            return
+
+        collected: list[str] = []
+        done_payload: dict | None = None
+        try:
+            async for event in llm_service.stream_grounded_answer(
+                db=db,
+                assistant=assistant,
+                query=payload.message,
+                passages=[c.content for c in citations],
+                workspace_id=project.workspace_id,
+                history=history,
+            ):
+                if event.get("type") == "delta":
+                    collected.append(event["text"])
+                    yield _sse(event)
+                elif event.get("type") == "done":
+                    done_payload = event
+                    break
+                else:
+                    yield _sse(event)
+
+            content = (done_payload or {}).get("content") or "".join(collected)
+            latency_ms = int((done_payload or {}).get("latency_ms") or (time.perf_counter() - start_time) * 1000)
+            assistant_msg = Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=content,
+                citations=[c.model_dump(mode="json") for c in citations],
+                latency_ms=latency_ms,
+                is_grounded=bool(citations),
+            )
+            db.add(assistant_msg)
+            await db.commit()
+            await db.refresh(assistant_msg)
+
+            yield _sse(
+                {
+                    "type": "done",
+                    "message_id": str(assistant_msg.id),
+                    "conversation_id": str(conv.id),
+                    "content": content,
+                    "sources": [c.model_dump(mode="json") for c in citations],
+                    "latency_ms": latency_ms,
+                    "is_grounded": bool(citations),
+                    "used_llm": bool((done_payload or {}).get("used_llm")),
+                    "truncated": bool((done_payload or {}).get("truncated")),
+                    "provider_name": (done_payload or {}).get("provider_name"),
+                    "model_name": (done_payload or {}).get("model_name"),
+                    "input_tokens": (done_payload or {}).get("input_tokens", 0),
+                    "output_tokens": (done_payload or {}).get("output_tokens", 0),
+                    "cost_usd": (done_payload or {}).get("cost_usd", 0.0),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - stream errors must reach the client as an event
+            logger.exception("Streaming answer generation failed: %s", type(exc).__name__)
+            yield _sse({"type": "error", "message": "The assistant could not finish this response."})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -781,6 +981,84 @@ async def list_assistant_deployments(
     return [DeploymentResponse.model_validate(d) for d in res.scalars().all()]
 
 
+@router.patch(
+    "/assistants/{assistant_id}/deployments/{deployment_id}",
+    response_model=DeploymentResponse,
+)
+async def update_assistant_deployment(
+    assistant_id: uuid.UUID,
+    deployment_id: uuid.UUID,
+    payload: DeploymentUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DeploymentResponse:
+    """Update a deployment's sharing rules without rotating its public key."""
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = a_res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    await verify_project_access(assistant.project_id, current_user.id, db)
+
+    dep_res = await db.execute(
+        select(Deployment).where(
+            Deployment.id == deployment_id,
+            Deployment.assistant_id == assistant_id,
+        )
+    )
+    deployment = dep_res.scalar_one_or_none()
+    if not deployment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deployment not found.")
+
+    if payload.name is not None:
+        deployment.name = payload.name
+
+    if payload.allowed_domains is not None:
+        cleaned: list[str] = []
+        for entry in payload.allowed_domains:
+            domain = entry.strip().lower()
+            if not domain or domain in cleaned:
+                continue
+            if len(domain) > 253:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A domain name is too long.",
+                )
+            cleaned.append(domain)
+        if len(cleaned) > 50:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You can allow at most 50 domains.",
+            )
+        deployment.allowed_domains = cleaned
+
+    if payload.theme_config is not None:
+        allowed_theme_keys = {
+            "primary_color",
+            "assistant_title",
+            "welcome_message",
+            "placeholder_text",
+            "position",
+            "show_branding",
+        }
+        unknown = set(payload.theme_config) - allowed_theme_keys
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported widget options: {', '.join(sorted(unknown))}.",
+            )
+        theme = dict(deployment.theme_config or {})
+        theme.update(payload.theme_config)
+        deployment.theme_config = theme
+
+    if payload.is_active is not None:
+        deployment.is_active = payload.is_active
+
+    await db.commit()
+    await db.refresh(deployment)
+    return DeploymentResponse.model_validate(deployment)
+
+
 @router.post(
     "/workspaces/{workspace_id}/api-credentials",
     response_model=ApiCredentialResponse,
@@ -810,3 +1088,46 @@ async def create_api_credential(
     resp = ApiCredentialResponse.model_validate(cred)
     resp.raw_api_key = raw_key
     return resp
+
+
+@router.get("/workspaces/{workspace_id}/api-credentials", response_model=list[ApiCredentialResponse])
+async def list_api_credentials(
+    workspace_id: uuid.UUID,
+    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[ApiCredentialResponse]:
+    """List active and revoked API keys. Raw keys are never returned again."""
+    stmt = (
+        select(ApiCredential)
+        .where(ApiCredential.workspace_id == workspace_id)
+        .order_by(ApiCredential.created_at.desc())
+    )
+    res = await db.execute(stmt)
+    return [ApiCredentialResponse.model_validate(cred) for cred in res.scalars().all()]
+
+
+@router.delete(
+    "/workspaces/{workspace_id}/api-credentials/{credential_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def revoke_api_credential(
+    workspace_id: uuid.UUID,
+    credential_id: uuid.UUID,
+    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """Revoke an API key immediately. Revocation is idempotent."""
+    stmt = select(ApiCredential).where(
+        ApiCredential.id == credential_id,
+        ApiCredential.workspace_id == workspace_id,
+    )
+    credential = (await db.execute(stmt)).scalar_one_or_none()
+    if not credential:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API key not found.")
+
+    if credential.is_active:
+        credential.is_active = False
+        credential.revoked_at = datetime.now(UTC)
+        await db.commit()
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
