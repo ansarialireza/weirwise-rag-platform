@@ -57,10 +57,12 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Android Bottom Navigation"
-      className="fixed inset-x-0 bottom-0 z-40 block border-t border-border/80 bg-background/95 backdrop-blur-lg md:hidden select-none touch-manipulation"
-      style={{ paddingBottom: "max(0.35rem, env(safe-area-inset-bottom))" }}
+      className="fixed inset-x-0 bottom-0 z-50 block border-t border-border/60 bg-background/95 backdrop-blur-xl md:hidden select-none"
+      style={{
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+      }}
     >
-      <div className="flex h-16 w-full items-center justify-around px-1">
+      <div className="flex h-16 w-full items-center justify-around px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.active;
@@ -70,23 +72,23 @@ export function MobileBottomNav() {
               key={item.id}
               href={item.href}
               className={cn(
-                "group relative flex min-w-[56px] flex-1 flex-col items-center justify-center py-1 transition-all duration-200 active:scale-95",
-                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                "group relative flex min-w-[58px] flex-1 flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95",
+                isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {/* Material You Pill Indicator behind active icon */}
+              {/* Material 3 Capsule Indicator */}
               <div
                 className={cn(
-                  "relative flex h-8 w-14 items-center justify-center rounded-full transition-all duration-300",
+                  "relative flex h-8 w-14 items-center justify-center rounded-full transition-all duration-200",
                   isActive
-                    ? "bg-accent-soft text-accent"
-                    : "bg-transparent text-muted-foreground group-hover:bg-muted/50"
+                    ? "bg-accent/15 text-accent shadow-sm"
+                    : "bg-transparent text-muted-foreground group-active:bg-muted/60"
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5 transition-transform duration-200",
-                    isActive ? "stroke-[2.2] scale-105" : "stroke-[1.8]"
+                    isActive ? "stroke-[2.2] scale-110" : "stroke-[1.7]"
                   )}
                   aria-hidden="true"
                 />
@@ -95,8 +97,8 @@ export function MobileBottomNav() {
               {/* Label */}
               <span
                 className={cn(
-                  "mt-0.5 truncate text-[11px] transition-all tracking-tight leading-tight",
-                  isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+                  "mt-1 truncate text-[11px] tracking-tight transition-colors",
+                  isActive ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
                 )}
               >
                 {item.label}

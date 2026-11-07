@@ -53,23 +53,13 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md sm:h-16 sm:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        {/* Mobile drawer toggle */}
-        <button
-          type="button"
-          onClick={onOpenMenu}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
-          aria-label={dict.common.openNavigation}
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
         {/* Brand mark visible in mobile topbar */}
         <Link href="/overview" className="flex items-center gap-2 md:hidden">
           <WeirwiseMark className="h-6 w-auto" />
         </Link>
 
         {/* Current Page Title */}
-        <span className="truncate text-sm sm:text-base font-semibold tracking-tight text-foreground">
+        <span className="truncate text-base font-semibold tracking-tight text-foreground">
           {pageLabel}
         </span>
       </div>
