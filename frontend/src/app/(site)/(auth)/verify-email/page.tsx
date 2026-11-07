@@ -119,12 +119,12 @@ function VerifyEmailForm() {
           type="button"
           onClick={handleResend}
           disabled={resending || !!success}
-          className="inline-flex items-center gap-1.5 font-medium transition-colors hover:text-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md disabled:opacity-50"
         >
           <RotateCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
           Resend code
         </button>
-        <Link href="/login" className="font-medium text-foreground hover:underline">
+        <Link href="/login" className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
           Back to sign in
         </Link>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "./button";
 
@@ -27,16 +27,49 @@ export function AlertDialog({
   isLoading = false,
   variant = "destructive",
 }: AlertDialogProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+
+    // Focus cancel button or modal container
+    const timer = setTimeout(() => {
+      if (!panelRef.current) return;
+      const cancelBtn = panelRef.current.querySelector<HTMLElement>('button[data-cancel-action]');
+      if (cancelBtn) {
+        cancelBtn.focus();
+      } else {
+        panelRef.current.focus();
+      }
+    }, 50);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !isLoading) onClose();
+      if (e.key !== "Tab" || !panelRef.current) return;
+
+      const focusables = panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
-    document.body.style.overflow = "hidden";
+
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      clearTimeout(timer);
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
+      previous?.focus();
     };
   }, [isOpen, isLoading, onClose]);
 
@@ -58,7 +91,11 @@ export function AlertDialog({
         aria-hidden="true"
       />
 
-      <div className="relative z-10 w-full max-w-md space-y-5 rounded-t-2xl border border-border bg-card p-5 shadow-lift animate-in sm:rounded-xl sm:p-6">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="relative z-10 w-full max-w-md space-y-5 rounded-t-2xl border border-border bg-card p-5 shadow-lift outline-none animate-in sm:rounded-xl sm:p-6"
+      >
         <div className="flex items-start gap-3.5">
           <div
             className={
@@ -81,7 +118,14 @@ export function AlertDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" disabled={isLoading} onClick={onClose}>
+          <Button
+            type="button"
+            data-cancel-action
+            variant="ghost"
+            size="sm"
+            disabled={isLoading}
+            onClick={onClose}
+          >
             {cancelText}
           </Button>
           <Button

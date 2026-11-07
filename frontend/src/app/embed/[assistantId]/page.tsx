@@ -227,7 +227,7 @@ export default function AssistantWidgetPage() {
             type="button"
             onClick={() => setShowHandoffModal(true)}
             title="Request human assistance"
-            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <PhoneCall className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Human Help</span>
@@ -335,7 +335,7 @@ export default function AssistantWidgetPage() {
           type="submit"
           disabled={!input.trim() || loading}
           aria-label="Send message"
-          className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+          className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Send className="h-3.5 w-3.5" />
         </button>
@@ -343,14 +343,20 @@ export default function AssistantWidgetPage() {
 
       {/* Human Handoff / Lead Capture Modal */}
       {showHandoffModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="handoff-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in"
+        >
           <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg">
             <div className="flex items-center justify-between pb-3 border-b border-border/60">
-              <h3 className="text-sm font-semibold text-foreground">Request Human Support</h3>
+              <h3 id="handoff-dialog-title" className="text-sm font-semibold text-foreground">Request Human Support</h3>
               <button
                 type="button"
                 onClick={() => setShowHandoffModal(false)}
-                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Close dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -367,8 +373,9 @@ export default function AssistantWidgetPage() {
             ) : (
               <form onSubmit={handleRequestHandoff} className="mt-4 space-y-3 text-xs">
                 <div>
-                  <label className="block font-medium text-foreground mb-1">Your Name</label>
+                  <label htmlFor="lead-name" className="block font-medium text-foreground mb-1">Your Name</label>
                   <input
+                    id="lead-name"
                     type="text"
                     value={leadName}
                     onChange={(e) => setLeadName(e.target.value)}
@@ -378,8 +385,9 @@ export default function AssistantWidgetPage() {
                 </div>
 
                 <div>
-                  <label className="block font-medium text-foreground mb-1">Email Address (Optional)</label>
+                  <label htmlFor="lead-email" className="block font-medium text-foreground mb-1">Email Address (Optional)</label>
                   <input
+                    id="lead-email"
                     type="email"
                     value={leadEmail}
                     onChange={(e) => setLeadEmail(e.target.value)}
@@ -389,8 +397,9 @@ export default function AssistantWidgetPage() {
                 </div>
 
                 <div>
-                  <label className="block font-medium text-foreground mb-1">What can we help you with?</label>
+                  <label htmlFor="lead-reason" className="block font-medium text-foreground mb-1">What can we help you with?</label>
                   <textarea
+                    id="lead-reason"
                     rows={3}
                     value={handoffReason}
                     onChange={(e) => setHandoffReason(e.target.value)}
@@ -403,14 +412,14 @@ export default function AssistantWidgetPage() {
                   <button
                     type="button"
                     onClick={() => setShowHandoffModal(false)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submittingHandoff}
-                    className="rounded-lg bg-primary px-3 py-1.5 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    className="rounded-lg bg-primary px-3 py-1.5 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {submittingHandoff ? "Sending…" : "Submit Request"}
                   </button>

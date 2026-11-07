@@ -110,16 +110,18 @@ export default function LoginPage() {
       </div>
 
       {/* Minimal Tab Switcher */}
-      <div className="grid grid-cols-2 rounded-lg border border-border bg-muted/30 p-1">
+      <div role="tablist" aria-label="Sign-in methods" className="grid grid-cols-2 rounded-lg border border-border bg-muted/30 p-1">
         <button
           type="button"
+          role="tab"
+          aria-selected={authMethod === "password"}
           onClick={() => {
             setAuthMethod("password");
             setError(null);
             setInfoMessage(null);
           }}
           className={cn(
-            "rounded-md py-1.5 text-xs font-medium transition-all",
+            "rounded-md py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             authMethod === "password"
               ? "bg-card text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground"
@@ -129,13 +131,15 @@ export default function LoginPage() {
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={authMethod === "otp"}
           onClick={() => {
             setAuthMethod("otp");
             setError(null);
             setInfoMessage(null);
           }}
           className={cn(
-            "rounded-md py-1.5 text-xs font-medium transition-all",
+            "rounded-md py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             authMethod === "otp"
               ? "bg-card text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground"

@@ -633,8 +633,9 @@ export default function SourcesKnowledgePage() {
                               accept={ACCEPTED_EXTENSIONS.join(",")}
                               onChange={handleFileInput}
                               disabled={uploading}
+                              aria-label="Upload files"
                             />
-                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
+                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                               <Plus className="h-3.5 w-3.5" />
                               Choose files
                             </span>
@@ -677,8 +678,9 @@ export default function SourcesKnowledgePage() {
                               accept={ACCEPTED_EXTENSIONS.join(",")}
                               onChange={handleFileInput}
                               disabled={uploading}
+                              aria-label="Upload files"
                             />
-                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
+                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                               <Plus className="h-3.5 w-3.5" />
                               Choose files
                             </span>
@@ -714,6 +716,7 @@ export default function SourcesKnowledgePage() {
                             placeholder="Filter documents…"
                             value={docFilter}
                             onChange={(e) => setDocFilter(e.target.value)}
+                            aria-label="Filter documents"
                             className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-8 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                           />
                           {docFilter && (
