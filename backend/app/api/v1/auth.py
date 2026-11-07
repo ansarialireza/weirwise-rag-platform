@@ -156,7 +156,7 @@ async def register(
 
     return AuthMessageResponse(
         message="Account created successfully. Please enter the verification code sent to your email.",
-        verification_otp=otp_code if settings.ENVIRONMENT in ("development", "test") else None,
+        verification_otp=otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
     )
 
 
@@ -255,7 +255,7 @@ async def resend_verification(
 
     return AuthMessageResponse(
         message="A new verification code has been dispatched to your email.",
-        verification_otp=otp_code if settings.ENVIRONMENT in ("development", "test") else None,
+        verification_otp=otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
     )
 
 
