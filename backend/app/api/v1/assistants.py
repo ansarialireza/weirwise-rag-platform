@@ -208,13 +208,23 @@ async def list_project_assistants(
     res = await db.execute(stmt)
     assistants = res.scalars().all()
 
+    if not assistants:
+        return []
+
+    # Batch fetch all knowledge source links in a single query to eliminate N+1 overhead
+    a_ids = [a.id for a in assistants]
+    links_stmt = select(AssistantKnowledgeSource.assistant_id, AssistantKnowledgeSource.knowledge_source_id).where(
+        AssistantKnowledgeSource.assistant_id.in_(a_ids)
+    )
+    links_res = await db.execute(links_stmt)
+    ks_map: dict[uuid.UUID, list[uuid.UUID]] = {a_id: [] for a_id in a_ids}
+    for ast_id, ks_id in links_res.all():
+        ks_map[ast_id].append(ks_id)
+
     output = []
     for a in assistants:
         resp = AssistantResponse.model_validate(a)
-        links_res = await db.execute(
-            select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == a.id)
-        )
-        resp.knowledge_source_ids = list(links_res.scalars().all())
+        resp.knowledge_source_ids = ks_map.get(a.id, [])
         output.append(resp)
     return output
 

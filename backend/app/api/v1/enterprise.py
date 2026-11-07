@@ -88,7 +88,7 @@ async def delete_byok_credential(
     provider_name: str,
     context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
     db: AsyncSession = Depends(get_db_session),
-):
+) -> None:
     """Revoke and delete a BYOK credential."""
     stmt = select(WorkspaceBYOKCredential).where(
         WorkspaceBYOKCredential.workspace_id == workspace_id,
@@ -101,7 +101,6 @@ async def delete_byok_credential(
 
     await db.delete(byok)
     await db.commit()
-    return {}
 
 
 @router.post("/retention/cleanup")

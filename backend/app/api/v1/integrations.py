@@ -91,7 +91,7 @@ async def disconnect_integration(
     integration_id: uuid.UUID,
     context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
     db: AsyncSession = Depends(get_db_session),
-):
+) -> None:
     """Disconnect and revoke credentials for an integration."""
     stmt = select(BusinessIntegration).where(
         BusinessIntegration.id == integration_id,
@@ -104,7 +104,6 @@ async def disconnect_integration(
 
     await db.delete(integration)
     await db.commit()
-    return {}
 
 
 # --- Outgoing Webhooks (n8n, Zapier, Custom Systems) ---
@@ -160,7 +159,7 @@ async def delete_webhook_subscription(
     webhook_id: uuid.UUID,
     context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
     db: AsyncSession = Depends(get_db_session),
-):
+) -> None:
     """Delete a webhook subscription."""
     stmt = select(WebhookSubscription).where(
         WebhookSubscription.id == webhook_id,
@@ -173,4 +172,3 @@ async def delete_webhook_subscription(
 
     await db.delete(sub)
     await db.commit()
-    return {}
