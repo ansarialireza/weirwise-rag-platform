@@ -100,13 +100,13 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 <>
                   <Link
                     href="/login"
-                    className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                    className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {dict.common.signIn}
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70"
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                   >
                     {dict.landing.primaryCta}
                   </Link>
@@ -167,18 +167,18 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 ) : (
                   <>
                     <Link
-                      href="/login"
+                      href="/register"
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
                     >
-                      {dict.common.signIn}
+                      {dict.landing.primaryCta}
                     </Link>
                     <Link
-                      href="/register"
+                      href="/login"
                       onClick={() => setMobileMenuOpen(false)}
                       className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground"
                     >
-                      {dict.landing.primaryCta}
+                      {dict.common.signIn}
                     </Link>
                   </>
                 )

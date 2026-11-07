@@ -393,7 +393,7 @@ export default function SourcesKnowledgePage() {
                 }}
                 className="gap-2"
               >
-                <Search className="h-4 w-4 text-[#CCFF00]" />
+                <Search className="h-4 w-4 text-primary" />
                 Direct Search
               </Button>
               <Button onClick={() => setShowModal(true)} className="gap-2">

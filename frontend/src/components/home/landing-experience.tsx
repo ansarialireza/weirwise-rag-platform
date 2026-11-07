@@ -103,17 +103,17 @@ export function LandingExperience() {
               </p>
               <div className="mt-8 flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center">
                 <Link
-                  href="/login"
+                  href="/register"
                   className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 sm:w-auto"
                 >
-                  {dict.common.signIn}
+                  {dict.landing.primaryCta}
                   <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
                 </Link>
                 <Link
-                  href="/register"
+                  href="#explore"
                   className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-border bg-card px-5 text-sm font-medium text-foreground transition-colors hover:bg-muted/70 sm:w-auto"
                 >
-                  {dict.landing.primaryCta}
+                  {dict.landing.secondaryCta}
                 </Link>
               </div>
             </div>
@@ -207,10 +207,10 @@ export function LandingExperience() {
               </h2>
               <p className="mx-auto mt-4 max-w-lg text-sm text-white/60">{dict.landing.ctaSubtitle}</p>
               <Link
-                href="/login"
+                href="/register"
                 className="mt-8 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-volt px-6 text-sm font-semibold text-volt-foreground transition-[filter] hover:brightness-95 sm:w-auto"
               >
-                {dict.common.signIn}
+                {dict.landing.primaryCta}
                 <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Link>
             </div>

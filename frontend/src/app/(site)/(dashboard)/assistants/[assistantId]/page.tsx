@@ -1247,7 +1247,7 @@ export default function AssistantConfigurePage() {
                   </div>
                   <div className="rounded-lg border border-border bg-muted/30 p-4">
                     <span className="text-[11px] font-mono uppercase text-muted-foreground">Satisfaction Rate</span>
-                    <div className="mt-1 text-2xl font-bold font-mono text-[#CCFF00]">
+                    <div className="mt-1 text-2xl font-bold font-mono text-signal">
                       {knowledgeGaps.satisfaction_rate_pct}%
                     </div>
                   </div>
