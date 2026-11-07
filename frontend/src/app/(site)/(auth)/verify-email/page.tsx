@@ -28,8 +28,8 @@ function VerifyEmailForm() {
     setSuccess(null);
 
     const cleanOtp = otp.trim();
-    if (cleanOtp.length !== 6) {
-      setError("Please enter the complete 6-digit verification code.");
+    if (cleanOtp.length < 4 || cleanOtp.length > 6) {
+      setError("Please enter the verification code.");
       return;
     }
 
@@ -70,7 +70,7 @@ function VerifyEmailForm() {
       <div>
         <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Verify your email</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Enter the 6-digit code we sent to your inbox.
+          Enter the verification code we sent to your inbox.
         </p>
       </div>
 

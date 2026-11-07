@@ -140,8 +140,9 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             document.core_doc_id = core_doc_id
 
             # 5. Cold Transfer: Asynchronously move raw document to Cold Tier (/mnt/gdrive vault)
+            # Run in worker thread so sync disk I/O on FUSE mounts never blocks the asyncio event loop
             if os.path.exists(document.storage_path):
-                cold_path = storage_service.move_to_cold_storage(document.storage_path)
+                cold_path = await asyncio.to_thread(storage_service.move_to_cold_storage, document.storage_path)
                 document.storage_path = cold_path
 
             # 6. Wait for Core to finish indexing before reporting READY.

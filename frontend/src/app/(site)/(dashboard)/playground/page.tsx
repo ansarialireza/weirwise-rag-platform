@@ -137,8 +137,7 @@ function PlaygroundPage() {
   // was configured without sources simply has none, and no choice is offered.
   useEffect(() => {
     if (!selectedAssistant) return;
-    const allowed =
-      selectedAssistant.engine_mode === "search_only" && selectedAssistant.show_sources !== false;
+    const allowed = selectedAssistant.show_sources !== false;
     setSourcesOn(allowed && readSourcePreference(selectedAssistant.id, true));
   }, [selectedAssistant]);
 
@@ -416,7 +415,7 @@ function PlaygroundPage() {
               </div>
 
               <div className="flex shrink-0 items-center gap-1.5">
-                {isSearchMode && selectedAssistant.show_sources !== false && (
+                {selectedAssistant && selectedAssistant.show_sources !== false && (
                   <SourcesToggle
                     enabled={sourcesOn}
                     onChange={(enabled) => handleToggleSources(selectedAssistant.id, enabled)}
@@ -549,9 +548,18 @@ function PlaygroundPage() {
                             {message.content}
                           </div>
 
-                          {/* An AI Assistant answers in prose and shows nothing else: no
-                              citations, no source controls, no toggle. Its evidence stays
-                              internal — only the assistant's own words are on screen. */}
+                          {sourcesOn && messageSources.length > 0 && (
+                            <div className="border-t border-border/60 px-3.5 py-3">
+                              <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                                Sources supporting this answer:
+                              </p>
+                              <SourceReferences
+                                sources={messageSources}
+                                labels={sourceLabels}
+                                className="border-0"
+                              />
+                            </div>
+                          )}
 
                           <div className="flex items-center justify-end gap-1 border-t border-border/60 px-3 py-1.5">
                             {voiceAvailable && (
