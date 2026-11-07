@@ -44,6 +44,23 @@ import backend.app.models  # noqa: E402,F401
 from backend.app.core.config import settings  # noqa: E402
 from backend.app.db.base import Base  # noqa: E402
 from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier  # noqa: E402
+from backend.app.services.auth_rate_limiter import AuthRateLimiter  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_before_each_test():
+    """Ensure in-memory and Redis rate limiting state is reset so test suites do not
+    interfere with each other when running hundreds of test cases in rapid succession.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(AuthRateLimiter.reset_all())
+        else:
+            loop.run_until_complete(AuthRateLimiter.reset_all())
+    except RuntimeError:
+        asyncio.run(AuthRateLimiter.reset_all())
+    yield
 
 
 @pytest.fixture(scope="session", autouse=True)

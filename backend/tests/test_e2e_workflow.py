@@ -67,7 +67,8 @@ def mock_core_client():
 
 def test_complete_product_workflow(mock_core_client):
     # 1. Register & Authenticate User
-    email = "lead_architect@enterprise.org"
+    uid = uuid.uuid4().hex[:8]
+    email = f"lead_architect_{uid}@enterprise.org"
     password = "MasterKey2026!#"
     client.post(
         "/api/v1/auth/register",
