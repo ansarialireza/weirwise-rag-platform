@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.app.core.config import settings
 from backend.app.db.session import async_session_factory
+from backend.app.models.auth import User, Workspace
 from backend.app.models.behavioral import (
     BehavioralEvent,
     UserBehavioralSession,
@@ -258,6 +259,27 @@ class BehavioralStreamConsumer:
             # Inherits the authenticated user_id so ownership is not broken or obscured
             if existing_sess.user_id is not None and user_id is None:
                 user_id = existing_sess.user_id
+
+        # Validate foreign keys exist in PostgreSQL to prevent IntegrityError / DLQ poisoning
+        if user_id is not None:
+            user_exists = (
+                await db.execute(select(User.id).where(User.id == user_id))
+            ).scalar_one_or_none()
+            if user_exists is None:
+                logger.warning(
+                    f"WBI worker: user_id '{user_id}' in session '{session_id}' does not exist in database; demoting to anonymous session."
+                )
+                user_id = None
+
+        if workspace_id is not None:
+            ws_exists = (
+                await db.execute(select(Workspace.id).where(Workspace.id == workspace_id))
+            ).scalar_one_or_none()
+            if ws_exists is None:
+                logger.warning(
+                    f"WBI worker: workspace_id '{workspace_id}' in session '{session_id}' does not exist in database; setting to null."
+                )
+                workspace_id = None
 
         # 1. Upsert UserBehavioralSession
         now = datetime.now(UTC)
