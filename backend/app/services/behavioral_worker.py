@@ -262,12 +262,10 @@ class BehavioralStreamConsumer:
 
         # Validate foreign keys exist in PostgreSQL to prevent IntegrityError / DLQ poisoning
         if user_id is not None:
-            user_exists = (
-                await db.execute(select(User.id).where(User.id == user_id))
-            ).scalar_one_or_none()
+            user_exists = (await db.execute(select(User.id).where(User.id == user_id))).scalar_one_or_none()
             if user_exists is None:
                 logger.warning(
-                    f"WBI worker: user_id '{user_id}' in session '{session_id}' does not exist in database; demoting to anonymous session."
+                    f"WBI worker: user_id '{user_id}' in session '{session_id}' not found in DB; demoting to anonymous."
                 )
                 user_id = None
 
@@ -277,7 +275,7 @@ class BehavioralStreamConsumer:
             ).scalar_one_or_none()
             if ws_exists is None:
                 logger.warning(
-                    f"WBI worker: workspace_id '{workspace_id}' in session '{session_id}' does not exist in database; setting to null."
+                    f"WBI worker: workspace_id '{workspace_id}' in session '{session_id}' not found; setting to null."
                 )
                 workspace_id = None
 

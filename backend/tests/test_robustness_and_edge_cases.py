@@ -58,9 +58,7 @@ async def test_file_upload_edge_cases():
             ("files", ("batch_1.txt", io.BytesIO(b"Valid content 1"), "text/plain")),
             ("files", ("batch_2.md", io.BytesIO(b"# Valid markdown 2"), "text/markdown")),
         ]
-        multi_res = await ac.post(
-            f"/api/v1/sources/{source_id}/documents/upload", headers=headers, files=multi_files
-        )
+        multi_res = await ac.post(f"/api/v1/sources/{source_id}/documents/upload", headers=headers, files=multi_files)
         assert multi_res.status_code == 202
         assert len(multi_res.json()["uploaded_documents"]) == 2
 
@@ -157,9 +155,7 @@ async def test_cross_tenant_and_unauthorized_isolation():
         source_id = s_res.json()["id"]
 
         # Attacker tries to read victim source documents -> 404 (isolated)
-        read_res = await ac.get(
-            f"/api/v1/sources/{source_id}/documents", headers={"Authorization": f"Bearer {token2}"}
-        )
+        read_res = await ac.get(f"/api/v1/sources/{source_id}/documents", headers={"Authorization": f"Bearer {token2}"})
         assert read_res.status_code == 404
 
         # Attacker tries to upload document to victim source -> 404

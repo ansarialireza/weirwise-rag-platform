@@ -71,7 +71,9 @@ def create_application() -> FastAPI:
         description="Weirwise Platform - Enterprise Multi-tenant AI Assistant & Knowledge Platform",
         docs_url="/docs" if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
         redoc_url="/redoc" if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
-        openapi_url="/openapi.json" if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
+        openapi_url="/openapi.json"
+        if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+        else None,
         lifespan=lifespan,
     )
 
