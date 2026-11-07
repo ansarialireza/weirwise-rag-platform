@@ -44,6 +44,15 @@ class UserLoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
+class UserOtpLoginRequest(BaseModel):
+    email: EmailStrType
+    otp: str = Field(..., min_length=6, max_length=64)
+
+
+class SendOtpLoginRequest(BaseModel):
+    email: EmailStrType
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

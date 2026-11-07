@@ -287,6 +287,22 @@ class ApiClient {
     return res;
   }
 
+  async sendLoginOtp(data: { email: string }): Promise<{ message: string; verification_otp?: string }> {
+    return this.request<{ message: string; verification_otp?: string }>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async loginWithOtp(data: { email: string; otp: string }): Promise<{ access_token: string; refresh_token: string }> {
+    const res = await this.request<{ access_token: string; refresh_token: string }>("/auth/login-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    this.setToken(res.access_token);
+    return res;
+  }
+
   async logout(): Promise<void> {
     try {
       await this.request("/auth/logout", { method: "POST" });

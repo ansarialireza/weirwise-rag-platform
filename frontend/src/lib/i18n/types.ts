@@ -75,6 +75,13 @@ export interface TranslationDictionary {
     authError: string;
     accountNotVerified: string;
     submitting: string;
+    signInWithPassword: string;
+    signInWithOtp: string;
+    sendCode: string;
+    enterOtp: string;
+    codeSent: string;
+    invalidOtp: string;
+    resend: string;
     panelTitle: string;
     agreePrefix: string;
     terms: string;

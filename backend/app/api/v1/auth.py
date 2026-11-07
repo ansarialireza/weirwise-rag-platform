@@ -31,6 +31,8 @@ from backend.app.schemas.auth import (
     ResendVerificationRequest,
     TokenResponse,
     UserLoginRequest,
+    UserOtpLoginRequest,
+    SendOtpLoginRequest,
     UserRegisterRequest,
     UserResponse,
     VerifyEmailRequest,
@@ -356,6 +358,155 @@ async def login(
     await db.commit()
 
     # Set secure, persistent HttpOnly cookies for browser clients (30-day session retention)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=raw_refresh,
+        expires_in=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+    )
+
+
+@router.post("/send-otp", response_model=AuthMessageResponse)
+async def send_login_otp(
+    payload: SendOtpLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthMessageResponse:
+    """Send an OTP code for passwordless email login."""
+    ip = client_ip(request)
+    email = payload.email.strip().lower()
+
+    # Rate limiting
+    ip_limit = await AuthRateLimiter.check("otp_ip", ip, 5, 300)
+    if not ip_limit.allowed:
+        enforce_limit(ip_limit)
+
+    stmt = select(User).where(User.email == email)
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+
+    if not user:
+        # Prevent user enumeration: respond generically without sending email
+        return AuthMessageResponse(
+            message="If an account exists with this email, a verification code has been sent.",
+            verification_otp=None,
+        )
+
+    # Invalidate old email tokens
+    old_tokens_stmt = select(EmailVerificationToken).where(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.is_used == False,
+    )
+    old_tokens = (await db.execute(old_tokens_stmt)).scalars().all()
+    for tok in old_tokens:
+        tok.is_used = True
+
+    otp_code = generate_otp_code(6)
+    otp_hash = hash_token(otp_code)
+    otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
+
+    db.add(
+        EmailVerificationToken(
+            user_id=user.id,
+            token_hash=otp_hash,
+            expires_at=otp_expiry,
+            is_used=False,
+        )
+    )
+    await db.commit()
+
+    await email_service.send_verification_otp(user.email, otp_code)
+
+    return AuthMessageResponse(
+        message="Verification code sent to your email.",
+        verification_otp=(
+            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
+        ),
+    )
+
+
+@router.post("/login-otp", response_model=TokenResponse)
+async def login_with_otp(
+    payload: UserOtpLoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db_session),
+) -> TokenResponse:
+    """Authenticate and create persistent session via email OTP."""
+    ip = client_ip(request)
+    email = payload.email.strip().lower()
+
+    ip_limit = await AuthRateLimiter.check("otp_login_ip", ip, 10, 300)
+    if not ip_limit.allowed:
+        enforce_limit(ip_limit)
+
+    stmt = select(User).where(User.email == email)
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code.",
+        )
+
+    otp_hash = hash_token(payload.otp.strip())
+    now = datetime.now(UTC)
+
+    tok_stmt = select(EmailVerificationToken).where(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.token_hash == otp_hash,
+        EmailVerificationToken.is_used == False,
+        EmailVerificationToken.expires_at > now,
+    )
+    tok_res = await db.execute(tok_stmt)
+    token_record = tok_res.scalar_one_or_none()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code.",
+        )
+
+    token_record.is_used = True
+    if not user.is_verified:
+        user.is_verified = True
+
+    # Issue access token
+    access_expiry = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_jwt_token({"sub": str(user.id), "email": user.email}, access_expiry)
+
+    # Issue persistent refresh token (30 days)
+    raw_refresh, refresh_hash = generate_secure_token("wwp_ref_")
+    refresh_expiry = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    session = UserSession(
+        user_id=user.id,
+        refresh_token_hash=refresh_hash,
+        expires_at=refresh_expiry,
+    )
+    db.add(session)
+    await db.commit()
+
+    # Set secure persistent HttpOnly cookies (30 days)
     response.set_cookie(
         key="access_token",
         value=access_token,
