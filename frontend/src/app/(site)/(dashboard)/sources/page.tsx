@@ -37,8 +37,11 @@ const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
 
 function describeProcessingError(raw?: string | null): string {
   const text = (raw || "").toLowerCase();
+  if (text.includes("docx") || text.includes("word") || text.includes("xlsx") || text.includes("excel")) {
+    return "Word and Excel files are not directly supported yet. Please save or export them as PDF before uploading.";
+  }
   if (text.includes("too large") || text.includes("size limit")) {
-    return "This file is too large to prepare. Try a smaller copy.";
+    return "This file is too large to prepare. Try a smaller copy (under 50MB).";
   }
   if (text.includes("unsupported") || text.includes("file type")) {
     return "This file type isn't supported yet. Try a PDF, TXT, Markdown, or CSV file.";
@@ -224,7 +227,15 @@ export default function SourcesKnowledgePage() {
     });
 
     if (valid.length === 0) {
-      setUploadError("Choose PDF, TXT, Markdown, or CSV files.");
+      const hasOffice = files.some((f) => {
+        const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+        return [".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"].includes(ext);
+      });
+      if (hasOffice) {
+        setUploadError("Word and Excel documents must be saved as PDF before uploading. We accept PDF, TXT, Markdown, and CSV.");
+      } else {
+        setUploadError("Please choose PDF, TXT, Markdown, or CSV files (up to 50MB each).");
+      }
       return;
     }
     if (valid.length < files.length) {
@@ -640,7 +651,7 @@ export default function SourcesKnowledgePage() {
                             Drop files here, or choose from your device
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            PDF, TXT, Markdown, or CSV · multiple files welcome
+                            PDF, TXT, Markdown, or CSV up to 50MB · multiple files welcome
                           </p>
                         </div>
                         <div className="flex items-center justify-center gap-2.5 pt-1">
@@ -696,16 +707,26 @@ export default function SourcesKnowledgePage() {
                     </div>
 
                     {documents.length > 0 && (
-                      <div className="relative w-full sm:w-56">
-                        <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="text"
-                          placeholder="Filter documents…"
-                          value={docFilter}
-                          onChange={(e) => setDocFilter(e.target.value)}
-                          className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-3 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                        />
-                      </div>
+                        <div className="relative w-full sm:w-64">
+                          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Filter documents…"
+                            value={docFilter}
+                            onChange={(e) => setDocFilter(e.target.value)}
+                            className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-8 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          />
+                          {docFilter && (
+                            <button
+                              type="button"
+                              onClick={() => setDocFilter("")}
+                              aria-label="Clear document filter"
+                              className="absolute end-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                     )}
                   </div>
 
@@ -767,8 +788,19 @@ export default function SourcesKnowledgePage() {
                       </p>
                     </div>
                   ) : filteredDocuments.length === 0 ? (
-                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                      No documents match “{docFilter}”.
+                    <div className="space-y-2 px-5 py-10 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No documents match “{docFilter}”.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDocFilter("")}
+                        className="text-xs text-primary"
+                      >
+                        Clear filter
+                      </Button>
                     </div>
                   ) : (
                     <ul className="divide-y divide-border/60">
@@ -1096,47 +1128,62 @@ export default function SourcesKnowledgePage() {
         isOpen={showDirectSearchModal}
         onClose={() => setShowDirectSearchModal(false)}
         title="Direct Knowledge Search"
-        description="Search your indexed documents directly for relevant passages without generating an AI answer."
+        description={
+          selectedSource
+            ? `Search directly across documents in “${selectedSource.name}”.`
+            : "Search directly across your indexed knowledge documents."
+        }
       >
-        <form onSubmit={handleDirectSearch} className="space-y-4 pt-2">
-          <div className="flex gap-2">
-            <Input
-              required
-              placeholder="Search concepts, policies, product terms..."
-              value={directSearchQuery}
-              onChange={(e) => setDirectSearchQuery(e.target.value)}
-              className="flex-1"
-              autoFocus
-            />
-            <Button type="submit" isLoading={isSearchingDirect} disabled={!directSearchQuery.trim()}>
-              Search
-            </Button>
+        {selectedSource && (!documents || documents.length === 0 || !documents.some(d => d.status === "ready")) ? (
+          <div className="py-6 text-center space-y-2">
+            <p className="text-sm font-medium text-foreground">No indexed documents ready</p>
+            <p className="text-xs text-muted-foreground">
+              Add and wait for at least one document to finish processing before querying direct search.
+            </p>
           </div>
-        </form>
-
-        <div className="mt-4 max-h-[400px] overflow-y-auto space-y-3">
-          {directSearchHasSearched && directSearchResults.length === 0 && (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              No matching knowledge passages found for “{directSearchQuery}”.
-            </div>
-          )}
-
-          {directSearchResults.map((res, idx) => (
-            <div key={idx} className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between text-muted-foreground font-mono text-[11px]">
-                <span className="font-semibold text-foreground truncate max-w-[70%]">
-                  {res.document_name || res.source_name || "Document excerpt"}
-                </span>
-                <span className="text-accent font-bold">
-                  Score: {Math.round(res.score * 100)}%
-                </span>
+        ) : (
+          <>
+            <form onSubmit={handleDirectSearch} className="space-y-4 pt-2">
+              <div className="flex gap-2">
+                <Input
+                  required
+                  placeholder="Search concepts, policies, product terms..."
+                  value={directSearchQuery}
+                  onChange={(e) => setDirectSearchQuery(e.target.value)}
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button type="submit" isLoading={isSearchingDirect} disabled={!directSearchQuery.trim()}>
+                  Search
+                </Button>
               </div>
-              <p className="text-foreground/90 leading-relaxed font-sans line-clamp-4">
-                {res.text}
-              </p>
+            </form>
+
+            <div className="mt-4 max-h-[400px] overflow-y-auto space-y-3">
+              {directSearchHasSearched && directSearchResults.length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No matching knowledge passages found for “{directSearchQuery}”.
+                </div>
+              )}
+
+              {directSearchResults.map((res, idx) => (
+                <div key={idx} className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground font-mono text-[11px]">
+                    <span className="font-semibold text-foreground truncate max-w-[70%]">
+                      {res.document_name || res.source_name || "Document excerpt"}
+                    </span>
+                    <span className="text-accent font-bold">
+                      Score: {Math.round(res.score * 100)}%
+                    </span>
+                  </div>
+                  <p className="text-foreground/90 leading-relaxed font-sans line-clamp-4">
+                    {res.text}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </Modal>
     </div>
   );
