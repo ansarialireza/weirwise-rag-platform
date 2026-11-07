@@ -137,10 +137,11 @@ class PasswordResetToken(Base):
 
 class EmailVerificationToken(Base):
     __tablename__ = "email_verification_tokens"
+    __table_args__ = (UniqueConstraint("user_id", "token_hash", name="uq_user_email_verification_token"),)
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    token_hash = Column(String(64), nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     is_used = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
