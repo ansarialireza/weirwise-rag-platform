@@ -233,32 +233,50 @@ class TokenManager:
         for cred in available_creds:
             token = decrypt_credential_secret(cred.encrypted_secret)
             try:
+                now = datetime.now(UTC)
                 # Attempt API request with the decrypted token
                 response = await request_func(token)
 
                 # Record success on credential
                 cred.consecutive_failures = 0
                 cred.health_status = CredentialHealthStatus.HEALTHY.value
+                cred.cooling_down_until = None
+                cred.last_success_at = now
+                cred.last_used_at = now
+                cred.last_health_check_at = now
                 await db.commit()
                 return response
 
             except httpx.HTTPStatusError as e:
+                now = datetime.now(UTC)
                 status_code = e.response.status_code
                 logger.warning(f"Token {cred.key_prefix} failed with HTTP {status_code}: {e!s}. Initiating failover...")
                 cred.consecutive_failures += 1
+                cred.last_failure_at = now
+                cred.last_used_at = now
                 if status_code in (401, 403):
                     cred.health_status = CredentialHealthStatus.FAILED.value
                     cred.is_active = False
                 elif status_code == 429:
                     cred.health_status = CredentialHealthStatus.RATE_LIMITED.value
+                    # Apply a standard 60-second cooldown on rate-limit failover
+                    from datetime import timedelta
+
+                    cred.cooling_down_until = now + timedelta(seconds=60)
+                else:
+                    cred.health_status = CredentialHealthStatus.DEGRADED.value
 
                 cred.last_error_reason = f"HTTP {status_code}"
                 await db.commit()
                 last_error = e
 
             except Exception as e:
+                now = datetime.now(UTC)
                 logger.warning(f"Token {cred.key_prefix} encountered error: {e!s}. Retrying next token...")
                 cred.consecutive_failures += 1
+                cred.last_failure_at = now
+                cred.last_used_at = now
+                cred.health_status = CredentialHealthStatus.DEGRADED.value
                 cred.last_error_reason = str(e)[:250]
                 await db.commit()
                 last_error = e
