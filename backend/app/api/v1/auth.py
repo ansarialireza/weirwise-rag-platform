@@ -139,7 +139,7 @@ async def register(
     )
 
     # Generate 6-digit OTP
-    otp_code = generate_otp_code(6)
+    otp_code = generate_otp_code(4)
     otp_hash = hash_token(otp_code)
     otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
 
@@ -241,7 +241,7 @@ async def resend_verification(
         return AuthMessageResponse(message="Account is already verified. You can log in.")
 
     # Generate new 6-digit OTP
-    otp_code = generate_otp_code(6)
+    otp_code = generate_otp_code(4)
     otp_hash = hash_token(otp_code)
     otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
 
@@ -419,7 +419,7 @@ async def send_login_otp(
     for tok in old_tokens:
         tok.is_used = True
 
-    otp_code = generate_otp_code(6)
+    otp_code = generate_otp_code(4)
     otp_hash = hash_token(otp_code)
     otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
 
@@ -680,7 +680,7 @@ async def request_password_reset(
         )
 
     # Generate 6-digit OTP or secure token for password reset
-    raw_token = generate_otp_code(6)
+    raw_token = generate_otp_code(4)
     token_hash = hash_token(raw_token)
     expires = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
 

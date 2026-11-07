@@ -95,7 +95,7 @@ class EmailService:
         subject = "Verify your Weirwise Platform account"
         text = (
             f"Welcome to Weirwise Platform!\n\n"
-            f"Your 6-digit email verification code is: {otp_code}\n\n"
+            f"Your verification code is: {otp_code}\n\n"
             f"This code will expire in {settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES} minutes.\n"
             f"If you did not request this account, you can safely ignore this email.\n"
         )

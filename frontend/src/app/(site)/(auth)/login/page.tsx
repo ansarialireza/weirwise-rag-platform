@@ -231,11 +231,11 @@ export default function LoginPage() {
                 id="otp"
                 type="text"
                 required
-                maxLength={6}
+                maxLength={4}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="123456"
-                className="text-center font-mono tracking-widest text-lg"
+                placeholder="1234"
+                className="text-center font-mono tracking-[0.5em] text-xl font-bold"
               />
             </div>
           )}
