@@ -155,10 +155,8 @@ async def register(
     await email_service.send_verification_otp(user.email, otp_code)
 
     return AuthMessageResponse(
-        message="Account created successfully. Please enter the 6-digit verification code sent to your email.",
-        verification_otp=(
-            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
-        ),
+        message="Account created successfully. Please enter the verification code sent to your email.",
+        verification_otp=None,
     )
 
 
@@ -256,10 +254,8 @@ async def resend_verification(
     await email_service.send_verification_otp(user.email, otp_code)
 
     return AuthMessageResponse(
-        message="A new 6-digit verification code has been dispatched to your email.",
-        verification_otp=(
-            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
-        ),
+        message="A new verification code has been dispatched to your email.",
+        verification_otp=None,
     )
 
 
@@ -437,9 +433,7 @@ async def send_login_otp(
 
     return AuthMessageResponse(
         message="Verification code sent to your email.",
-        verification_otp=(
-            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
-        ),
+        verification_otp=None,
     )
 
 

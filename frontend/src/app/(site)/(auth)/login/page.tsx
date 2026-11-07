@@ -72,13 +72,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.sendLoginOtp({ email: email.trim() });
+      await api.sendLoginOtp({ email: email.trim() });
       setOtpSent(true);
-      setInfoMessage(
-        res.verification_otp
-          ? `${dict.auth.codeSent} (Code: ${res.verification_otp})`
-          : dict.auth.codeSent
-      );
+      setInfoMessage(dict.auth.codeSent);
     } catch (err: any) {
       setError(err.message || "Failed to send code. Please try again.");
     } finally {
