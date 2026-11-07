@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastProvider } from "@/components/ui/toast";
@@ -172,11 +173,14 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onOpenSearch={openSearch}
         />
 
-        <main id="main-content" className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-content px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+        <main id="main-content" className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto w-full max-w-content px-4 py-6 pb-24 sm:px-6 sm:py-8 lg:px-10 lg:pb-12">
             {children}
           </div>
         </main>
+
+        {/* Android Material Bottom Navigation */}
+        <MobileBottomNav />
       </div>
     </div>
   );
