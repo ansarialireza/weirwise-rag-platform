@@ -42,7 +42,14 @@
     "sources": "Sources",
     "source": "Source",
     "copyText": "Copy text",
-    "copied": "Copied"
+    "copied": "Copied",
+    "settings": "Settings",
+    "createWorkspace": "Create workspace",
+    "switchWorkspace": "Switch workspace",
+    "usage": "Usage",
+    "upgrade": "Upgrade",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
   },
   "auth": {
     "signInTitle": "Sign In",

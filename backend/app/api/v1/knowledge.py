@@ -17,10 +17,15 @@ from backend.app.models.project import (
     SourceProcessingStatus,
 )
 from backend.app.schemas.knowledge import (
+    DirectSearchRequest,
+    DirectSearchResponse,
     DocumentResponse,
     DocumentUploadBatchResponse,
     KnowledgeSourceCreateRequest,
     KnowledgeSourceResponse,
+    KnowledgeSourceUpdateRequest,
+    PasteTextIngestRequest,
+    SearchResultItem,
 )
 from backend.app.services.scraper import crawler_engine, is_ssrf_safe_url
 from backend.app.services.storage import storage_service
@@ -242,6 +247,40 @@ async def create_knowledge_source(
     return KnowledgeSourceResponse.model_validate(source)
 
 
+@router.patch("/sources/{source_id}", response_model=KnowledgeSourceResponse)
+async def update_knowledge_source(
+    source_id: uuid.UUID,
+    payload: KnowledgeSourceUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> KnowledgeSourceResponse:
+    """Update knowledge source details such as name and settings."""
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    for field, val in payload.model_dump(exclude_unset=True).items():
+        setattr(source, field, val)
+
+    await db.commit()
+    await db.refresh(source)
+
+    # Count documents
+    doc_count_res = await db.execute(select(func.count(Document.id)).where(Document.knowledge_source_id == source.id))
+    count = doc_count_res.scalar() or 0
+    resp = KnowledgeSourceResponse.model_validate(source)
+    resp.document_count = count
+    return resp
+
+
 @router.get("/projects/{project_id}/sources", response_model=list[KnowledgeSourceResponse])
 async def list_knowledge_sources(
     project_id: uuid.UUID,
@@ -338,6 +377,69 @@ async def upload_documents(
         source_id=source.id,
         uploaded_documents=[DocumentResponse.model_validate(d) for d in uploaded_records],
     )
+
+
+@router.post(
+    "/sources/{source_id}/documents/paste-text",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def ingest_pasted_text(
+    source_id: uuid.UUID,
+    payload: PasteTextIngestRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DocumentResponse:
+    """Ingest directly pasted plain text or markdown as a first-class knowledge document."""
+    ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
+    source = ks_res.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="KnowledgeSource not found.")
+
+    project = await verify_project_membership(
+        source.project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER],
+    )
+
+    ws_res = await db.execute(select(Workspace).where(Workspace.id == project.workspace_id))
+    workspace = ws_res.scalar_one_or_none()
+    if workspace:
+        doc_count_stmt = (
+            select(func.count(Document.id))
+            .join(KnowledgeSource, KnowledgeSource.id == Document.knowledge_source_id)
+            .join(Project, Project.id == KnowledgeSource.project_id)
+            .where(Project.workspace_id == workspace.id)
+        )
+        current_docs = (await db.execute(doc_count_stmt)).scalar() or 0
+        await subscription_service.check_document_upload_entitlement(workspace, current_docs, additional_docs=1, db=db)
+
+    safe_name, path, size, chash = await storage_service.save_text_content(
+        title=payload.title,
+        text_content=payload.content,
+    )
+
+    if workspace:
+        subscription_service.check_file_size_entitlement(workspace, size)
+        await subscription_service.check_storage_entitlement(workspace, size, db)
+
+    doc = Document(
+        knowledge_source_id=source.id,
+        filename=safe_name,
+        mime_type="text/plain",
+        file_size_bytes=size,
+        content_hash=chash,
+        storage_path=path,
+        status=SourceProcessingStatus.PENDING.value,
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+
+    background_tasks.add_task(process_document_ingestion, doc.id)
+    return DocumentResponse.model_validate(doc)
 
 
 @router.get("/sources/{source_id}/documents", response_model=list[DocumentResponse])
@@ -530,4 +632,76 @@ async def download_document_stream(
         stream_gen,
         media_type=doc.mime_type or "application/octet-stream",
         headers=headers,
+    )
+
+
+@router.post("/projects/{project_id}/knowledge/search", response_model=DirectSearchResponse)
+async def direct_knowledge_search(
+    project_id: uuid.UUID,
+    payload: DirectSearchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DirectSearchResponse:
+    """Direct Knowledge Search (Non-generative):
+    Execute direct semantic search across connected knowledge bases without invoking an LLM.
+    Returns matched document excerpts, relevance scores, and source references.
+    """
+    await verify_project_membership(
+        project_id,
+        current_user.id,
+        db,
+        min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
+    )
+
+    # Query matching knowledge sources
+    stmt = select(KnowledgeSource).where(
+        KnowledgeSource.project_id == project_id,
+        KnowledgeSource.core_kb_id.isnot(None),
+    )
+    if payload.source_ids:
+        stmt = stmt.where(KnowledgeSource.id.in_(payload.source_ids))
+
+    sources_res = await db.execute(stmt)
+    sources = sources_res.scalars().all()
+    if not sources:
+        return DirectSearchResponse(query=payload.query, total_results=0, results=[])
+
+    core_client = CoreApiClient()
+    all_results: list[SearchResultItem] = []
+
+    for s in sources:
+        if not s.core_kb_id:
+            continue
+        try:
+            core_resp = await core_client.search(
+                kb_id=s.core_kb_id,
+                query=payload.query,
+                top_k=payload.top_k,
+                score_threshold=payload.score_threshold,
+            )
+            # Response contains "results": [{"chunk_id", "document_id", "content", "score", "metadata"}]
+            items = core_resp.get("results", [])
+            for item in items:
+                all_results.append(
+                    SearchResultItem(
+                        document_id=str(item.get("document_id", "")),
+                        document_name=item.get("metadata", {}).get("filename") or item.get("filename"),
+                        source_id=str(s.id),
+                        source_name=s.name,
+                        chunk_index=item.get("chunk_index"),
+                        text=item.get("content") or item.get("text", ""),
+                        score=float(item.get("score", 0.0)),
+                    )
+                )
+        except Exception as e:
+            logger.warning(f"Core search error on source {s.id}: {e}")
+
+    # Sort descending by score and truncate to requested top_k
+    all_results.sort(key=lambda x: x.score, reverse=True)
+    final_results = all_results[: payload.top_k]
+
+    return DirectSearchResponse(
+        query=payload.query,
+        total_results=len(final_results),
+        results=final_results,
     )

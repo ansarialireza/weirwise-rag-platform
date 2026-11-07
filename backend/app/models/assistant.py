@@ -43,7 +43,7 @@ class Assistant(Base):
     show_sources = Column(Boolean, default=True, nullable=False)
     temperature = Column(Float, default=0.2, nullable=False)
     max_tokens = Column(Integer, default=1024, nullable=False)
-    score_threshold = Column(Float, default=0.7, nullable=False)
+    score_threshold = Column(Float, default=0.55, nullable=False)
     top_k = Column(Integer, default=4, nullable=False)
 
     # Business Personality & Customization

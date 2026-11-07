@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Send, Bot, User, AlertCircle } from "lucide-react";
+import { Send, Bot, User, AlertCircle, PhoneCall, Check, X } from "lucide-react";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { SourceReferences } from "@/components/assistant/source-references";
 import { SourcesToggle } from "@/components/assistant/sources-toggle";
@@ -43,6 +43,61 @@ export default function AssistantWidgetPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Human Handoff & Lead Capture State
+  const [showHandoffModal, setShowHandoffModal] = useState(false);
+  const [leadName, setLeadName] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [handoffReason, setHandoffReason] = useState("");
+  const [submittingHandoff, setSubmittingHandoff] = useState(false);
+  const [handoffSuccess, setHandoffSuccess] = useState(false);
+
+  const handleRequestHandoff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!conversationId) {
+      setError("Please send a message before requesting human assistance.");
+      return;
+    }
+    setSubmittingHandoff(true);
+    try {
+      const res = await fetch(`${apiUrl}/public/conversations/${conversationId}/handoff`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...widgetHeaders,
+          ...(sessionToken ? { "X-Session-Token": sessionToken } : {}),
+        },
+        body: JSON.stringify({
+          customer_name: leadName.trim() || undefined,
+          customer_email: leadEmail.trim() || undefined,
+          reason: handoffReason.trim() || "Customer requested human operator support.",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Could not submit support request.");
+      }
+
+      setHandoffSuccess(true);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Thank you. A team member has been notified and will review your conversation.",
+        },
+      ]);
+      setTimeout(() => {
+        setShowHandoffModal(false);
+        setHandoffSuccess(false);
+        setHandoffReason("");
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit handoff request.");
+    } finally {
+      setSubmittingHandoff(false);
+    }
+  };
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -167,18 +222,30 @@ export default function AssistantWidgetPage() {
           </div>
         </div>
 
-        {/* Only a published Search Assistant that ships with sources gets this control;
-            every other assistant never learns the word exists. */}
-        {config.engine_mode === "search_only" && config.show_sources !== false && (
-          <SourcesToggle
-            enabled={sourcesOn}
-            onChange={(enabled) => {
-              setSourcesOn(enabled);
-              writeSourcePreference(assistantId, enabled);
-            }}
-            label="Sources"
-          />
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowHandoffModal(true)}
+            title="Request human assistance"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <PhoneCall className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Human Help</span>
+          </button>
+
+          {/* Only a published Search Assistant that ships with sources gets this control;
+              every other assistant never learns the word exists. */}
+          {config.engine_mode === "search_only" && config.show_sources !== false && (
+            <SourcesToggle
+              enabled={sourcesOn}
+              onChange={(enabled) => {
+                setSourcesOn(enabled);
+                writeSourcePreference(assistantId, enabled);
+              }}
+              label="Sources"
+            />
+          )}
+        </div>
       </div>
 
       <div
@@ -273,6 +340,86 @@ export default function AssistantWidgetPage() {
           <Send className="h-3.5 w-3.5" />
         </button>
       </form>
+
+      {/* Human Handoff / Lead Capture Modal */}
+      {showHandoffModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg">
+            <div className="flex items-center justify-between pb-3 border-b border-border/60">
+              <h3 className="text-sm font-semibold text-foreground">Request Human Support</h3>
+              <button
+                type="button"
+                onClick={() => setShowHandoffModal(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {handoffSuccess ? (
+              <div className="py-6 text-center text-xs text-foreground space-y-2">
+                <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-success/20 text-success">
+                  <Check className="h-4 w-4" />
+                </div>
+                <p className="font-medium">Request Received</p>
+                <p className="text-muted-foreground">Our operator team will follow up via email shortly.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleRequestHandoff} className="mt-4 space-y-3 text-xs">
+                <div>
+                  <label className="block font-medium text-foreground mb-1">Your Name</label>
+                  <input
+                    type="text"
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    placeholder="e.g. Jane Doe"
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-foreground mb-1">Email Address (Optional)</label>
+                  <input
+                    type="email"
+                    value={leadEmail}
+                    onChange={(e) => setLeadEmail(e.target.value)}
+                    placeholder="jane@example.com"
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-foreground mb-1">What can we help you with?</label>
+                  <textarea
+                    rows={3}
+                    value={handoffReason}
+                    onChange={(e) => setHandoffReason(e.target.value)}
+                    placeholder="Briefly describe what you need assistance on..."
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+                  <button
+                    type="button"
+                    onClick={() => setShowHandoffModal(false)}
+                    className="rounded-lg border border-border px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingHandoff}
+                    className="rounded-lg bg-primary px-3 py-1.5 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {submittingHandoff ? "Sending…" : "Submit Request"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

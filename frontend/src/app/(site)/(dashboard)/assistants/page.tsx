@@ -8,12 +8,14 @@ import { Assistant, KnowledgeSource } from "@/types";
 import {
   Bot,
   CheckCircle2,
+  Copy,
   Database,
   MessageSquare,
   Plus,
   Search,
   Settings2,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,55 @@ export default function AssistantsListPage() {
   const [newModel, setNewModel] = useState("Auto");
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDuplicateAssistant = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDuplicatingId(id);
+    try {
+      const dup = await api.duplicateAssistant(id);
+      toast({
+        type: "success",
+        title: "Assistant duplicated",
+        message: `Created copy "${dup.name}".`,
+      });
+      await loadData();
+    } catch (err: any) {
+      toast({
+        type: "error",
+        title: "Could not duplicate assistant",
+        message: err.message || "Failed to duplicate assistant.",
+      });
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  const handleDeleteAssistant = async (id: string, name: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    setDeletingId(id);
+    try {
+      await api.deleteAssistant(id);
+      toast({
+        type: "success",
+        title: "Assistant deleted",
+        message: `Deleted "${name}".`,
+      });
+      await loadData();
+    } catch (err: any) {
+      toast({
+        type: "error",
+        title: "Could not delete assistant",
+        message: err.message || "Failed to delete assistant.",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -240,21 +291,41 @@ export default function AssistantsListPage() {
                 </span>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 border-t border-border/60 pt-3">
+              <div className="mt-4 flex items-center gap-1.5 border-t border-border/60 pt-3">
                 <Link
                   href={`/assistants/${assistant.id}`}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card text-[13px] font-medium text-foreground transition-colors hover:bg-muted/70"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-border bg-card text-xs font-medium text-foreground transition-colors hover:bg-muted/70"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
                   Settings
                 </Link>
                 <Link
                   href={`/playground?assistantId=${assistant.id}`}
-                  className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-primary text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   Test
                 </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Duplicate assistant"
+                  isLoading={duplicatingId === assistant.id}
+                  onClick={(e) => handleDuplicateAssistant(assistant.id, e)}
+                  className="h-9 w-9 p-0"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="Delete assistant"
+                  isLoading={deletingId === assistant.id}
+                  onClick={(e) => handleDeleteAssistant(assistant.id, assistant.name, e)}
+                  className="h-9 w-9 p-0 hover:text-destructive hover:border-destructive/40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </article>
           ))}

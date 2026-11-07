@@ -13,6 +13,8 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, description, children, maxWidth = "md" }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,7 +33,7 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
     }, 50);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key !== "Tab" || !panelRef.current) return;
 
       const focusables = panelRef.current.querySelectorAll<HTMLElement>(
@@ -56,7 +58,7 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
       window.removeEventListener("keydown", handleKeyDown);
       previous?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

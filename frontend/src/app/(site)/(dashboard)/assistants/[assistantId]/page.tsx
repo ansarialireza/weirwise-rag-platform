@@ -4,7 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { ApiCredential, Assistant, Deployment, KnowledgeSource } from "@/types";
+import {
+  ApiCredential,
+  Assistant,
+  Deployment,
+  KnowledgeSource,
+  ConversationItem,
+  ConversationMessage,
+  KnowledgeGapAnalytics,
+} from "@/types";
 import {
   AlertCircle,
   ArrowLeft,
@@ -20,11 +28,14 @@ import {
   Globe,
   KeyRound,
   MessageCircle,
+  MessageSquare,
   Save,
   Settings2,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +95,65 @@ export default function AssistantConfigurePage() {
 
   const [readiness, setReadiness] = useState<{ ready: boolean; errors: string[] } | null>(null);
   const [checkingReadiness, setCheckingReadiness] = useState(false);
+
+  // Conversations & History State
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Knowledge Gaps & Analytics State
+  const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGapAnalytics | null>(null);
+  const [loadingGaps, setLoadingGaps] = useState(false);
+
+  const loadConversations = useCallback(async () => {
+    setLoadingConversations(true);
+    try {
+      const data = await api.getAssistantConversations(assistantId);
+      setConversations(data);
+      if (data.length > 0 && !selectedConversation) {
+        loadMessages(data[0]);
+      }
+    } catch {
+      // Ignored
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, [assistantId, selectedConversation]);
+
+  const loadMessages = async (conv: ConversationItem) => {
+    setSelectedConversation(conv);
+    setLoadingMessages(true);
+    try {
+      const msgs = await api.getConversationMessages(conv.id);
+      setConversationMessages(msgs);
+    } catch {
+      // Ignored
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const loadKnowledgeGaps = useCallback(async () => {
+    setLoadingGaps(true);
+    try {
+      const data = await api.getAssistantKnowledgeGaps(assistantId);
+      setKnowledgeGaps(data);
+    } catch {
+      // Ignored
+    } finally {
+      setLoadingGaps(false);
+    }
+  }, [assistantId]);
+
+  useEffect(() => {
+    if (tab === "conversations") {
+      loadConversations();
+    } else if (tab === "analytics") {
+      loadKnowledgeGaps();
+    }
+  }, [tab, loadConversations, loadKnowledgeGaps]);
 
   useEffect(() => {
     if (!assistantId) return;
@@ -376,6 +446,8 @@ export default function AssistantConfigurePage() {
         tabs={[
           { id: "setup", label: "Setup", icon: Settings2 },
           { id: "share", label: "Deploy", icon: Share2 },
+          { id: "conversations", label: "Conversations", icon: MessageSquare },
+          { id: "analytics", label: "Knowledge Gaps", icon: TrendingUp },
         ]}
         activeTab={tab}
         onChange={setTab}
@@ -1048,6 +1120,175 @@ export default function AssistantConfigurePage() {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "conversations" && (
+        <div className="space-y-4">
+          <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between border-b border-border/70 pb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Customer Conversations</h2>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  History of inquiries, customer interactions, and escalations.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadConversations} isLoading={loadingConversations}>
+                Refresh
+              </Button>
+            </div>
+
+            {loadingConversations ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Loading conversations…</div>
+            ) : conversations.length === 0 ? (
+              <div className="py-12 text-center">
+                <MessageSquare className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                <p className="mt-2 text-sm font-medium text-foreground">No conversations yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  When visitors talk to this assistant in Playground or via your published widget, chats appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-4 lg:grid-cols-12">
+                <div className="space-y-2 lg:col-span-4 max-h-[500px] overflow-y-auto">
+                  {conversations.map((conv) => (
+                    <button
+                      key={conv.id}
+                      type="button"
+                      onClick={() => loadMessages(conv)}
+                      className={cn(
+                        "w-full text-start p-3 rounded-lg border transition-colors text-xs",
+                        selectedConversation?.id === conv.id
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-border bg-card text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between font-medium">
+                        <span className="truncate max-w-[70%]">{conv.title || "Customer Inquiry"}</span>
+                        {conv.is_escalated && (
+                          <span className="bg-destructive/10 text-destructive text-[10px] px-1.5 py-0.5 rounded font-mono font-bold">
+                            ESCALATED
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>{conv.message_count} messages</span>
+                        <span>{formatDate(conv.created_at, locale)}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border border-border bg-background p-4 lg:col-span-8 min-h-[350px] max-h-[500px] overflow-y-auto flex flex-col justify-between">
+                  {loadingMessages ? (
+                    <div className="m-auto text-xs text-muted-foreground">Loading messages…</div>
+                  ) : !selectedConversation ? (
+                    <div className="m-auto text-xs text-muted-foreground">Select a conversation to inspect messages.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {conversationMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={cn(
+                            "p-3 rounded-lg text-xs leading-relaxed max-w-[85%]",
+                            msg.role === "user"
+                              ? "ms-auto bg-primary text-primary-foreground"
+                              : "bg-muted/60 text-foreground border border-border/60"
+                          )}
+                        >
+                          <div className="text-[10px] font-mono opacity-70 mb-1 uppercase tracking-wider">
+                            {msg.role}
+                          </div>
+                          <p>{msg.content}</p>
+                          {msg.citations && msg.citations.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-border/40 text-[10px] text-muted-foreground">
+                              {msg.citations.length} cited source{msg.citations.length === 1 ? "" : "s"}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {tab === "analytics" && (
+        <div className="space-y-5">
+          <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between border-b border-border/70 pb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Knowledge Gap Detection & Analytics</h2>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Identifies unanswered inquiries and topics lacking reliable grounding evidence.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={loadKnowledgeGaps} isLoading={loadingGaps}>
+                Refresh
+              </Button>
+            </div>
+
+            {loadingGaps ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Loading gap intelligence…</div>
+            ) : !knowledgeGaps ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">No analytics recorded yet.</div>
+            ) : (
+              <div className="mt-5 space-y-6">
+                {/* Metric Cards */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <span className="text-[11px] font-mono uppercase text-muted-foreground">Unanswered Queries</span>
+                    <div className="mt-1 text-2xl font-bold font-mono text-foreground">
+                      {knowledgeGaps.total_unanswered}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <span className="text-[11px] font-mono uppercase text-muted-foreground">Satisfaction Rate</span>
+                    <div className="mt-1 text-2xl font-bold font-mono text-[#CCFF00]">
+                      {knowledgeGaps.satisfaction_rate_pct}%
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <span className="text-[11px] font-mono uppercase text-muted-foreground">Visitor Feedback</span>
+                    <div className="mt-1 text-2xl font-bold font-mono text-foreground">
+                      +{knowledgeGaps.positive_feedback_count} / -{knowledgeGaps.negative_feedback_count}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Unanswered Questions */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground mb-3">
+                    Unanswered Customer Questions
+                  </h3>
+                  {knowledgeGaps.top_unanswered_questions.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-muted/20 p-6 text-center text-xs text-muted-foreground">
+                      No unresolved questions recorded. Your knowledge base is adequately covering inquiries!
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                      {knowledgeGaps.top_unanswered_questions.map((q) => (
+                        <div key={q.id} className="p-3 text-xs flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <span className="font-medium text-foreground block truncate">{q.query}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              Reason: {q.reason} · {formatDate(q.date, locale)}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono uppercase bg-accent-soft text-accent px-2 py-0.5 rounded font-bold shrink-0">
+                            NEEDS KNOWLEDGE
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>

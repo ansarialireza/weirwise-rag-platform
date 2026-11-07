@@ -23,7 +23,7 @@ class AssistantCreateRequest(BaseModel):
     show_sources: bool = True
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, ge=64, le=4096)
-    score_threshold: float = Field(0.7, ge=0.0, le=1.0)
+    score_threshold: float = Field(0.55, ge=0.0, le=1.0)
     top_k: int = Field(4, ge=1, le=20)
     language: str = Field("en", max_length=20)
     tone: str = Field("professional", max_length=50)

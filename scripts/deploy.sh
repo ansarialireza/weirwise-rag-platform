@@ -182,6 +182,9 @@ if docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}"
     EXTRA_SERVICES+=("${ENV_TYPE}-wbi-worker")
 fi
 
+# Remove any stale/unmanaged container name conflicts before recreating
+docker rm -f "weirwise-${ENV_TYPE}-frontend" "weirwise-${ENV_TYPE}-backend" "weirwise-${ENV_TYPE}-core" 2>/dev/null || true
+
 docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" -p "${ENV_TYPE}" up -d --remove-orphans --always-recreate-deps --force-recreate "${ENV_TYPE}-core" "${ENV_TYPE}-backend" "${ENV_TYPE}-frontend" "${EXTRA_SERVICES[@]}"
 
 # 12. Health Checks and Verification
@@ -219,14 +222,20 @@ if [ "$HEALTH_SUCCESS" = true ]; then
     echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
     echo "=================================================="
     
+    # Reload Global Nginx reverse-proxy to refresh upstream container IP mappings
+    if docker ps --format '{{.Names}}' | grep -q "^global-nginx$"; then
+        echo "Reloading global-nginx to refresh DNS / container IP routes..."
+        docker exec global-nginx nginx -s reload 2>/dev/null || true
+    fi
+
     # Record deployment state
     echo "${PREV_SHA}" > "${STATE_DIR}/${ENV_TYPE}_previous_sha"
     echo "${CURRENT_SHA}" > "${STATE_DIR}/${ENV_TYPE}_current_sha"
 
     # Post-Deployment Automated Garbage Collection
     echo "Running post-deployment garbage collection..."
-    docker system prune -a -f
-    docker builder prune -a -f
+    docker image prune -f
+    docker builder prune --keep-storage 2GB -f
     echo "Post-deployment garbage collection complete."
 
     exit 0

@@ -285,6 +285,83 @@ async def update_assistant(
     return resp
 
 
+@router.delete("/assistants/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assistant(
+    assistant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete an assistant and associated deployments cleanly."""
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    assistant = a_res.scalar_one_or_none()
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    await verify_project_access(assistant.project_id, current_user.id, db)
+    await db.delete(assistant)
+    await db.commit()
+
+
+@router.post(
+    "/assistants/{assistant_id}/duplicate",
+    response_model=AssistantResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_assistant(
+    assistant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AssistantResponse:
+    """Duplicate an existing assistant, preserving behavior, settings, and knowledge links."""
+    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
+    original = a_res.scalar_one_or_none()
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+
+    project = await verify_project_access(original.project_id, current_user.id, db)
+
+    # Metering check for new assistant creation
+    count_stmt = select(func.count(Assistant.id)).where(Assistant.project_id == project.id)
+    current_count = (await db.execute(count_stmt)).scalar() or 0
+    await metering_service.check_assistant_creation_limit(db, project.workspace_id, current_count)
+
+    new_assistant = Assistant(
+        project_id=original.project_id,
+        name=f"{original.name} (Copy)",
+        description=original.description,
+        system_instructions=original.system_instructions,
+        model=original.model,
+        engine_mode=original.engine_mode,
+        show_sources=original.show_sources,
+        temperature=original.temperature,
+        max_tokens=original.max_tokens,
+        score_threshold=original.score_threshold,
+        top_k=original.top_k,
+        language=original.language,
+        tone=original.tone,
+        fallback_message=original.fallback_message,
+        escalation_email=original.escalation_email,
+        status=AssistantStatus.DRAFT.value,
+    )
+    db.add(new_assistant)
+    await db.flush()
+
+    # Copy knowledge links
+    links_res = await db.execute(
+        select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == original.id)
+    )
+    source_ids = list(links_res.scalars().all())
+    for sid in source_ids:
+        db.add(AssistantKnowledgeSource(assistant_id=new_assistant.id, knowledge_source_id=sid))
+
+    await db.commit()
+    await db.refresh(new_assistant)
+
+    resp = AssistantResponse.model_validate(new_assistant)
+    resp.knowledge_source_ids = source_ids
+    return resp
+
+
 # --- Publishing Lifecycle ---
 
 

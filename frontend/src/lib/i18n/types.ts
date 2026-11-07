@@ -47,6 +47,13 @@ export interface TranslationDictionary {
     source: string;
     copyText: string;
     copied: string;
+    settings: string;
+    createWorkspace: string;
+    switchWorkspace: string;
+    usage: string;
+    upgrade: string;
+    collapseSidebar: string;
+    expandSidebar: string;
   };
   auth: {
     signInTitle: string;

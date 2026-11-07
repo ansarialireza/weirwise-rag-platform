@@ -19,6 +19,18 @@ export interface Workspace {
   updated_at: string;
 }
 
+export interface WorkspaceBillingStatus {
+  workspace_id: string;
+  plan_tier: string;
+  plan_name: string;
+  monthly_price_usd: number;
+  chat_turns_used: number;
+  chat_turns_limit: number;
+  documents_indexed: number;
+  documents_limit: number;
+  billing_status: string;
+}
+
 export interface Project {
   id: string;
   workspace_id: string;
@@ -148,3 +160,56 @@ export interface ApiCredential {
   created_at: string;
   raw_api_key?: string;
 }
+
+export interface DirectSearchResult {
+  document_id: string | null;
+  document_name: string | null;
+  source_id: string | null;
+  source_name: string | null;
+  chunk_index: number | null;
+  text: string;
+  score: number;
+}
+
+export interface DirectSearchResponse {
+  query: string;
+  total_results: number;
+  results: DirectSearchResult[];
+}
+
+export interface ConversationItem {
+  id: string;
+  assistant_id: string;
+  title: string | null;
+  is_escalated: boolean;
+  escalation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  citations: any[];
+  created_at: string;
+}
+
+export interface KnowledgeGapItem {
+  id: string;
+  query: string;
+  reason: string;
+  date: string;
+}
+
+export interface KnowledgeGapAnalytics {
+  total_unanswered: number;
+  top_unanswered_questions: KnowledgeGapItem[];
+  weak_coverage_topics: string[];
+  positive_feedback_count: number;
+  negative_feedback_count: number;
+  satisfaction_rate_pct: number;
+}
+

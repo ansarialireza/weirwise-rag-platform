@@ -42,7 +42,14 @@
     "sources": "منابع",
     "source": "منبع",
     "copyText": "کپی متن",
-    "copied": "کپی شد"
+    "copied": "کپی شد",
+    "settings": "تنظیمات",
+    "createWorkspace": "ایجاد فضای کاری",
+    "switchWorkspace": "تغییر فضای کاری",
+    "usage": "میزان مصرف",
+    "upgrade": "ارتقای طرح",
+    "collapseSidebar": "جمع کردن سایدبار",
+    "expandSidebar": "باز کردن سایدبار"
   },
   "auth": {
     "signInTitle": "ورود به حساب",

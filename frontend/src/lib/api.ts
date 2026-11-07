@@ -1,6 +1,7 @@
 import {
   User,
   Workspace,
+  WorkspaceBillingStatus,
   Project,
   KnowledgeSource,
   DocumentItem,
@@ -8,6 +9,10 @@ import {
   ChatMessage,
   Deployment,
   ApiCredential,
+  DirectSearchResponse,
+  ConversationItem,
+  ConversationMessage,
+  KnowledgeGapAnalytics,
 } from "@/types";
 import { friendlyErrorMessage } from "@/lib/errors";
 
@@ -121,6 +126,17 @@ class ApiClient {
 
   getWorkspaceId(): string | null {
     return this.workspaceId;
+  }
+
+  setWorkspaceId(workspaceId: string): void {
+    this.workspaceId = workspaceId;
+    this.projectId = null;
+    this.tenancyVerified = false;
+    this.tenancyPromise = null;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspaceId);
+      localStorage.removeItem(PROJECT_STORAGE_KEY);
+    }
   }
 
   getProjectId(): string | null {
@@ -288,6 +304,24 @@ class ApiClient {
     return this.request<Workspace[]>("/workspaces");
   }
 
+  async createWorkspace(name: string): Promise<Workspace> {
+    return this.request<Workspace>("/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async updateWorkspace(workspaceId: string, data: { name?: string; settings?: Record<string, any> }): Promise<Workspace> {
+    return this.request<Workspace>(`/workspaces/${workspaceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWorkspaceBilling(workspaceId: string): Promise<WorkspaceBillingStatus> {
+    return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing`);
+  }
+
   async getProjects(workspaceId: string): Promise<Project[]> {
     return this.request<Project[]>(`/workspaces/${workspaceId}/projects`);
   }
@@ -334,6 +368,13 @@ class ApiClient {
     };
   }
 
+  async pasteTextDocument(sourceId: string, title: string, content: string): Promise<DocumentItem> {
+    return this.request<DocumentItem>(`/sources/${sourceId}/documents/paste-text`, {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+    });
+  }
+
   async deleteDocument(documentId: string): Promise<void> {
     return this.request<void>(`/documents/${documentId}`, {
       method: "DELETE",
@@ -349,6 +390,13 @@ class ApiClient {
   async deleteSource(sourceId: string): Promise<void> {
     return this.request<void>(`/sources/${sourceId}`, {
       method: "DELETE",
+    });
+  }
+
+  async updateSource(sourceId: string, data: { name?: string; settings?: Record<string, any> }): Promise<KnowledgeSource> {
+    return this.request<KnowledgeSource>(`/sources/${sourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
   }
 
@@ -386,6 +434,45 @@ class ApiClient {
   async unpublishAssistant(id: string): Promise<Assistant> {
     return this.request<Assistant>(`/assistants/${id}/unpublish`, {
       method: "POST",
+    });
+  }
+
+  async deleteAssistant(id: string): Promise<void> {
+    await this.request<void>(`/assistants/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async duplicateAssistant(id: string): Promise<Assistant> {
+    return this.request<Assistant>(`/assistants/${id}/duplicate`, {
+      method: "POST",
+    });
+  }
+
+  async directSearch(query: string, sourceIds?: string[], topK: number = 5): Promise<DirectSearchResponse> {
+    const { projectId } = await this.getTenancy();
+    return this.request<DirectSearchResponse>(`/projects/${projectId}/knowledge/search`, {
+      method: "POST",
+      body: JSON.stringify({ query, source_ids: sourceIds, top_k: topK }),
+    });
+  }
+
+  async getAssistantConversations(assistantId: string, limit: number = 50, offset: number = 0): Promise<ConversationItem[]> {
+    return this.request<ConversationItem[]>(`/assistants/${assistantId}/conversations?limit=${limit}&offset=${offset}`);
+  }
+
+  async getConversationMessages(conversationId: string): Promise<ConversationMessage[]> {
+    return this.request<ConversationMessage[]>(`/conversations/${conversationId}/messages`);
+  }
+
+  async getAssistantKnowledgeGaps(assistantId: string): Promise<KnowledgeGapAnalytics> {
+    return this.request<KnowledgeGapAnalytics>(`/assistants/${assistantId}/analytics/knowledge-gaps`);
+  }
+
+  async requestHumanHandoff(conversationId: string, data: { customer_email?: string; customer_name?: string; reason: string }): Promise<any> {
+    return this.request(`/public/conversations/${conversationId}/handoff`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 

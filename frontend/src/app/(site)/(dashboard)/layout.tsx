@@ -25,8 +25,24 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("wwp_sidebar_collapsed");
+    if (saved === "true") {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+
+  const toggleSidebarCollapse = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("wwp_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (authLoading || user) return;
@@ -112,7 +128,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       </a>
 
       <div className="hidden shrink-0 md:flex">
-        <Sidebar />
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapse}
+        />
       </div>
 
       {mobileMenuOpen && (
@@ -131,7 +150,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             ref={drawerRef}
             tabIndex={-1}
             onKeyDown={trapDrawerFocus}
-            className="relative z-10 flex h-full w-[86vw] max-w-[300px] flex-col border-e border-border bg-card shadow-lift outline-none animate-in"
+            className="relative z-10 flex h-full w-[86vw] max-w-[280px] flex-col border-r border-border bg-card shadow-2xl outline-none animate-in"
           >
             <Sidebar
               onItemClick={closeMenu}
