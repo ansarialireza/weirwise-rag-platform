@@ -22,7 +22,7 @@ def test_auth_registration_and_login_flow():
     reg_data = reg_resp.json()
     assert "verification_otp" in reg_data
     otp = reg_data["verification_otp"]
-    assert len(otp) == 6
+    assert len(otp) == 4
 
     # 2. Login before verification must fail with 403 Forbidden
     pre_login_resp = client.post(
@@ -34,7 +34,7 @@ def test_auth_registration_and_login_flow():
     # 3. Invalid OTP verification must fail with 400 Bad Request
     bad_verify_resp = client.post(
         "/api/v1/auth/verify-email",
-        json={"email": email, "otp": "000000"},
+        json={"email": email, "otp": "0000"},
     )
     assert bad_verify_resp.status_code == 400
 

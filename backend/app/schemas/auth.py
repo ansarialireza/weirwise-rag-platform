@@ -46,7 +46,7 @@ class UserLoginRequest(BaseModel):
 
 class UserOtpLoginRequest(BaseModel):
     email: EmailStrType
-    otp: str = Field(..., min_length=6, max_length=64)
+    otp: str = Field(..., min_length=4, max_length=64)
 
 
 class SendOtpLoginRequest(BaseModel):
@@ -76,7 +76,7 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStrType
-    otp: str = Field(..., min_length=6, max_length=64)
+    otp: str = Field(..., min_length=4, max_length=64)
 
 
 class ResendVerificationRequest(BaseModel):
