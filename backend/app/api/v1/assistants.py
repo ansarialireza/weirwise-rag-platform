@@ -1,5 +1,6 @@
 """Comprehensive Assistant Lifecycle, Conversations, Citations, Golden Evaluations, and Knowledge Gap Analytics."""
 
+import asyncio
 import json
 import time
 import uuid
@@ -87,21 +88,25 @@ async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str
     s_res = await db.execute(sources_stmt)
     linked_sources = s_res.scalars().all()
 
-    for ks in linked_sources:
-        if not ks.core_kb_id:
-            continue
+    # Concurrently search all linked Core knowledge bases to prevent sequential latency accumulation
+    active_sources = [ks for ks in linked_sources if ks.core_kb_id]
+    if not active_sources:
+        return []
+
+    effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
+
+    async def _query_single_source(ks: KnowledgeSource) -> list[CitationItem]:
         try:
-            # Never trust a per-assistant threshold below the platform safety floor.
-            effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
             search_data = await core_client.search(
                 kb_id=ks.core_kb_id,
                 query=query,
                 top_k=assistant.top_k,
                 score_threshold=effective_threshold,
             )
+            items = []
             for item in search_data.get("results", []):
                 metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
-                citations.append(
+                items.append(
                     CitationItem(
                         chunk_id=str(item.get("chunk_id")),
                         content=item.get("content", ""),
@@ -110,8 +115,14 @@ async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str
                         document_name=metadata.get("document_name") or metadata.get("filename"),
                     )
                 )
+            return items
         except CoreApiException as e:
             logger.warning(f"Vector search failed: {e!s}")
+            return []
+
+    results_lists = await asyncio.gather(*[_query_single_source(ks) for ks in active_sources])
+    for res_list in results_lists:
+        citations.extend(res_list)
 
     citations.sort(key=lambda x: x.similarity_score, reverse=True)
     return citations[: assistant.top_k]

@@ -1,5 +1,6 @@
 """Website Crawler, Sitemap Discovery, Page Selection, and Automatic Knowledge Ingestion."""
 
+import asyncio
 import logging
 import os
 import uuid
@@ -32,7 +33,7 @@ from backend.app.services.storage import storage_service
 from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
 from backend.app.tasks.ingestion import process_document_ingestion
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
@@ -445,10 +446,12 @@ async def ingest_pasted_text(
 @router.get("/sources/{source_id}/documents", response_model=list[DocumentResponse])
 async def list_source_documents(
     source_id: uuid.UUID,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[DocumentResponse]:
-    """List documents and processing states under a KnowledgeSource."""
+    """List documents and processing states under a KnowledgeSource with pagination."""
     ks_res = await db.execute(select(KnowledgeSource).where(KnowledgeSource.id == source_id))
     source = ks_res.scalar_one_or_none()
     if not source:
@@ -461,7 +464,13 @@ async def list_source_documents(
         min_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER, WorkspaceRole.VIEWER],
     )
 
-    stmt = select(Document).where(Document.knowledge_source_id == source_id).order_by(Document.created_at.desc())
+    stmt = (
+        select(Document)
+        .where(Document.knowledge_source_id == source_id)
+        .order_by(Document.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     res = await db.execute(stmt)
     return [DocumentResponse.model_validate(d) for d in res.scalars().all()]
 
@@ -669,9 +678,11 @@ async def direct_knowledge_search(
     core_client = CoreApiClient()
     all_results: list[SearchResultItem] = []
 
-    for s in sources:
-        if not s.core_kb_id:
-            continue
+    active_sources = [s for s in sources if s.core_kb_id]
+    if not active_sources:
+        return DirectSearchResponse(query=payload.query, total_results=0, results=[])
+
+    async def _search_source(s: KnowledgeSource) -> list[SearchResultItem]:
         try:
             core_resp = await core_client.search(
                 kb_id=s.core_kb_id,
@@ -679,10 +690,10 @@ async def direct_knowledge_search(
                 top_k=payload.top_k,
                 score_threshold=payload.score_threshold,
             )
-            # Response contains "results": [{"chunk_id", "document_id", "content", "score", "metadata"}]
             items = core_resp.get("results", [])
+            source_results = []
             for item in items:
-                all_results.append(
+                source_results.append(
                     SearchResultItem(
                         document_id=str(item.get("document_id", "")),
                         document_name=item.get("metadata", {}).get("filename") or item.get("filename"),
@@ -693,8 +704,14 @@ async def direct_knowledge_search(
                         score=float(item.get("score", 0.0)),
                     )
                 )
+            return source_results
         except Exception as e:
             logger.warning(f"Core search error on source {s.id}: {e}")
+            return []
+
+    results_lists = await asyncio.gather(*[_search_source(s) for s in active_sources])
+    for res_list in results_lists:
+        all_results.extend(res_list)
 
     # Sort descending by score and truncate to requested top_k
     all_results.sort(key=lambda x: x.score, reverse=True)

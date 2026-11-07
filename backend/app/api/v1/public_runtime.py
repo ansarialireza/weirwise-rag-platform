@@ -1,5 +1,6 @@
 """Public Runtime API for embedded widgets, shareable playground links, and external clients."""
 
+import asyncio
 import time
 import uuid
 from datetime import UTC, datetime
@@ -352,38 +353,56 @@ async def public_chat(
     s_res = await db.execute(sources_stmt)
     linked_sources = s_res.scalars().all()
 
-    for ks in linked_sources:
-        if ks.core_kb_id:
-            try:
-                search_data = await core_client.search(
-                    kb_id=ks.core_kb_id,
-                    query=payload.message,
-                    top_k=assistant.top_k,
-                    score_threshold=assistant.score_threshold,
-                )
-                for item in search_data.get("results", []):
-                    # Find matching document for URL / metadata
-                    doc_id = uuid.UUID(str(item["document_id"])) if "document_id" in item else None
-                    doc_stmt = select(Document).where(Document.core_doc_id == doc_id)
-                    doc_rec = (await db.execute(doc_stmt)).scalar_one_or_none()
+    # Query Core vector indexes concurrently across all linked sources
+    active_sources = [ks for ks in linked_sources if ks.core_kb_id]
 
-                    source_url = doc_rec.doc_metadata.get("source_url") if doc_rec else None
-                    title = doc_rec.filename if doc_rec else "Knowledge Document"
+    async def _query_public_kb(ks: KnowledgeSource) -> list[dict]:
+        try:
+            search_data = await core_client.search(
+                kb_id=ks.core_kb_id,
+                query=payload.message,
+                top_k=assistant.top_k,
+                score_threshold=assistant.score_threshold,
+            )
+            return search_data.get("results", [])
+        except CoreApiException as e:
+            logger.warning(f"Vector search failed on Core KB {ks.core_kb_id}: {e!s}")
+            return []
 
-                    c_item = CitationItem(
-                        document_id=doc_rec.id if doc_rec else None,
-                        document_name=title,
-                        chunk_id=str(item.get("chunk_id")),
-                        source_url=source_url,
-                        title=title,
-                        content=item.get("content", ""),
-                        similarity_score=item.get("similarity_score", 0.0),
-                        rank=item.get("rank", 1),
-                    )
-                    citations.append(c_item)
-                    retrieved_contexts.append(item.get("content", ""))
-            except CoreApiException as e:
-                logger.warning(f"Vector search failed on Core KB {ks.core_kb_id}: {e!s}")
+    results_lists = await asyncio.gather(*[_query_public_kb(ks) for ks in active_sources])
+    all_raw_items = [item for sublist in results_lists for item in sublist]
+
+    # Batch lookup matching documents to eliminate N+1 DB queries
+    raw_doc_ids = [
+        uuid.UUID(str(item["document_id"])) for item in all_raw_items if "document_id" in item and item["document_id"]
+    ]
+    doc_map: dict[uuid.UUID, Document] = {}
+    if raw_doc_ids:
+        docs_stmt = select(Document).where(Document.core_doc_id.in_(raw_doc_ids))
+        docs_res = await db.execute(docs_stmt)
+        for d in docs_res.scalars():
+            if d.core_doc_id:
+                doc_map[d.core_doc_id] = d
+
+    for item in all_raw_items:
+        doc_id = uuid.UUID(str(item["document_id"])) if "document_id" in item and item["document_id"] else None
+        doc_rec = doc_map.get(doc_id) if doc_id else None
+
+        source_url = doc_rec.doc_metadata.get("source_url") if doc_rec else None
+        title = doc_rec.filename if doc_rec else "Knowledge Document"
+
+        c_item = CitationItem(
+            document_id=doc_rec.id if doc_rec else None,
+            document_name=title,
+            chunk_id=str(item.get("chunk_id")),
+            source_url=source_url,
+            title=title,
+            content=item.get("content", ""),
+            similarity_score=item.get("similarity_score", 0.0),
+            rank=item.get("rank", 1),
+        )
+        citations.append(c_item)
+        retrieved_contexts.append(item.get("content", ""))
 
     # Deduplicate and sort citations
     citations.sort(key=lambda x: x.similarity_score, reverse=True)
