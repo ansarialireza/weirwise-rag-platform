@@ -29,10 +29,10 @@ from backend.app.schemas.auth import (
     PasswordResetRequest,
     RefreshTokenRequest,
     ResendVerificationRequest,
+    SendOtpLoginRequest,
     TokenResponse,
     UserLoginRequest,
     UserOtpLoginRequest,
-    SendOtpLoginRequest,
     UserRegisterRequest,
     UserResponse,
     VerifyEmailRequest,
@@ -413,7 +413,7 @@ async def send_login_otp(
     # Invalidate old email tokens
     old_tokens_stmt = select(EmailVerificationToken).where(
         EmailVerificationToken.user_id == user.id,
-        EmailVerificationToken.is_used == False,
+        EmailVerificationToken.is_used.is_(False),
     )
     old_tokens = (await db.execute(old_tokens_stmt)).scalars().all()
     for tok in old_tokens:
@@ -474,7 +474,7 @@ async def login_with_otp(
     tok_stmt = select(EmailVerificationToken).where(
         EmailVerificationToken.user_id == user.id,
         EmailVerificationToken.token_hash == otp_hash,
-        EmailVerificationToken.is_used == False,
+        EmailVerificationToken.is_used.is_(False),
         EmailVerificationToken.expires_at > now,
     )
     tok_res = await db.execute(tok_stmt)
