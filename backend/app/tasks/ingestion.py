@@ -9,9 +9,11 @@ from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import async_session_factory
+from backend.app.models.audit import UsageEvent
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
+    Project,
     SourceProcessingStatus,
 )
 from backend.app.services.storage import storage_service
@@ -150,6 +152,24 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             if core_status in _READY_STATES:
                 document.status = SourceProcessingStatus.READY.value
                 document.error_message = None
+
+                # Record auditable document_indexed UsageEvent for workspace billing
+                proj_res = await db.execute(select(Project).where(Project.id == source.project_id))
+                project = proj_res.scalar_one_or_none()
+                if project:
+                    db.add(
+                        UsageEvent(
+                            workspace_id=project.workspace_id,
+                            project_id=project.id,
+                            event_type="document_indexed",
+                            quantity=1,
+                            metadata_info={
+                                "document_id": str(document.id),
+                                "filename": document.filename,
+                                "file_size_bytes": document.file_size_bytes,
+                            },
+                        )
+                    )
             elif core_status in _FAILED_STATES or core_status == "timeout":
                 document.status = SourceProcessingStatus.FAILED.value
                 document.error_message = core_error or f"Core indexing ended in state '{core_status}'."

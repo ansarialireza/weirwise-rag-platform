@@ -206,3 +206,67 @@ def test_quota_graceful_blocking_chat_and_storage():
     )
     assert upload_res.status_code in (403, 413)
     assert upload_res.status_code != 500
+
+
+def test_document_indexing_increments_workspace_usage_events():
+    """Verify that completing document ingestion creates an auditable UsageEvent
+    and increments documents_indexed in workspace billing status.
+    """
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+
+    from backend.app.adapters.core_client import CoreApiClient
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.auth import Workspace
+    from backend.app.models.project import Document, KnowledgeSource, Project, SourceProcessingStatus
+    from backend.app.services.subscription import subscription_service
+    from backend.app.tasks.ingestion import process_document_ingestion
+
+    slug = f"ws-{uuid.uuid4().hex[:6]}"
+
+    async def run_flow():
+        async with async_session_factory() as db:
+            ws = Workspace(name="Usage Test WS", slug=slug)
+            db.add(ws)
+            await db.flush()
+
+            proj = Project(workspace_id=ws.id, name="Usage Test Proj", slug=f"proj-{uuid.uuid4().hex[:6]}")
+            db.add(proj)
+            await db.flush()
+
+            ks = KnowledgeSource(project_id=proj.id, name="Usage Test KS")
+            db.add(ks)
+            await db.flush()
+
+            doc = Document(
+                knowledge_source_id=ks.id,
+                filename="indexed_sample.pdf",
+                mime_type="application/pdf",
+                file_size_bytes=2048,
+                content_hash="sha256hashsample123",
+                storage_path="/tmp/indexed_sample.pdf",
+                status=SourceProcessingStatus.PENDING.value,
+            )
+            db.add(doc)
+            await db.commit()
+
+            doc_id = doc.id
+            ws_id = ws.id
+
+        with (
+            patch.object(CoreApiClient, "create_knowledge_base", new_callable=AsyncMock) as m_kb,
+            patch.object(CoreApiClient, "upload_document", new_callable=AsyncMock) as m_up,
+            patch("backend.app.tasks.ingestion._wait_for_core_indexing", new_callable=AsyncMock) as m_wait,
+            patch("backend.app.tasks.ingestion.storage_service.read_file_bytes", return_value=b"data"),
+        ):
+            m_kb.return_value = {"id": str(uuid.uuid4())}
+            m_up.return_value = {"document": {"id": str(uuid.uuid4()), "status": "completed"}}
+            m_wait.return_value = ("completed", None)
+
+            await process_document_ingestion(doc_id)
+
+        async with async_session_factory() as db:
+            usage = await subscription_service.get_workspace_usage(ws_id, db)
+            assert usage["documents_indexed"] == 1
+
+    asyncio.run(run_flow())
