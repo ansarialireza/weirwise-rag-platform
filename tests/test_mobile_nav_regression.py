@@ -280,7 +280,7 @@ async def run_regression_tests():
         d_page = await d_context.new_page()
         await d_page.goto(f"{BASE_URL}/login")
         await d_page.fill("input[type='email']", test_email)
-        await page.wait_for_timeout(100)
+        await d_page.wait_for_timeout(100)
         await d_page.fill("input[type='password']", test_password)
         await d_page.click("button[type='submit']")
         await d_page.wait_for_url("**/overview*", timeout=10000)
