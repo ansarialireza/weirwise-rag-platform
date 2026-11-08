@@ -59,12 +59,6 @@ function CheckoutContent() {
     async function loadStatus() {
       try {
         const workspaceId = api.getWorkspaceId();
-        if (!workspaceId) {
-          setError("Workspace tenancy not selected.");
-          setLoading(false);
-          return;
-        }
-
         const data = await api.getCheckoutStatus(workspaceId, orderId!);
         if (active) {
           setStatusInfo(data);
