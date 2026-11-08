@@ -167,18 +167,18 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                 ) : (
                   <>
                     <Link
-                      href="/register"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
-                    >
-                      {dict.landing.primaryCta}
-                    </Link>
-                    <Link
                       href="/login"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground"
+                      className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                     >
                       {dict.common.signIn}
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      {dict.landing.primaryCta}
                     </Link>
                   </>
                 )

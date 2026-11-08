@@ -11,6 +11,7 @@ from backend.app.models.billing import (
     BillingCycle,
     BillingOrder,
     BillingPayment,
+    BillingPlan,
     BillingSubscription,
     OrderStatus,
     PaymentStatus,
@@ -300,8 +301,7 @@ async def create_checkout_session(
             amount=float(payment.amount),
             currency=payment.currency,
             status=payment.status,
-            provider=payment.provider,
-            provider_payment_id=payment.provider_payment_id or "",
+            payment_method="cryptocurrency",
             payment_url=payment.payment_url,
             payment_address=payment.payment_address,
             qr_code_svg=payment.qr_code_svg,
@@ -313,7 +313,7 @@ async def create_checkout_session(
         logger.error(f"Checkout error: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Payment provider integration error: {e}",
+            detail="Payment could not be initialized. Please try again or contact support.",
         )
 
 
@@ -356,9 +356,15 @@ async def get_user_checkout_status(
 
     is_active = order.status == OrderStatus.PAID.value and payment.status == PaymentStatus.COMPLETED.value
 
+    # Fetch associated plan name for clean customer display
+    plan_stmt = select(BillingPlan.name).where(BillingPlan.id == order.plan_id)
+    plan_name = (await db.execute(plan_stmt)).scalar_one_or_none() or "Subscription Plan"
+
     return CheckoutStatusResponse(
         order_id=order.id,
         order_number=order.order_number,
+        plan_name=plan_name,
+        payment_method="cryptocurrency",
         status=payment.status,
         amount=float(payment.amount),
         currency=payment.currency,
@@ -368,6 +374,7 @@ async def get_user_checkout_status(
         payment_url=payment.payment_url,
         payment_address=payment.payment_address,
         qr_code_svg=payment.qr_code_svg,
+        expires_at=payment.expires_at.isoformat() if payment.expires_at else None,
         is_subscription_active=is_active,
     )
 
@@ -414,9 +421,15 @@ async def get_checkout_status(
 
     is_active = order.status == OrderStatus.PAID.value and payment.status == PaymentStatus.COMPLETED.value
 
+    # Fetch associated plan name for clean customer display
+    plan_stmt = select(BillingPlan.name).where(BillingPlan.id == order.plan_id)
+    plan_name = (await db.execute(plan_stmt)).scalar_one_or_none() or "Subscription Plan"
+
     return CheckoutStatusResponse(
         order_id=order.id,
         order_number=order.order_number,
+        plan_name=plan_name,
+        payment_method="cryptocurrency",
         status=payment.status,
         amount=float(payment.amount),
         currency=payment.currency,
@@ -426,6 +439,7 @@ async def get_checkout_status(
         payment_url=payment.payment_url,
         payment_address=payment.payment_address,
         qr_code_svg=payment.qr_code_svg,
+        expires_at=payment.expires_at.isoformat() if payment.expires_at else None,
         is_subscription_active=is_active,
     )
 

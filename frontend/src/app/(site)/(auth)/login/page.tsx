@@ -24,14 +24,23 @@ export default function LoginPage() {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const otpInputRef = useRef<HTMLInputElement>(null);
 
-  const { login } = useAuth();
+  const { user: authUser, loading: authLoading, login } = useAuth();
   const { dict } = useI18n();
   const router = useRouter();
 
+  // If already authenticated, redirect to product immediately
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      router.replace(authUser.is_superuser ? "/admin" : "/overview");
+    }
+  }, [authUser, authLoading, router]);
+
   // Auto-focus email input on mount
   useEffect(() => {
-    emailInputRef.current?.focus();
-  }, []);
+    if (!authUser) {
+      emailInputRef.current?.focus();
+    }
+  }, [authUser]);
 
   // Focus OTP input once code is sent
   useEffect(() => {

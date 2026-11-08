@@ -118,8 +118,7 @@ class CheckoutResponse(BaseModel):
     amount: float
     currency: str
     status: str
-    provider: str
-    provider_payment_id: str
+    payment_method: str = "cryptocurrency"
     payment_url: Optional[str] = None
     payment_address: Optional[str] = None
     qr_code_svg: Optional[str] = None
@@ -129,15 +128,18 @@ class CheckoutResponse(BaseModel):
 class CheckoutStatusResponse(BaseModel):
     order_id: uuid.UUID
     order_number: str
+    plan_name: Optional[str] = None
     status: str  # pending, paid, waiting_for_payment, processing, confirming, completed, failed, expired, under_review
     amount: float
     currency: str
+    payment_method: str = "cryptocurrency"
     received_amount: Optional[float] = None
     received_currency: Optional[str] = None
     blockchain_txid: Optional[str] = None
     payment_url: Optional[str] = None
     payment_address: Optional[str] = None
     qr_code_svg: Optional[str] = None
+    expires_at: Optional[str] = None
     is_subscription_active: bool = False
 
 

@@ -74,8 +74,7 @@ export interface CheckoutResult {
   amount: number;
   currency: string;
   status: string;
-  provider: string;
-  provider_payment_id: string;
+  payment_method?: string;
   payment_url?: string;
   payment_address?: string;
   qr_code_svg?: string;
@@ -85,15 +84,18 @@ export interface CheckoutResult {
 export interface CheckoutStatusInfo {
   order_id: string;
   order_number: string;
+  plan_name?: string;
   status: string;
   amount: number;
   currency: string;
+  payment_method?: string;
   received_amount?: number;
   received_currency?: string;
   blockchain_txid?: string;
   payment_url?: string;
   payment_address?: string;
   qr_code_svg?: string;
+  expires_at?: string;
   is_subscription_active: boolean;
 }
 

@@ -113,7 +113,9 @@ def test_checkout_and_webhook_full_lifecycle():
         ch_data = checkout_resp.json()
         assert ch_data["plan_name"] == "Pro"
         assert ch_data["amount"] == 49.0
-        assert ch_data["provider_payment_id"] == f"rpx_link_{uid}"
+        assert ch_data["payment_method"] == "cryptocurrency"
+        assert "provider_payment_id" not in ch_data
+        assert "provider" not in ch_data
         order_id = ch_data["order_id"]
         order_number = ch_data["order_number"]
 

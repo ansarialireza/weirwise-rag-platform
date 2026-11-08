@@ -206,6 +206,27 @@ function CheckoutContent() {
                 {statusInfo && getStatusBadge(statusInfo.status)}
               </div>
 
+              {/* Order / Plan details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border/80 bg-muted/30 p-3.5 space-y-1">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Subscription Plan
+                  </span>
+                  <div className="text-sm font-bold text-foreground">
+                    {statusInfo?.plan_name || "Pro Subscription"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border/80 bg-muted/30 p-3.5 space-y-1">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Payment Method
+                  </span>
+                  <div className="text-sm font-bold text-foreground capitalize">
+                    {statusInfo?.payment_method || "Cryptocurrency"}
+                  </div>
+                </div>
+              </div>
+
               {/* Amount summary */}
               <div className="rounded-lg border border-border/80 bg-muted/30 p-4 text-center">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
@@ -224,7 +245,7 @@ function CheckoutContent() {
                     dangerouslySetInnerHTML={{ __html: statusInfo.qr_code_svg }}
                   />
                   <span className="mt-2 text-[11px] font-mono text-zinc-600">
-                    Scan with any Polygon/Web3 wallet or checkout app
+                    Scan with any compatible cryptocurrency wallet
                   </span>
                 </div>
               )}
@@ -234,7 +255,7 @@ function CheckoutContent() {
                 {statusInfo?.payment_address && (
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted-foreground">
-                      Destination Deposit Address (Polygon)
+                      Destination Deposit Address
                     </label>
                     <div className="flex items-center gap-2">
                       <input
@@ -263,7 +284,7 @@ function CheckoutContent() {
                       rel="noopener noreferrer"
                       className="inline-flex w-full h-11 items-center justify-center gap-2 rounded-lg bg-primary font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
                     >
-                      Open Rampex Hosted Checkout
+                      Open Secure Hosted Checkout
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </div>
@@ -274,7 +295,7 @@ function CheckoutContent() {
               <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-muted/20 p-3.5 text-xs text-muted-foreground">
                 <ShieldCheck className="mt-0.5 h-4 w-4 text-signal shrink-0" />
                 <div>
-                  <strong>Automatic Real-time Fulfillment:</strong> You can safely close or navigate away from this window after paying. Our webhook listener monitors transaction confirmations and immediately unlocks your subscription.
+                  <strong>What happens after payment:</strong> Once your payment is confirmed by the network, your subscription activates automatically. You can safely keep or leave this page; your workspace status will update immediately.
                 </div>
               </div>
             </div>
