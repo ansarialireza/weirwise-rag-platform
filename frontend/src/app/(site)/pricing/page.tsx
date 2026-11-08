@@ -83,14 +83,9 @@ export default function PricingPage() {
     }
 
     // Paid plan: initiate checkout
-    const workspaceId = api.getWorkspaceId();
-    if (!workspaceId) {
-      router.push("/overview");
-      return;
-    }
-
     try {
       setPurchasingPlan(plan.code);
+      const workspaceId = api.getWorkspaceId();
       const res = await api.initiateCheckout(workspaceId, {
         plan_code: plan.code,
         billing_cycle: billingCycle,
