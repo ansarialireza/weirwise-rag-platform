@@ -2,10 +2,10 @@
 
 import uuid
 
-from backend.app.api.dependencies import WorkspaceContext, require_workspace
+from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
 from backend.app.models.assistant import WorkspaceBYOKCredential
-from backend.app.models.auth import WorkspaceRole
+from backend.app.models.auth import User
 from backend.app.schemas.assistant import (
     WorkspaceBYOKCreateRequest,
     WorkspaceBYOKResponse,
@@ -16,14 +16,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(prefix="/workspaces/{workspace_id}/enterprise", tags=["Enterprise & BYOK"])
+router = APIRouter(prefix="/enterprise", tags=["Enterprise & BYOK"])
 
 
 @router.post("/byok", response_model=WorkspaceBYOKResponse, status_code=status.HTTP_201_CREATED)
 async def configure_byok(
-    workspace_id: uuid.UUID,
     payload: WorkspaceBYOKCreateRequest,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> WorkspaceBYOKResponse:
     """Store customer-managed provider API keys encrypted at rest with masked preview."""
@@ -39,7 +38,7 @@ async def configure_byok(
 
     # Upsert BYOK record
     stmt = select(WorkspaceBYOKCredential).where(
-        WorkspaceBYOKCredential.workspace_id == workspace_id,
+        WorkspaceBYOKCredential.user_id == current_user.id,
         WorkspaceBYOKCredential.provider_name == payload.provider_name,
     )
     res = await db.execute(stmt)
@@ -54,7 +53,7 @@ async def configure_byok(
         byok.is_active = True
     else:
         byok = WorkspaceBYOKCredential(
-            workspace_id=workspace_id,
+            user_id=current_user.id,
             provider_name=payload.provider_name,
             api_endpoint=payload.api_endpoint,
             deployment_id=payload.deployment_id,
@@ -72,26 +71,24 @@ async def configure_byok(
 
 @router.get("/byok", response_model=list[WorkspaceBYOKResponse])
 async def list_byok_credentials(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[WorkspaceBYOKResponse]:
-    """List configured BYOK providers (keys masked)."""
-    stmt = select(WorkspaceBYOKCredential).where(WorkspaceBYOKCredential.workspace_id == workspace_id)
+    """List configured BYOK providers (keys masked) for authenticated user."""
+    stmt = select(WorkspaceBYOKCredential).where(WorkspaceBYOKCredential.user_id == current_user.id)
     res = await db.execute(stmt)
     return [WorkspaceBYOKResponse.model_validate(b) for b in res.scalars().all()]
 
 
 @router.delete("/byok/{provider_name}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_byok_credential(
-    workspace_id: uuid.UUID,
     provider_name: str,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Revoke and delete a BYOK credential."""
     stmt = select(WorkspaceBYOKCredential).where(
-        WorkspaceBYOKCredential.workspace_id == workspace_id,
+        WorkspaceBYOKCredential.user_id == current_user.id,
         WorkspaceBYOKCredential.provider_name == provider_name,
     )
     res = await db.execute(stmt)
@@ -105,10 +102,9 @@ async def delete_byok_credential(
 
 @router.post("/retention/cleanup")
 async def trigger_retention_cleanup(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Execute retention policy cleanup to delete expired conversations and audit logs."""
-    stats = await retention_service.cleanup_expired_data(db, workspace_id)
-    return {"status": "success", "workspace_id": str(workspace_id), **stats}
+    """Execute retention policy cleanup to delete expired conversations and audit logs for authenticated user."""
+    stats = await retention_service.cleanup_expired_data(db, current_user.id)
+    return {"status": "success", "user_id": str(current_user.id), **stats}

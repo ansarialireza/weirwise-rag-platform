@@ -3,10 +3,10 @@
 import uuid
 from decimal import Decimal
 
-from backend.app.api.dependencies import WorkspaceContext, get_current_user, require_workspace
+from backend.app.api.dependencies import get_current_user
 from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session
-from backend.app.models.auth import User, WorkspaceRole
+from backend.app.models.auth import User
 from backend.app.models.billing import (
     BillingCycle,
     BillingOrder,
@@ -23,7 +23,7 @@ from backend.app.schemas.billing import (
     CheckoutStatusResponse,
     InvoiceResponse,
     PlanResponse,
-    WorkspaceBillingOverviewResponse,
+    AccountBillingOverviewResponse,
 )
 from backend.app.services.billing_engine import billing_engine
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -81,31 +81,18 @@ async def list_public_plans(
 
 @router.get(
     "/billing",
-    response_model=WorkspaceBillingOverviewResponse,
+    response_model=AccountBillingOverviewResponse,
 )
 async def get_user_billing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> WorkspaceBillingOverviewResponse:
+) -> AccountBillingOverviewResponse:
     """Retrieve full dynamic billing overview, active plan, quotas and real usage for authenticated user."""
     overview = await billing_engine.get_user_billing_overview(db, current_user)
-    return WorkspaceBillingOverviewResponse(**overview)
+    return AccountBillingOverviewResponse(**overview)
 
 
-@router.get(
-    "/workspaces/{workspace_id}/billing",
-    response_model=WorkspaceBillingOverviewResponse,
-)
-async def get_workspace_billing(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(
-        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
-    ),
-    db: AsyncSession = Depends(get_db_session),
-) -> WorkspaceBillingOverviewResponse:
-    """Retrieve full dynamic billing overview for backward-compatibility."""
-    overview = await billing_engine.get_workspace_billing_overview(db, context.workspace)
-    return WorkspaceBillingOverviewResponse(**overview)
+
 
 
 class LegacyPlanChangeRequest(BaseModel):
@@ -114,13 +101,13 @@ class LegacyPlanChangeRequest(BaseModel):
 
 @router.post(
     "/billing/change-plan",
-    response_model=WorkspaceBillingOverviewResponse,
+    response_model=AccountBillingOverviewResponse,
 )
 async def change_user_plan_free_or_direct(
     payload: LegacyPlanChangeRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
-) -> WorkspaceBillingOverviewResponse:
+) -> AccountBillingOverviewResponse:
     """Account endpoint for changing plan. Free plans execute directly; paid require checkout."""
     plan = await billing_engine.get_plan_by_code(db, payload.target_tier)
     if not plan:
@@ -174,54 +161,10 @@ async def change_user_plan_free_or_direct(
     await db.commit()
 
     overview = await billing_engine.get_user_billing_overview(db, current_user)
-    return WorkspaceBillingOverviewResponse(**overview)
+    return AccountBillingOverviewResponse(**overview)
 
 
-@router.post(
-    "/workspaces/{workspace_id}/billing/change-plan",
-    response_model=WorkspaceBillingOverviewResponse,
-)
-async def change_workspace_plan_free_or_direct(
-    workspace_id: uuid.UUID,
-    payload: LegacyPlanChangeRequest,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER])),
-    db: AsyncSession = Depends(get_db_session),
-) -> WorkspaceBillingOverviewResponse:
-    """Owner endpoint for changing plan backward-compatibility."""
-    ws = context.workspace
-    plan = await billing_engine.get_plan_by_code(db, payload.target_tier)
-    if not plan:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid plan tier '{payload.target_tier}'.",
-        )
 
-    ws.plan_tier = plan.code
-    from backend.app.services.metering import metering_service
-
-    ent = await metering_service.get_or_create_entitlements(db, ws.id)
-    ent.plan_tier = plan.code
-    ent.max_assistants = plan.max_assistants
-    ent.max_knowledge_sources = plan.max_knowledge_sources
-    ent.monthly_chat_turns_limit = plan.max_chat_turns_monthly
-    ent.max_storage_mb = plan.max_storage_mb
-    ent.allow_custom_branding = plan.allow_custom_branding
-    ent.allow_overage = plan.allow_overage
-
-    sub = BillingSubscription(
-        workspace_id=ws.id,
-        user_id=context.user.id,
-        plan_id=plan.id,
-        status=SubscriptionStatus.ACTIVE.value,
-        billing_cycle=BillingCycle.MONTHLY.value,
-        current_period_start=func.now(),
-        current_period_end=func.now(),
-    )
-    db.add(sub)
-    await db.commit()
-
-    overview = await billing_engine.get_workspace_billing_overview(db, ws)
-    return WorkspaceBillingOverviewResponse(**overview)
 
 
 # ==========================================================
@@ -242,7 +185,6 @@ async def create_user_checkout_session(
     try:
         order, payment, plan_name = await billing_engine.create_checkout_order(
             db=db,
-            workspace=None,
             user=current_user,
             plan_code=payload.plan_code,
             billing_cycle=payload.billing_cycle,
@@ -273,48 +215,7 @@ async def create_user_checkout_session(
         )
 
 
-@router.post(
-    "/workspaces/{workspace_id}/billing/checkout",
-    response_model=CheckoutResponse,
-)
-async def create_checkout_session(
-    workspace_id: uuid.UUID,
-    payload: CheckoutInitiateRequest,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
-    db: AsyncSession = Depends(get_db_session),
-) -> CheckoutResponse:
-    """Create internal Order and initiate Rampex payment instructions for workspace."""
-    try:
-        order, payment, plan_name = await billing_engine.create_checkout_order(
-            db=db,
-            workspace=context.workspace,
-            user=context.user,
-            plan_code=payload.plan_code,
-            billing_cycle=payload.billing_cycle,
-            customer_email=payload.customer_email,
-        )
 
-        return CheckoutResponse(
-            order_id=order.id,
-            order_number=order.order_number,
-            plan_name=plan_name,
-            amount=float(payment.amount),
-            currency=payment.currency,
-            status=payment.status,
-            payment_method="cryptocurrency",
-            payment_url=payment.payment_url,
-            payment_address=payment.payment_address,
-            qr_code_svg=payment.qr_code_svg,
-            expires_at=payment.expires_at.isoformat() if payment.expires_at else None,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Checkout error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Payment could not be initialized. Please try again or contact support.",
-        )
 
 
 @router.get(
@@ -379,69 +280,7 @@ async def get_user_checkout_status(
     )
 
 
-@router.get(
-    "/workspaces/{workspace_id}/billing/orders/{order_id}/status",
-    response_model=CheckoutStatusResponse,
-)
-async def get_checkout_status(
-    workspace_id: uuid.UUID,
-    order_id: uuid.UUID,
-    context: WorkspaceContext = Depends(
-        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
-    ),
-    db: AsyncSession = Depends(get_db_session),
-) -> CheckoutStatusResponse:
-    """Verify live payment status against both internal records and Rampex provider API."""
-    order_stmt = select(BillingOrder).where(BillingOrder.id == order_id)
-    order = (await db.execute(order_stmt)).scalar_one_or_none()
-    if not order:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
 
-    p_stmt = select(BillingPayment).where(BillingPayment.order_id == order.id).order_by(desc(BillingPayment.created_at))
-    payment = (await db.execute(p_stmt)).scalars().first()
-    if not payment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment record not found")
-
-    if payment.status in (PaymentStatus.WAITING_FOR_PAYMENT.value, PaymentStatus.PROCESSING.value):
-        try:
-            provider = billing_engine.get_provider(payment.provider)
-            res = await provider.get_payment_status(payment.provider_payment_id)
-            if res.status == "completed" and payment.status != PaymentStatus.COMPLETED.value:
-                payment.status = PaymentStatus.COMPLETED.value
-                payment.received_amount = res.received_amount or payment.amount
-                payment.received_currency = res.received_currency or payment.currency
-                payment.blockchain_txid = res.blockchain_txid
-                payment.paid_at = func.now()
-                order.status = OrderStatus.PAID.value
-                await billing_engine.activate_subscription_for_order(db, order, payment)
-                await db.commit()
-                await db.refresh(payment)
-        except Exception as e:
-            logger.debug(f"Rampex status polling skipped or failed: {e}")
-
-    is_active = order.status == OrderStatus.PAID.value and payment.status == PaymentStatus.COMPLETED.value
-
-    # Fetch associated plan name for clean customer display
-    plan_stmt = select(BillingPlan.name).where(BillingPlan.id == order.plan_id)
-    plan_name = (await db.execute(plan_stmt)).scalar_one_or_none() or "Subscription Plan"
-
-    return CheckoutStatusResponse(
-        order_id=order.id,
-        order_number=order.order_number,
-        plan_name=plan_name,
-        payment_method="cryptocurrency",
-        status=payment.status,
-        amount=float(payment.amount),
-        currency=payment.currency,
-        received_amount=float(payment.received_amount) if payment.received_amount is not None else None,
-        received_currency=payment.received_currency,
-        blockchain_txid=payment.blockchain_txid,
-        payment_url=payment.payment_url,
-        payment_address=payment.payment_address,
-        qr_code_svg=payment.qr_code_svg,
-        expires_at=payment.expires_at.isoformat() if payment.expires_at else None,
-        is_subscription_active=is_active,
-    )
 
 
 # ==========================================================
@@ -476,34 +315,7 @@ async def list_user_invoices(
     ]
 
 
-@router.get(
-    "/workspaces/{workspace_id}/billing/invoices",
-    response_model=list[InvoiceResponse],
-)
-async def list_invoices(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(
-        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
-    ),
-    db: AsyncSession = Depends(get_db_session),
-) -> list[InvoiceResponse]:
-    """List billing history and downloadable invoice summaries."""
-    invoices = await billing_engine.list_workspace_invoices(db, workspace_id)
-    return [
-        InvoiceResponse(
-            id=inv.id,
-            invoice_number=inv.invoice_number,
-            amount=float(inv.amount),
-            currency=inv.currency,
-            status=inv.status,
-            billing_period_start=inv.billing_period_start.isoformat(),
-            billing_period_end=inv.billing_period_end.isoformat(),
-            paid_at=inv.paid_at.isoformat() if inv.paid_at else None,
-            line_items=inv.line_items,
-            created_at=inv.created_at.isoformat(),
-        )
-        for inv in invoices
-    ]
+
 
 
 @router.get(
@@ -533,34 +345,7 @@ async def download_user_invoice_details(
     }
 
 
-@router.get(
-    "/workspaces/{workspace_id}/billing/invoices/{invoice_number}/download",
-)
-async def download_invoice_details(
-    workspace_id: uuid.UUID,
-    invoice_number: str,
-    context: WorkspaceContext = Depends(
-        require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN, WorkspaceRole.MEMBER])
-    ),
-    db: AsyncSession = Depends(get_db_session),
-):
-    """Download receipt/invoice in JSON or printable text format."""
-    inv = await billing_engine.get_invoice_by_number(db, invoice_number)
-    if not inv or (inv.workspace_id != workspace_id and not context.user.is_superuser):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
 
-    return {
-        "invoice_number": inv.invoice_number,
-        "company": "Weirwise AI Platform",
-        "date": inv.created_at.strftime("%Y-%m-%d"),
-        "paid_date": inv.paid_at.strftime("%Y-%m-%d") if inv.paid_at else None,
-        "billing_period": (
-            f"{inv.billing_period_start.strftime('%Y-%m-%d')} to {inv.billing_period_end.strftime('%Y-%m-%d')}"
-        ),
-        "total": f"{inv.amount} {inv.currency}",
-        "status": inv.status.upper(),
-        "line_items": inv.line_items,
-    }
 
 
 # ==========================================================

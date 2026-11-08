@@ -77,17 +77,13 @@ class PlanUpdateRequest(BaseModel):
 
 class AccountBillingOverviewResponse(BaseModel):
     user_id: Optional[uuid.UUID] = None
-    workspace_id: Optional[uuid.UUID] = None  # Backward-compatibility alias
     plan_code: str
-    plan_tier: Optional[str] = None  # Backward-compatibility alias
     plan_name: str
     monthly_price: float
-    monthly_price_usd: Optional[int] = None  # Backward-compatibility alias
     yearly_price: float
     currency: str
     billing_cycle: str
     status: str
-    billing_status: Optional[str] = None  # Backward-compatibility alias
     period_start: Optional[str] = None
     period_end: Optional[str] = None
     cancel_at_period_end: bool
@@ -101,8 +97,7 @@ class AccountBillingOverviewResponse(BaseModel):
     features: list[str]
 
 
-# Backward compatibility alias
-WorkspaceBillingOverviewResponse = AccountBillingOverviewResponse
+
 
 
 class CheckoutInitiateRequest(BaseModel):

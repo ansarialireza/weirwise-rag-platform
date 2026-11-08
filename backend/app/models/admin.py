@@ -175,7 +175,6 @@ class TokenCostLedger(Base):
     __tablename__ = "admin_token_cost_ledger"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, nullable=False, index=True)
     credential_id = Column(GUID, nullable=True, index=True)
     provider_name = Column(String(50), nullable=False, index=True)
     model_name = Column(String(100), nullable=False, index=True)
@@ -192,7 +191,6 @@ class TokenCostLedger(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
     __table_args__ = (
-        Index("ix_ledger_workspace_time", "workspace_id", "created_at"),
         Index("ix_ledger_provider_model_time", "provider_name", "model_name", "created_at"),
     )
 
@@ -209,7 +207,6 @@ class RoutingEvent(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     routing_id = Column(GUID, nullable=False, index=True)
-    workspace_id = Column(GUID, nullable=True, index=True)
     provider_name = Column(String(50), nullable=False, index=True)
     model_name = Column(String(100), nullable=True)
     credential_id = Column(GUID, nullable=True, index=True)
@@ -239,7 +236,6 @@ class FinancialInvoice(Base):
     __tablename__ = "admin_financial_invoices"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, nullable=False, index=True)
     invoice_number = Column(String(64), unique=True, nullable=False, index=True)
     amount_usd = Column(Numeric(10, 2), nullable=False)
     plan_tier = Column(String(50), default="pro", nullable=False)

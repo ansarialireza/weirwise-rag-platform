@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.app.core.config import settings
 from backend.app.db.session import async_session_factory
-from backend.app.models.auth import User, Workspace
+from backend.app.models.auth import User
 from backend.app.models.behavioral import (
     BehavioralEvent,
     UserBehavioralSession,
@@ -237,7 +237,6 @@ class BehavioralStreamConsumer:
         """Persists session context and event using idempotent upsert/insert with strict ownership validation."""
         session_id = envelope["session_id"]
         user_id = uuid.UUID(envelope["user_id"]) if envelope.get("user_id") else None
-        workspace_id = uuid.UUID(envelope["workspace_id"]) if envelope.get("workspace_id") else None
         device_ctx = envelope.get("device_context") or {}
         geo_ctx = envelope.get("geo_context") or {}
         ev = envelope["event"]
@@ -269,16 +268,6 @@ class BehavioralStreamConsumer:
                 )
                 user_id = None
 
-        if workspace_id is not None:
-            ws_exists = (
-                await db.execute(select(Workspace.id).where(Workspace.id == workspace_id))
-            ).scalar_one_or_none()
-            if ws_exists is None:
-                logger.warning(
-                    f"WBI worker: workspace_id '{workspace_id}' in session '{session_id}' not found; setting to null."
-                )
-                workspace_id = None
-
         # 1. Upsert UserBehavioralSession
         now = datetime.now(UTC)
         event_time = datetime.fromisoformat(ev["timestamp"]) if isinstance(ev["timestamp"], str) else ev["timestamp"]
@@ -289,7 +278,6 @@ class BehavioralStreamConsumer:
                 id=uuid.uuid4(),
                 session_id=session_id,
                 user_id=user_id,
-                workspace_id=workspace_id,
                 country_code=geo_ctx.get("country_code"),
                 country_name=geo_ctx.get("country_name"),
                 region=geo_ctx.get("region"),
@@ -335,13 +323,6 @@ class BehavioralStreamConsumer:
                         ),
                         else_=UserBehavioralSession.user_id,
                     ),
-                    "workspace_id": case(
-                        (
-                            UserBehavioralSession.workspace_id.is_(None),
-                            literal(workspace_id, type_=UserBehavioralSession.workspace_id.type),
-                        ),
-                        else_=UserBehavioralSession.workspace_id,
-                    ),
                 },
             )
         )
@@ -355,7 +336,6 @@ class BehavioralStreamConsumer:
                 id=event_id,
                 session_id=session_id,
                 user_id=user_id,
-                workspace_id=workspace_id,
                 category=ev["category"],
                 event_name=ev["event_name"],
                 component_id=ev.get("component_id"),

@@ -160,7 +160,6 @@ class CredentialResponse(BaseModel):
 class SystemMetricsResponse(BaseModel):
     total_users: int
     active_users: int
-    total_workspaces: int
     total_assistants: int
     total_sources: int
     total_documents: int
@@ -262,7 +261,7 @@ class RoutingEventResponse(BaseModel):
 
     id: uuid.UUID
     routing_id: uuid.UUID
-    workspace_id: Optional[uuid.UUID]
+    user_id: Optional[uuid.UUID] = None
     provider_name: str
     model_name: Optional[str]
     credential_id: Optional[uuid.UUID]

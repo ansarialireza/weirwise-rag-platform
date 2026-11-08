@@ -1,116 +1,127 @@
-"""SSRF-safe, HMAC-signed outbound webhook dispatcher."""
+"""HMAC-signed outbound webhooks delivery service for real-time automation."""
 
 import hashlib
 import hmac
 import json
-import time
+import logging
 import uuid
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Optional
 
 import httpx
-from backend.app.core.logging import logger
 from backend.app.models.assistant import WebhookDelivery, WebhookSubscription
-from backend.app.services.scraper import is_ssrf_safe_url
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
+
 
 class WebhookDispatcher:
-    """Dispatches asynchronous webhooks to customer endpoints with HMAC SHA-256 signatures."""
+    """Dispatches webhook payloads asynchronously with cryptographic HMAC-SHA256 signatures."""
 
-    @staticmethod
-    def generate_signature(secret: str, payload_bytes: bytes, timestamp: int) -> str:
-        """Create standard HMAC-SHA256 signature formatted as 't={timestamp},v1={hex_hash}'."""
-        to_sign = f"t={timestamp}.".encode("utf-8") + payload_bytes
-        signature = hmac.new(secret.encode("utf-8"), to_sign, hashlib.sha256).hexdigest()
-        return f"t={timestamp},v1={signature}"
+    @classmethod
+    async def dispatch(
+        cls,
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> list[WebhookDelivery]:
+        """Dispatch event to all active subscriptions of user listening for this event."""
+        stmt = select(WebhookSubscription).where(
+            WebhookSubscription.user_id == user_id,
+            WebhookSubscription.is_active.is_(True),
+        )
+        res = await db.execute(stmt)
+        subs = res.scalars().all()
+
+        matching = [s for s in subs if event_type in s.events or "*" in s.events]
+        deliveries = []
+
+        for sub in matching:
+            delivery = await cls._deliver(db, sub, event_type, payload)
+            deliveries.append(delivery)
+
+        return deliveries
 
     @classmethod
     async def dispatch_event(
         cls,
         db: AsyncSession,
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
         event_type: str,
         payload_data: dict[str, Any],
+        **kwargs: Any,
     ) -> list[WebhookDelivery]:
-        """Dispatch event to all active subscriptions in workspace listening for this event."""
-        stmt = select(WebhookSubscription).where(
-            WebhookSubscription.workspace_id == workspace_id,
-            WebhookSubscription.is_active.is_(True),
+        """Alias for dispatch method accepting payload_data."""
+        return await cls.dispatch(db=db, user_id=user_id, event_type=event_type, payload=payload_data)
+
+    @classmethod
+    async def _deliver(
+        cls,
+        db: AsyncSession,
+        sub: WebhookSubscription,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> WebhookDelivery:
+        timestamp = int(datetime.now(UTC).timestamp())
+        envelope = {
+            "id": str(uuid.uuid4()),
+            "event": event_type,
+            "created_at": timestamp,
+            "user_id": str(sub.user_id),
+            "data": payload,
+        }
+        body = json.dumps(envelope, separators=(",", ":"))
+
+        # Compute HMAC signature: t={timestamp},v1={sha256}
+        sig_payload = f"{timestamp}.{body}".encode("utf-8")
+        signature = hmac.new(sub.secret_key.encode("utf-8"), sig_payload, hashlib.sha256).hexdigest()
+        sig_header = f"t={timestamp},v1={signature}"
+
+        delivery = WebhookDelivery(
+            subscription_id=sub.id,
+            event_type=event_type,
+            payload=envelope,
+            attempts=1,
+            status="pending",
         )
-        res = await db.execute(stmt)
-        subscriptions = res.scalars().all()
+        db.add(delivery)
+        await db.flush()
 
-        deliveries: list[WebhookDelivery] = []
+        headers = {
+            "Content-Type": "application/json",
+            "X-Weirwise-Signature": sig_header,
+            "User-Agent": "Weirwise-Webhooks/1.0",
+        }
 
-        for sub in subscriptions:
-            events_list = sub.events or []
-            if event_type not in events_list and "*" not in events_list:
-                continue
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(sub.target_url, content=body, headers=headers)
+                delivery.response_code = resp.status_code
+                delivery.response_body = resp.text[:2000]
 
-            # Validate target URL is SSRF safe before every attempt
-            if not is_ssrf_safe_url(sub.target_url):
-                logger.warning(f"Blocked webhook dispatch to unsafe target URL: {sub.target_url}")
-                delivery = WebhookDelivery(
-                    subscription_id=sub.id,
-                    event_type=event_type,
-                    payload=payload_data,
-                    response_code=0,
-                    status="failed",
-                    error_message="Destination target URL resolves to a prohibited private network address.",
-                )
-                db.add(delivery)
-                deliveries.append(delivery)
-                continue
+                if 200 <= resp.status_code < 300:
+                    delivery.status = "delivered"
+                    sub.failure_count = 0
+                else:
+                    delivery.status = "failed"
+                    delivery.error_message = f"HTTP status {resp.status_code}"
+                    sub.failure_count += 1
+        except Exception as e:
+            delivery.status = "failed"
+            delivery.error_message = str(e)[:1000]
+            sub.failure_count += 1
+            logger.warning(f"Webhook dispatch failed to {sub.target_url}: {e}")
 
-            # Prepare payload & HMAC header
-            full_payload = {
-                "id": str(uuid.uuid4()),
-                "event": event_type,
-                "timestamp": int(time.time()),
-                "workspace_id": str(workspace_id),
-                "data": payload_data,
-            }
-            payload_bytes = json.dumps(full_payload).encode("utf-8")
-            ts = int(time.time())
-            sig = cls.generate_signature(sub.secret_key, payload_bytes, ts)
-
-            headers = {
-                "Content-Type": "application/json",
-                "User-Agent": "Weirwise-Webhook-Dispatcher/1.0",
-                "X-Weirwise-Signature": sig,
-                "X-Weirwise-Event": event_type,
-            }
-
-            status_str = "delivered"
-            err_msg = None
-            code = 200
-
-            try:
-                async with httpx.AsyncClient(timeout=8.0, follow_redirects=False) as client:
-                    resp = await client.post(sub.target_url, content=payload_bytes, headers=headers)
-                    code = resp.status_code
-                    if resp.status_code >= 400:
-                        status_str = "failed"
-                        err_msg = f"HTTP status {resp.status_code}: {resp.text[:200]}"
-            except Exception as e:
-                status_str = "failed"
-                err_msg = str(e)
-                code = 0
-
-            delivery = WebhookDelivery(
-                subscription_id=sub.id,
-                event_type=event_type,
-                payload=full_payload,
-                response_code=code,
-                status=status_str,
-                error_message=err_msg,
-            )
-            db.add(delivery)
-            deliveries.append(delivery)
+        # Disable auto-delivery after 10 consecutive failures
+        if sub.failure_count >= 10:
+            sub.is_active = False
+            logger.error(f"Disabled webhook subscription {sub.id} due to 10 consecutive failures.")
 
         await db.commit()
-        return deliveries
+        await db.refresh(delivery)
+        return delivery
 
 
 webhook_dispatcher = WebhookDispatcher()

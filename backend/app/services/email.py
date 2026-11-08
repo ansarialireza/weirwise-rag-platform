@@ -107,7 +107,7 @@ class EmailService:
         >
             <h2 style="color: #101114; margin-bottom: 16px;">Verify your Weirwise account</h2>
             <p style="color: #34363A; font-size: 14px; line-height: 20px;">
-                Use the verification code below to complete your registration and activate your personal workspace:
+                Use the verification code below to complete your registration and activate your account:
             </p>
             <div
                 style="margin: 24px 0; padding: 16px; background-color: #F4F5F6;

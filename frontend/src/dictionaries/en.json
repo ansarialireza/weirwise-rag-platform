@@ -18,7 +18,7 @@
     "gotIt": "Got it",
     "account": "Account",
     "user": "User",
-    "workspace": "Workspace",
+    "workspace": "Account",
     "administration": "Administration",
     "admin": "Admin",
     "quickSearch": "Quick search",
@@ -29,7 +29,7 @@
     "systemTheme": "System theme",
     "language": "Language",
     "howItWorks": "How it works",
-    "openWorkspace": "Open workspace",
+    "openWorkspace": "Open dashboard",
     "mainNavigation": "Main navigation",
     "closeNavigation": "Close navigation",
     "openNavigation": "Open navigation",
@@ -44,8 +44,8 @@
     "copyText": "Copy text",
     "copied": "Copied",
     "settings": "Settings",
-    "createWorkspace": "Create workspace",
-    "switchWorkspace": "Switch workspace",
+    "createWorkspace": "Get started",
+    "switchWorkspace": "Switch account",
     "usage": "Usage",
     "upgrade": "Upgrade",
     "collapseSidebar": "Collapse sidebar",
@@ -83,7 +83,7 @@
     "privacy": "Privacy Policy",
     "privacyNote": "Private by default. Your documents are never used to train public models.",
     "signInSubtitle": "Welcome back. Enter your details to continue.",
-    "registerSubtitle": "Create a workspace and bring your knowledge in."
+    "registerSubtitle": "Create an account and bring your knowledge in."
   },
   "landing": {
     "heroHeadline": "Knowledge, in motion.",
@@ -91,7 +91,7 @@
     "primaryCta": "Get started",
     "secondaryCta": "Explore the platform",
     "consoleLive": "Live knowledge flow",
-    "consoleSample": "Sample workspace",
+    "consoleSample": "Sample account",
     "consoleAnswer": "Answer",
     "consoleChecked": "Source checked",
     "demo1Source": "Refund policy",
@@ -123,7 +123,7 @@
     "proofEyebrow": "Evidence, not guesswork",
     "proofTitle": "Every answer shows its work.",
     "proofPoint1": "A clear “not in your knowledge” answer when the source isn't there",
-    "proofPoint2": "Your documents stay in your workspace and are never used to train public models",
+    "proofPoint2": "Your documents stay in your private account and are never used to train public models",
     "useCasesEyebrow": "In daily use",
     "useCasesTitle": "Built for the questions your business already gets.",
     "useCase1Label": "Support",
@@ -133,7 +133,7 @@
     "useCase2Question": "Does the Team plan include single sign-on?",
     "useCase2Source": "Security overview · Plans",
     "useCase3Label": "Operations",
-    "useCase3Question": "How do we archive a workspace?",
+    "useCase3Question": "How do we manage account data?",
     "useCase3Source": "Admin guide · Data retention",
     "useCase4Label": "Onboarding",
     "useCase4Question": "Where should a new hire start?",
@@ -141,7 +141,7 @@
     "ctaHeadline": "Put your knowledge under control.",
     "ctaSubtitle": "Create your first assistant in minutes.",
     "heroEyebrow": "Intelligent flow control",
-    "footerStatus": "Private workspaces by default",
+    "footerStatus": "Private accounts by default",
     "copyright": "© 2026 Weirwise"
   },
   "pricing": {
@@ -192,9 +192,9 @@
       "Dedicated support"
     ],
     "assurance1Title": "Source on every answer",
-    "assurance2Title": "Isolated workspaces",
+    "assurance2Title": "Isolated data accounts",
     "assurance3Title": "Publish your way",
-    "billingNote": "Plan changes are handled by your workspace owner after sign-up. Self-serve checkout is not available yet.",
-    "disclaimer": "Prices are in USD. Limits apply per workspace."
+    "billingNote": "Plan changes are managed in your account billing settings.",
+    "disclaimer": "Prices are in USD. Limits apply per account."
   }
 }

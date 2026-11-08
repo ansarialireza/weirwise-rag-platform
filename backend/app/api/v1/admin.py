@@ -21,7 +21,7 @@ from backend.app.models.admin import (
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
-from backend.app.models.auth import AIRoutingStrategy, Membership, SubscriptionTier, User, Workspace
+from backend.app.models.auth import AIRoutingStrategy, User
 from backend.app.models.billing import (
     BillingOrder,
     BillingPayment,
@@ -82,7 +82,8 @@ async def get_admin_access(
     current_admin: User = Depends(require_admin_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AdminAccessResponse:
-    if current_admin.is_superuser:
+    from backend.app.api.admin_deps import _is_email_admin
+    if current_admin.is_superuser or _is_email_admin(current_admin.email):
         return AdminAccessResponse(is_admin=True, role=AdminRole.SUPER_ADMIN.value)
 
     role_assignment = (
@@ -147,7 +148,6 @@ async def get_system_metrics(
     # Count totals
     total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
     active_users = (await db.execute(select(func.count(User.id)).where(User.is_active.is_(True)))).scalar() or 0
-    total_workspaces = (await db.execute(select(func.count(Workspace.id)))).scalar() or 0
     total_assistants = (await db.execute(select(func.count(Assistant.id)))).scalar() or 0
     total_sources = (await db.execute(select(func.count(KnowledgeSource.id)))).scalar() or 0
     total_documents = (await db.execute(select(func.count(Document.id)))).scalar() or 0
@@ -165,13 +165,13 @@ async def get_system_metrics(
         or 0.0
     )
 
-    # Current recurring revenue is based on active workspaces' persisted subscription tier.
+    # Current recurring revenue is based on active user subscriptions
     revenue_res = float(
         (
             await db.execute(
-                select(func.sum(SubscriptionTier.monthly_price))
-                .join(Workspace, Workspace.subscription_tier_id == SubscriptionTier.id)
-                .where(Workspace.is_active.is_(True))
+                select(func.sum(BillingPlan.monthly_price))
+                .join(BillingSubscription, BillingSubscription.plan_id == BillingPlan.id)
+                .where(BillingSubscription.status == "active")
             )
         ).scalar()
         or 0.0
@@ -208,7 +208,6 @@ async def get_system_metrics(
     return SystemMetricsResponse(
         total_users=total_users,
         active_users=active_users,
-        total_workspaces=total_workspaces,
         total_assistants=total_assistants,
         total_sources=total_sources,
         total_documents=total_documents,
@@ -1261,7 +1260,7 @@ class AdminUserItemResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     is_verified: bool
-    workspaces_count: int
+    assistants_count: int = 0
     created_at: datetime
 
 
@@ -1324,8 +1323,8 @@ async def list_admin_users(
 ):
     """Data-dense listing of platform users with membership counts and activity status."""
     stmt = (
-        select(User, func.count(Membership.id).label("ws_count"))
-        .outerjoin(Membership, Membership.user_id == User.id)
+        select(User, func.count(Assistant.id).label("ast_count"))
+        .outerjoin(Assistant, Assistant.user_id == User.id)
         .where(
             *([User.email.ilike(f"%{q.strip()}%") | User.full_name.ilike(f"%{q.strip()}%")] if q and q.strip() else [])
         )
@@ -1337,7 +1336,7 @@ async def list_admin_users(
     rows = (await db.execute(stmt)).all()
 
     items = []
-    for user_obj, ws_count in rows:
+    for user_obj, ast_count in rows:
         items.append(
             AdminUserItemResponse(
                 id=user_obj.id,
@@ -1346,7 +1345,7 @@ async def list_admin_users(
                 is_active=user_obj.is_active,
                 is_superuser=user_obj.is_superuser,
                 is_verified=user_obj.is_verified,
-                workspaces_count=ws_count or 0,
+                assistants_count=ast_count or 0,
                 created_at=user_obj.created_at,
             )
         )
@@ -1592,10 +1591,10 @@ async def list_admin_subscriptions(
     ),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """List customer subscriptions with workspace details."""
+    """List customer subscriptions with user details."""
     stmt = (
-        select(BillingSubscription, Workspace.name.label("workspace_name"), BillingPlan.name.label("plan_name"))
-        .join(Workspace, BillingSubscription.workspace_id == Workspace.id)
+        select(BillingSubscription, User.email.label("user_email"), BillingPlan.name.label("plan_name"))
+        .join(User, BillingSubscription.user_id == User.id)
         .join(BillingPlan, BillingSubscription.plan_id == BillingPlan.id)
         .order_by(BillingSubscription.created_at.desc())
         .limit(limit)
@@ -1605,8 +1604,8 @@ async def list_admin_subscriptions(
     return [
         {
             "id": str(sub.id),
-            "workspace_id": str(sub.workspace_id),
-            "workspace_name": ws_name,
+            "user_id": str(sub.user_id),
+            "user_email": u_email,
             "plan_name": p_name,
             "status": sub.status,
             "billing_cycle": sub.billing_cycle,
@@ -1615,7 +1614,7 @@ async def list_admin_subscriptions(
             "cancel_at_period_end": sub.cancel_at_period_end,
             "created_at": sub.created_at.isoformat(),
         }
-        for sub, ws_name, p_name in rows
+        for sub, u_email, p_name in rows
     ]
 
 
@@ -1645,7 +1644,7 @@ async def adjust_admin_subscription(
     # Synchronize entitlements
     from backend.app.services.metering import metering_service
 
-    ent = await metering_service.get_or_create_entitlements(db, sub.workspace_id)
+    ent = await metering_service.get_or_create_entitlements(db, sub.user_id)
     ent.plan_tier = new_plan.code
     ent.max_assistants = new_plan.max_assistants
     ent.max_knowledge_sources = new_plan.max_knowledge_sources
@@ -1680,11 +1679,11 @@ async def list_admin_transactions(
         select(
             BillingPayment,
             BillingOrder.order_number,
-            Workspace.name.label("workspace_name"),
+            User.email.label("user_email"),
             BillingPlan.name.label("plan_name"),
         )
         .join(BillingOrder, BillingPayment.order_id == BillingOrder.id)
-        .join(Workspace, BillingOrder.workspace_id == Workspace.id)
+        .join(User, BillingOrder.user_id == User.id)
         .join(BillingPlan, BillingOrder.plan_id == BillingPlan.id)
         .order_by(BillingPayment.created_at.desc())
     )
@@ -1697,7 +1696,7 @@ async def list_admin_transactions(
         {
             "id": str(p.id),
             "order_number": ord_num,
-            "workspace_name": ws_name,
+            "user_email": ws_name,
             "plan_name": pl_name,
             "provider": p.provider,
             "provider_payment_id": p.provider_payment_id,

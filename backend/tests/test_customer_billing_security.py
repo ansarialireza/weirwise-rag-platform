@@ -20,16 +20,12 @@ def test_customer_checkout_api_response_sanitization():
     reg = client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
     assert reg.status_code == 201
     otp = reg.json().get("verification_otp")
-    if not otp:
-        # Fallback or direct login with OTP
-        pass
+    if otp:
+        client.post("/api/v1/auth/verify-email", json={"email": email, "otp": otp})
 
     login_res = client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
-
-    ws_res = client.post("/api/v1/workspaces", json={"name": f"Sec WS {uid}"}, headers=headers)
-    ws_id = ws_res.json()["id"]
 
     mock_creation = PaymentCreationResult(
         provider="rampex",
@@ -44,7 +40,7 @@ def test_customer_checkout_api_response_sanitization():
     with patch.object(RampexProvider, "create_payment", new_callable=AsyncMock) as mock_create:
         mock_create.return_value = mock_creation
         res = client.post(
-            f"/api/v1/workspaces/{ws_id}/billing/checkout",
+            "/api/v1/billing/checkout",
             json={"plan_code": "pro", "billing_cycle": "monthly"},
             headers=headers,
         )
@@ -78,7 +74,7 @@ def test_customer_checkout_api_response_sanitization():
 
         # Check status endpoint
         st_res = client.get(
-            f"/api/v1/workspaces/{ws_id}/billing/orders/{order_id}/status",
+            f"/api/v1/billing/orders/{order_id}/status",
             headers=headers,
         )
         assert st_res.status_code == 200

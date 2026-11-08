@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   email: string;
-  full_name: string;
+  full_name?: string | null;
   is_active: boolean;
   is_verified?: boolean;
   is_superuser: boolean;
@@ -20,7 +20,7 @@ export interface Workspace {
 }
 
 export interface WorkspaceBillingStatus {
-  workspace_id: string;
+  user_id?: string;
   plan_code?: string;
   plan_tier?: string;
   plan_name: string;
@@ -114,7 +114,7 @@ export interface InvoiceItem {
 
 export interface Project {
   id: string;
-  workspace_id: string;
+  user_id?: string;
   name: string;
   slug: string;
   description?: string;
@@ -128,7 +128,7 @@ export type SourceProcessingStatus = "pending" | "processing" | "ready" | "faile
 
 export interface KnowledgeSource {
   id: string;
-  project_id: string;
+  user_id?: string;
   core_kb_id?: string;
   name: string;
   source_type: KnowledgeSourceType;
@@ -160,7 +160,7 @@ export type EngineMode = "search_only" | "ai_answer";
 
 export interface Assistant {
   id: string;
-  project_id: string;
+  user_id?: string;
   core_assistant_id?: string;
   name: string;
   description?: string;
@@ -233,7 +233,7 @@ export interface PublicAssistantConfig {
 
 export interface ApiCredential {
   id: string;
-  workspace_id: string;
+  user_id?: string;
   name: string;
   key_prefix: string;
   scopes: string[];

@@ -129,7 +129,7 @@ class IntelligentRoutingEngine:
         provider_name: str,
         model_name: Optional[str] = None,
         *,
-        workspace_id: Optional[str] = None,
+        user_id: Optional[str] = None,
         exclude_ids: Optional[set[str]] = None,
         attempt_number: int = 1,
         is_failover: bool = False,
@@ -155,13 +155,13 @@ class IntelligentRoutingEngine:
         if not provider.is_enabled:
             logger.warning(f"Provider {provider_name} is disabled.")
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, "provider_disabled"
+                db, provider_name, model_name, user_id, "provider_disabled"
             )
             return None
         if model_name and provider.supported_models and model_name not in provider.supported_models:
             logger.warning("Requested model is not enabled for the configured provider.")
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, f"model_not_allowed:{model_name}"
+                db, provider_name, model_name, user_id, f"model_not_allowed:{model_name}"
             )
             return None
 
@@ -171,7 +171,7 @@ class IntelligentRoutingEngine:
         if control and control.emergency_stop:
             logger.error("Provider routing blocked by the admin emergency stop.")
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, "emergency_stop"
+                db, provider_name, model_name, user_id, "emergency_stop"
             )
             return None
 
@@ -181,7 +181,7 @@ class IntelligentRoutingEngine:
         if provider.current_month_spend_usd >= provider.global_monthly_budget_usd:
             logger.error(f"Global monthly budget exceeded for provider {provider_name}.")
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, "global_budget_exceeded"
+                db, provider_name, model_name, user_id, "global_budget_exceeded"
             )
             return None
 
@@ -201,7 +201,7 @@ class IntelligentRoutingEngine:
         if account_block_reason:
             logger.warning(f"Provider account-wide limit blocked routing for {provider_name}.")
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, account_block_reason
+                db, provider_name, model_name, user_id, account_block_reason
             )
             return None
 
@@ -218,7 +218,7 @@ class IntelligentRoutingEngine:
         candidates = c_res.scalars().all()
         if not candidates:
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, "no_active_credentials"
+                db, provider_name, model_name, user_id, "no_active_credentials"
             )
             return None
 
@@ -268,7 +268,7 @@ class IntelligentRoutingEngine:
                 db,
                 provider_name,
                 model_name,
-                workspace_id,
+                user_id,
                 "; ".join(skipped[-6:]) or "no_eligible_credentials",
             )
             return None
@@ -293,7 +293,7 @@ class IntelligentRoutingEngine:
             rate_safe.append(cred)
         if not rate_safe:
             await IntelligentRoutingEngine._record_no_credential(
-                db, provider_name, model_name, workspace_id, "all_credentials_rate_limited"
+                db, provider_name, model_name, user_id, "all_credentials_rate_limited"
             )
             return None
         eligible = rate_safe
@@ -321,7 +321,7 @@ class IntelligentRoutingEngine:
                         db,
                         provider_name,
                         model_name,
-                        workspace_id,
+                        user_id,
                         "primary_unavailable_manual_mode",
                     )
                     return None
@@ -334,7 +334,7 @@ class IntelligentRoutingEngine:
                         db,
                         provider_name,
                         model_name,
-                        workspace_id,
+                        user_id,
                         "primary_unavailable_automatic_failover_disabled",
                     )
                     return None
@@ -419,13 +419,13 @@ class IntelligentRoutingEngine:
                     db,
                     provider_name,
                     model_name,
-                    workspace_id,
+                    user_id,
                     f"primary_{limit_reason}_limit_manual_no_rotation",
                 )
                 return None
             if not eligible:
                 await IntelligentRoutingEngine._record_no_credential(
-                    db, provider_name, model_name, workspace_id, f"all_credentials_{limit_reason}_limited"
+                    db, provider_name, model_name, user_id, f"all_credentials_{limit_reason}_limited"
                 )
                 return None
 
@@ -440,7 +440,7 @@ class IntelligentRoutingEngine:
         db.add(
             RoutingEvent(
                 routing_id=routing_id,
-                workspace_id=uuid.UUID(workspace_id) if workspace_id else None,
+                user_id=uuid.UUID(user_id) if user_id else None,
                 provider_name=provider_name,
                 model_name=model_name,
                 credential_id=selected.id,
@@ -647,7 +647,7 @@ class IntelligentRoutingEngine:
         db: AsyncSession,
         provider_name: str,
         model_name: Optional[str],
-        workspace_id: Optional[str],
+        user_id: Optional[str],
         reason: str,
     ) -> None:
         control = (
@@ -656,7 +656,7 @@ class IntelligentRoutingEngine:
         db.add(
             RoutingEvent(
                 routing_id=str(uuid.uuid4()),
-                workspace_id=uuid.UUID(workspace_id) if workspace_id else None,
+                user_id=uuid.UUID(user_id) if user_id else None,
                 provider_name=provider_name,
                 model_name=model_name,
                 routing_mode="automatic" if control and control.management_mode == "automatic" else "manual",
@@ -793,7 +793,7 @@ class IntelligentRoutingEngine:
     async def record_success(
         db: AsyncSession,
         credential_id: str,
-        workspace_id: str,
+        user_id: str,
         provider_name: str,
         model_name: str,
         input_tokens: int,
@@ -835,7 +835,7 @@ class IntelligentRoutingEngine:
         # Record audit ledger entry
         total_tokens = input_tokens + output_tokens
         ledger_entry = TokenCostLedger(
-            workspace_id=workspace_id,
+            user_id=user_id,
             credential_id=credential_id,
             provider_name=provider_name,
             model_name=model_name,

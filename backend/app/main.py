@@ -18,7 +18,6 @@ from backend.app.api.v1.knowledge import router as knowledge_router
 from backend.app.api.v1.public_runtime import router as public_runtime_router
 from backend.app.api.v1.telemetry import router as telemetry_router
 from backend.app.api.v1.voice import router as voice_router
-from backend.app.api.v1.workspaces import router as workspaces_router
 from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging, logger
 from backend.app.core.security_headers import SecurityHeadersMiddleware
@@ -104,7 +103,6 @@ def create_application() -> FastAPI:
     app.include_router(health_router)
     app.include_router(public_runtime_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
-    app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
     app.include_router(integrations_router, prefix="/api/v1")

@@ -81,51 +81,7 @@ class ApiClient {
    * discovered once per session (and created on first login).
    */
   async getTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    // The persisted pair is a preference, not a fact: it survives an account switch
-    // in the same browser, and a project belonging to the previous account 404s for
-    // everyone. It is only trusted after the server has agreed it still exists here.
-    if (this.tenancyVerified && this.workspaceId && this.projectId) {
-      return { workspaceId: this.workspaceId, projectId: this.projectId };
-    }
-    if (!this.tenancyPromise) {
-      this.tenancyPromise = this.resolveTenancy()
-        .then((tenancy) => {
-          this.tenancyVerified = true;
-          return tenancy;
-        })
-        .finally(() => {
-          this.tenancyPromise = null;
-        });
-    }
-    return this.tenancyPromise;
-  }
-
-  private async resolveTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    const workspaces = await this.request<Workspace[]>("/workspaces");
-    let workspace = workspaces.find((w) => w.id === this.workspaceId) || workspaces[0];
-    if (!workspace) {
-      workspace = await this.request<Workspace>("/workspaces", {
-        method: "POST",
-        body: JSON.stringify({ name: "My Workspace" }),
-      });
-    }
-
-    const projects = await this.request<Project[]>(`/workspaces/${workspace.id}/projects`);
-    let project = projects.find((p) => p.id === this.projectId) || projects[0];
-    if (!project) {
-      project = await this.request<Project>(`/workspaces/${workspace.id}/projects`, {
-        method: "POST",
-        body: JSON.stringify({ name: "Default Project" }),
-      });
-    }
-
-    this.workspaceId = workspace.id;
-    this.projectId = project.id;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace.id);
-      localStorage.setItem(PROJECT_STORAGE_KEY, project.id);
-    }
-    return { workspaceId: workspace.id, projectId: project.id };
+    return { workspaceId: "default", projectId: "default" };
   }
 
   getWorkspaceId(): string | null {
@@ -343,9 +299,7 @@ class ApiClient {
   }
 
   async getWorkspaceBilling(workspaceId?: string): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>("/billing").catch(() => {
-      return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing`);
-    });
+    return this.request<WorkspaceBillingStatus>("/billing");
   }
 
   async getPublicPlans(): Promise<BillingPlanInfo[]> {
@@ -359,41 +313,25 @@ class ApiClient {
     return this.request<CheckoutResult>("/billing/checkout", {
       method: "POST",
       body: JSON.stringify(data),
-    }).catch(() => {
-      return this.request<CheckoutResult>(`/workspaces/${workspaceId}/billing/checkout`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
     });
   }
 
   async getCheckoutStatus(workspaceId: string | null, orderId: string): Promise<CheckoutStatusInfo> {
-    return this.request<CheckoutStatusInfo>(`/billing/orders/${orderId}/status`).catch(() => {
-      return this.request<CheckoutStatusInfo>(`/workspaces/${workspaceId}/billing/orders/${orderId}/status`);
-    });
+    return this.request<CheckoutStatusInfo>(`/billing/orders/${orderId}/status`);
   }
 
   async getWorkspaceInvoices(workspaceId?: string): Promise<InvoiceItem[]> {
-    return this.request<InvoiceItem[]>("/billing/invoices").catch(() => {
-      return this.request<InvoiceItem[]>(`/workspaces/${workspaceId}/billing/invoices`);
-    });
+    return this.request<InvoiceItem[]>("/billing/invoices");
   }
 
   async downloadInvoice(workspaceId: string | null, invoiceNumber: string): Promise<any> {
-    return this.request<any>(`/billing/invoices/${invoiceNumber}/download`).catch(() => {
-      return this.request<any>(`/workspaces/${workspaceId}/billing/invoices/${invoiceNumber}/download`);
-    });
+    return this.request<any>(`/billing/invoices/${invoiceNumber}/download`);
   }
 
   async changeWorkspacePlan(workspaceId: string | null, targetTier: string): Promise<WorkspaceBillingStatus> {
     return this.request<WorkspaceBillingStatus>("/billing/change-plan", {
       method: "POST",
       body: JSON.stringify({ target_tier: targetTier }),
-    }).catch(() => {
-      return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing/change-plan`, {
-        method: "POST",
-        body: JSON.stringify({ target_tier: targetTier }),
-      });
     });
   }
 
@@ -458,15 +396,13 @@ class ApiClient {
     return this.request<Project[]>(`/workspaces/${workspaceId}/projects`);
   }
 
-  // Knowledge Sources Endpoints (Project-scoped)
+  // Knowledge Sources Endpoints (Direct User Owned)
   async getSources(): Promise<KnowledgeSource[]> {
-    const { projectId } = await this.getTenancy();
-    return this.request<KnowledgeSource[]>(`/projects/${projectId}/sources`);
+    return this.request<KnowledgeSource[]>("/sources");
   }
 
   async createSource(data: { name: string; source_type: string; target_url?: string; settings?: Record<string, any> }): Promise<KnowledgeSource> {
-    const { projectId } = await this.getTenancy();
-    return this.request<KnowledgeSource>(`/projects/${projectId}/sources`, {
+    return this.request<KnowledgeSource>("/sources", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -532,10 +468,9 @@ class ApiClient {
     });
   }
 
-  // Assistant Endpoints (Project-scoped)
+  // Assistant Endpoints (Direct User Owned)
   async getAssistants(): Promise<Assistant[]> {
-    const { projectId } = await this.getTenancy();
-    return this.request<Assistant[]>(`/projects/${projectId}/assistants`);
+    return this.request<Assistant[]>("/assistants");
   }
 
   async getAssistant(id: string): Promise<Assistant> {
@@ -543,8 +478,7 @@ class ApiClient {
   }
 
   async createAssistant(data: Partial<Assistant>): Promise<Assistant> {
-    const { projectId } = await this.getTenancy();
-    return this.request<Assistant>(`/projects/${projectId}/assistants`, {
+    return this.request<Assistant>("/assistants", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -582,8 +516,7 @@ class ApiClient {
   }
 
   async directSearch(query: string, sourceIds?: string[], topK: number = 5): Promise<DirectSearchResponse> {
-    const { projectId } = await this.getTenancy();
-    return this.request<DirectSearchResponse>(`/projects/${projectId}/knowledge/search`, {
+    return this.request<DirectSearchResponse>("/knowledge/search", {
       method: "POST",
       body: JSON.stringify({ query, source_ids: sourceIds, top_k: topK }),
     });
@@ -824,21 +757,18 @@ class ApiClient {
   }
 
   async createApiCredential(data: { name: string; scopes: string[] }): Promise<ApiCredential> {
-    const { workspaceId } = await this.getTenancy();
-    return this.request<ApiCredential>(`/workspaces/${workspaceId}/api-credentials`, {
+    return this.request<ApiCredential>("/api-credentials", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async listApiCredentials(): Promise<ApiCredential[]> {
-    const { workspaceId } = await this.getTenancy();
-    return this.request<ApiCredential[]>(`/workspaces/${workspaceId}/api-credentials`);
+    return this.request<ApiCredential[]>("/api-credentials");
   }
 
   async revokeApiCredential(credentialId: string): Promise<void> {
-    const { workspaceId } = await this.getTenancy();
-    await this.request<void>(`/workspaces/${workspaceId}/api-credentials/${credentialId}`, {
+    await this.request<void>(`/api-credentials/${credentialId}`, {
       method: "DELETE",
     });
   }

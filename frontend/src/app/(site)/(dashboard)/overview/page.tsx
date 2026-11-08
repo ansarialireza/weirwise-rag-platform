@@ -36,7 +36,7 @@ export default function OverviewPage() {
         setAssistants(aList);
         setSources(sList);
       })
-      .catch((err: any) => setError(err.message || "We couldn't load your workspace right now. Please try again."))
+      .catch((err: any) => setError(err.message || "We couldn't load your account data right now. Please try again."))
       .finally(() => setLoading(false));
   }, []);
 

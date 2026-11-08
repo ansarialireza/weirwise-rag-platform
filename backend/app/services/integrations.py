@@ -17,7 +17,7 @@ class IntegrationsService:
     @staticmethod
     async def create_or_update_integration(
         db: AsyncSession,
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
         provider: str,
         display_name: str,
         credentials: dict[str, Any],
@@ -28,7 +28,7 @@ class IntegrationsService:
 
         # Check existing
         stmt = select(BusinessIntegration).where(
-            BusinessIntegration.workspace_id == workspace_id,
+            BusinessIntegration.user_id == user_id,
             BusinessIntegration.provider == provider,
         )
         res = await db.execute(stmt)
@@ -41,7 +41,7 @@ class IntegrationsService:
             integration.is_active = True
         else:
             integration = BusinessIntegration(
-                workspace_id=workspace_id,
+                user_id=user_id,
                 provider=provider,
                 display_name=display_name,
                 encrypted_credentials=encrypted_blob,
@@ -85,7 +85,7 @@ class IntegrationsService:
             return {"status": "failed", "error": integration.last_error}
 
         provider = integration.provider.lower()
-        logger.info(f"Sync requested for provider '{provider}' in workspace {integration.workspace_id}")
+        logger.info(f"Sync requested for provider '{provider}' for user {integration.user_id}")
 
         integration.sync_status = "unsupported"
         integration.last_error = "Automatic content import is not available for this provider yet."

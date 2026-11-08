@@ -34,15 +34,11 @@ export default function PricingPage() {
         if (active) setPlans(publicPlans);
 
         if (user) {
-          const workspaces = await api.getWorkspaces();
-          if (workspaces && workspaces.length > 0) {
-            const activeId = api.getWorkspaceId() || workspaces[0].id;
-            try {
-              const b = await api.getWorkspaceBilling(activeId);
-              if (active) setBilling(b);
-            } catch {
-              // billing optional
-            }
+          try {
+            const b = await api.getUserBilling();
+            if (active) setBilling(b);
+          } catch {
+            // billing optional
           }
         }
       } catch (err) {
@@ -67,17 +63,14 @@ export default function PricingPage() {
 
     // Free plan selection
     if (plan.monthly_price === 0) {
-      const workspaceId = api.getWorkspaceId();
-      if (workspaceId) {
-        try {
-          setPurchasingPlan(plan.code);
-          await api.changeWorkspacePlan(workspaceId, plan.code);
-          router.push("/settings/billing");
-        } catch (err) {
-          console.error("Plan change failed:", err);
-        } finally {
-          setPurchasingPlan(null);
-        }
+      try {
+        setPurchasingPlan(plan.code);
+        await api.changeWorkspacePlan(null, plan.code);
+        router.push("/settings/billing");
+      } catch (err) {
+        console.error("Plan change failed:", err);
+      } finally {
+        setPurchasingPlan(null);
       }
       return;
     }
@@ -85,8 +78,7 @@ export default function PricingPage() {
     // Paid plan: initiate checkout
     try {
       setPurchasingPlan(plan.code);
-      const workspaceId = api.getWorkspaceId();
-      const res = await api.initiateCheckout(workspaceId, {
+      const res = await api.initiateCheckout(null, {
         plan_code: plan.code,
         billing_cycle: billingCycle,
       });

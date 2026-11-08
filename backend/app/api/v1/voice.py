@@ -162,7 +162,7 @@ async def _require_voice_availability(db: AsyncSession) -> None:
         return
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Voice is not configured for this workspace.",
+        detail="Voice is not configured for your account.",
     )
 
 

@@ -13,7 +13,6 @@ from backend.app.models.audit import UsageEvent
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
-    Project,
     SourceProcessingStatus,
 )
 from backend.app.services.storage import storage_service
@@ -161,14 +160,12 @@ async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
                 document.status = SourceProcessingStatus.READY.value
                 document.error_message = None
 
-                # Record auditable document_indexed UsageEvent for workspace billing
-                proj_res = await db.execute(select(Project).where(Project.id == source.project_id))
-                project = proj_res.scalar_one_or_none()
-                if project:
+                # Record auditable document_indexed UsageEvent for user billing
+                user_id = document.user_id or source.user_id
+                if user_id:
                     db.add(
                         UsageEvent(
-                            workspace_id=project.workspace_id,
-                            project_id=project.id,
+                            user_id=user_id,
                             event_type="document_indexed",
                             quantity=1,
                             metadata_info={

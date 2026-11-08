@@ -35,16 +35,13 @@ export default function BillingSettingsPage() {
 
     async function loadBilling() {
       try {
-        const workspaceId = api.getWorkspaceId();
-        if (workspaceId) {
-          const [b, inv] = await Promise.all([
-            api.getWorkspaceBilling(workspaceId).catch(() => null),
-            api.getWorkspaceInvoices(workspaceId).catch(() => []),
-          ]);
-          if (active) {
-            setBilling(b);
-            setInvoices(inv);
-          }
+        const [b, inv] = await Promise.all([
+          api.getUserBilling().catch(() => null),
+          api.getWorkspaceInvoices().catch(() => []),
+        ]);
+        if (active) {
+          setBilling(b);
+          setInvoices(inv);
         }
       } catch (err) {
         console.error("Failed to load billing details:", err);
@@ -61,10 +58,8 @@ export default function BillingSettingsPage() {
   }, []);
 
   const handleDownloadInvoice = async (invoiceNumber: string) => {
-    const workspaceId = api.getWorkspaceId();
-    if (!workspaceId) return;
     try {
-      const res = await api.downloadInvoice(workspaceId, invoiceNumber);
+      const res = await api.downloadInvoice(null, invoiceNumber);
       const blob = new Blob([JSON.stringify(res, null, 2)], {
         type: "application/json",
       });
@@ -105,7 +100,7 @@ export default function BillingSettingsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Billing & Subscriptions</h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Manage your workspace plan tier, payment details, and downloadable invoice history.
+            Manage your account plan tier, payment details, and downloadable invoice history.
           </p>
         </div>
         <Link href="/pricing">
@@ -197,7 +192,7 @@ export default function BillingSettingsPage() {
 
         {invoices.length === 0 ? (
           <div className="text-center py-10 text-xs text-muted-foreground space-y-2">
-            <p>No invoices generated yet for this workspace.</p>
+            <p>No invoices generated yet for your account.</p>
             <p>Once you upgrade to a paid subscription, receipts and tax records will appear here.</p>
           </div>
         ) : (

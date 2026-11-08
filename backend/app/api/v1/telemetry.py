@@ -74,7 +74,6 @@ async def ingest_behavioral_batch(
             redis_client=redis_client,
             session_id=payload.session_id,
             user_id=user_id,
-            workspace_id=str(payload.workspace_id) if payload.workspace_id else None,
             device_context=device_context,
             geo_context=geo_context,
             events=event_dicts,

@@ -36,7 +36,7 @@ interface AdminUser {
   is_active: boolean;
   is_superuser: boolean;
   is_verified: boolean;
-  workspaces_count: number;
+  assistants_count: number;
   created_at: string;
 }
 
@@ -44,7 +44,7 @@ const PAGE_SIZE = 50;
 
 type StatusFilter = "all" | "active" | "suspended";
 type RoleFilter = "all" | "staff" | "member";
-type SortField = "created_at" | "email" | "workspaces_count";
+type SortField = "created_at" | "email" | "assistants_count";
 type SortDirection = "asc" | "desc";
 
 export default function AdminUsersPage() {
@@ -122,8 +122,8 @@ export default function AdminUsersPage() {
         comp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       } else if (sortField === "email") {
         comp = a.email.localeCompare(b.email);
-      } else if (sortField === "workspaces_count") {
-        comp = a.workspaces_count - b.workspaces_count;
+      } else if (sortField === "assistants_count") {
+        comp = a.assistants_count - b.assistants_count;
       }
       return sortDir === "asc" ? comp : -comp;
     });
@@ -191,7 +191,7 @@ export default function AdminUsersPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Every account across every workspace.
+            Every account on the Weirwise platform.
           </p>
         </div>
 
@@ -323,9 +323,9 @@ export default function AdminUsersPage() {
             </button>
             <button
               type="button"
-              onClick={() => handleToggleSort("workspaces_count")}
+              onClick={() => handleToggleSort("assistants_count")}
               className={`hover:text-foreground hidden sm:inline-flex items-center gap-1 ${
-                sortField === "workspaces_count" ? "text-accent-strong font-semibold" : ""
+                sortField === "assistants_count" ? "text-accent-strong font-semibold" : ""
               }`}
             >
               <span>Workspaces</span>
@@ -398,7 +398,7 @@ export default function AdminUsersPage() {
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5 flex-wrap">
                         <span className="font-mono">{u.email}</span>
                         <span>•</span>
-                        <span>{u.workspaces_count} {u.workspaces_count === 1 ? "workspace" : "workspaces"}</span>
+                        <span>{u.assistants_count} {u.assistants_count === 1 ? "assistant" : "assistants"}</span>
                         <span>•</span>
                         <span>Joined {new Date(u.created_at).toLocaleDateString()}</span>
                       </div>
@@ -528,7 +528,7 @@ export default function AdminUsersPage() {
               <div className="p-3 rounded-lg border border-border/70 bg-card">
                 <span className="text-muted-foreground text-[10px] block">Workspaces</span>
                 <span className="font-semibold text-foreground block mt-1 tabular-nums">
-                  {selectedUser.workspaces_count}
+                  {selectedUser.assistants_count}
                 </span>
               </div>
               <div className="p-3 rounded-lg border border-border/70 bg-card">
@@ -593,11 +593,11 @@ export default function AdminUsersPage() {
         description={
           confirmTarget?.is_active ? (
             <p>
-              Are you sure you want to suspend <strong className="text-foreground">{confirmTarget?.email}</strong>? Suspended users will immediately lose authentication and API access across all workspaces until reactivated.
+              Are you sure you want to suspend <strong className="text-foreground">{confirmTarget?.email}</strong>? Suspended users will immediately lose authentication and API access across the platform until reactivated.
             </p>
           ) : (
             <p>
-              Are you sure you want to activate <strong className="text-foreground">{confirmTarget?.email}</strong>? This user will regain access to their assigned workspaces and assistants.
+              Are you sure you want to activate <strong className="text-foreground">{confirmTarget?.email}</strong>? This user will regain access to their account and assistants.
             </p>
           )
         }

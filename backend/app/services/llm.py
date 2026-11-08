@@ -564,7 +564,7 @@ class LLMService:
         assistant: Assistant,
         query: str,
         passages: list[str],
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
         history: list[dict[str, str]] | None = None,
     ) -> GroundedAnswer:
         started = time.perf_counter()
@@ -597,7 +597,7 @@ class LLMService:
                     db,
                     provider_name,
                     model_name=model,
-                    workspace_id=str(workspace_id),
+                    user_id=str(user_id),
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
@@ -647,7 +647,7 @@ class LLMService:
                     await IntelligentRoutingEngine.record_success(
                         db,
                         credential_id=str(resolution.credential.id),
-                        workspace_id=str(workspace_id),
+                        user_id=str(user_id),
                         provider_name=provider_name,
                         model_name=model,
                         input_tokens=input_tokens,
@@ -686,7 +686,7 @@ class LLMService:
         assistant: Assistant,
         query: str,
         passages: list[str],
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
         history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Stream a grounded answer, failing over across credentials before the first token.
@@ -739,7 +739,7 @@ class LLMService:
                     db,
                     provider_name,
                     model_name=model,
-                    workspace_id=str(workspace_id),
+                    user_id=str(user_id),
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
@@ -809,7 +809,7 @@ class LLMService:
                             await IntelligentRoutingEngine.record_success(
                                 db,
                                 credential_id=str(resolution.credential.id),
-                                workspace_id=str(workspace_id),
+                                user_id=str(user_id),
                                 provider_name=provider_name,
                                 model_name=model,
                                 input_tokens=input_tokens,
@@ -867,7 +867,7 @@ class LLMService:
                     await IntelligentRoutingEngine.record_success(
                         db,
                         credential_id=str(resolution.credential.id),
-                        workspace_id=str(workspace_id),
+                        user_id=str(user_id),
                         provider_name=provider_name,
                         model_name=model,
                         input_tokens=input_tokens,

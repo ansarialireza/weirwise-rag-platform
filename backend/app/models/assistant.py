@@ -30,8 +30,7 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -66,7 +65,7 @@ class Assistant(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    project = relationship("Project", back_populates="assistants")
+    user = relationship("User")
     source_links = relationship("AssistantKnowledgeSource", back_populates="assistant", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="assistant", cascade="all, delete-orphan")
     deployments = relationship("Deployment", back_populates="assistant", cascade="all, delete-orphan")
@@ -247,7 +246,7 @@ class BusinessIntegration(Base):
     __tablename__ = "business_integrations"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(String(50), nullable=False, index=True)  # shopify, zendesk, gorgias, google_drive, notion
     display_name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -259,7 +258,7 @@ class BusinessIntegration(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider", name="uq_workspace_integration_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_integration_provider"),)
 
 
 class WebhookSubscription(Base):
@@ -268,7 +267,7 @@ class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     target_url = Column(String(1024), nullable=False)
     secret_key = Column(String(128), nullable=False)
     events = Column(CompatibleJSON, default=list, nullable=False)
@@ -307,8 +306,7 @@ class WorkspacePlanEntitlement(Base):
     __tablename__ = "workspace_plan_entitlements"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
     max_knowledge_sources = Column(Integer, default=3, nullable=False)
@@ -333,7 +331,7 @@ class WorkspaceBYOKCredential(Base):
     __tablename__ = "workspace_byok_credentials"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider_name = Column(String(50), nullable=False)  # openai, anthropic, azure_openai
     api_endpoint = Column(String(512), nullable=True)
     deployment_id = Column(String(255), nullable=True)
@@ -344,4 +342,4 @@ class WorkspaceBYOKCredential(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider_name", name="uq_workspace_byok_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider_name", name="uq_user_byok_provider"),)

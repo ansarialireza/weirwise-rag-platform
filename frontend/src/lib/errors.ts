@@ -9,7 +9,7 @@
 const MESSAGE_BY_STATUS: Record<number, string> = {
   400: "Something in that request wasn’t quite right. Please check and try again.",
   401: "Please sign in again to continue.",
-  403: "You don’t have access to that. Ask a workspace admin if you need it.",
+  403: "You don’t have access to that resource.",
   404: "We couldn’t find that. It may have moved or been deleted.",
   409: "That conflicts with a change made elsewhere. Refresh and try again.",
   413: "That file is too large. Try a smaller file.",

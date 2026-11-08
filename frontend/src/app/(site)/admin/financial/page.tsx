@@ -468,7 +468,7 @@ export default function AdminFinancialCenter() {
                 <div key={s.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground text-sm">{s.workspace_name}</span>
+                      <span className="font-bold text-foreground text-sm">{s.user_email || "Customer"}</span>
                       <span className="rounded bg-primary/10 text-primary px-2 py-0.5 font-bold uppercase text-[10px]">
                         {s.plan_name}
                       </span>
@@ -519,7 +519,7 @@ export default function AdminFinancialCenter() {
                       </span>
                     </div>
                     <div className="text-[11px] text-muted-foreground">
-                      Tenant: <strong>{tx.workspace_name}</strong> • Plan: {tx.plan_name}
+                      User: <strong>{tx.user_email || "Customer"}</strong> • Plan: {tx.plan_name}
                     </div>
                     {tx.blockchain_txid && (
                       <div className="text-[10px] font-mono text-signal truncate max-w-sm">

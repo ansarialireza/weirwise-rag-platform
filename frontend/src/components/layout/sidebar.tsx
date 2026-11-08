@@ -26,7 +26,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { PreferenceControls } from "@/components/ui/preference-controls";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { InstallAppButton } from "@/components/ui/install-app-button";
-import { Workspace, WorkspaceBillingStatus } from "@/types";
+import { WorkspaceBillingStatus } from "@/types";
 
 interface SidebarProps {
   onItemClick?: () => void;
@@ -47,46 +47,15 @@ export function Sidebar({
   const { user, logout } = useAuth();
   const { dict } = useI18n();
 
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [billing, setBilling] = useState<WorkspaceBillingStatus | null>(null);
-  const [wsDropdownOpen, setWsDropdownOpen] = useState(false);
-  const [isCreatingWs, setIsCreatingWs] = useState(false);
-  const [newWsName, setNewWsName] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close workspace dropdown on outside click
-  useEffect(() => {
-    if (!wsDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setWsDropdownOpen(false);
-        setIsCreatingWs(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [wsDropdownOpen]);
-
-  // Load workspaces and billing
+  // Load billing overview directly for user
   useEffect(() => {
     let active = true;
     api
-      .getWorkspaces()
-      .then(async (list) => {
-        if (!active || !list) return;
-        setWorkspaces(list);
-        const activeId = api.getWorkspaceId();
-        const ws = list.find((w) => w.id === activeId) || list[0];
-        if (ws) {
-          setActiveWorkspace(ws);
-          try {
-            const b = await api.getWorkspaceBilling(ws.id);
-            if (active) setBilling(b);
-          } catch {
-            // Optional billing metric fallback
-          }
-        }
+      .getUserBilling()
+      .then((b) => {
+        if (active) setBilling(b);
       })
       .catch(() => {
         /* Non-critical */
@@ -96,25 +65,6 @@ export function Sidebar({
     };
   }, []);
 
-  const handleSelectWorkspace = (ws: Workspace) => {
-    api.setWorkspaceId(ws.id);
-    setActiveWorkspace(ws);
-    setWsDropdownOpen(false);
-    window.location.reload();
-  };
-
-  const handleCreateWorkspace = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWsName.trim()) return;
-    try {
-      const created = await api.createWorkspace(newWsName.trim());
-      setWorkspaces((prev) => [...prev, created]);
-      handleSelectWorkspace(created);
-    } catch {
-      // Failed to create workspace
-    }
-  };
-
   const navItems = [
     { label: dict.common.overview, href: "/overview", icon: LayoutDashboard, active: pathname === "/overview" },
     { label: dict.common.knowledge, href: "/sources", icon: Database, active: pathname.startsWith("/sources") },
@@ -123,15 +73,7 @@ export function Sidebar({
     { label: dict.common.settings, href: "/settings", icon: Settings, active: pathname.startsWith("/settings") },
   ];
 
-  const planLabels: Record<string, string> = {
-    free: dict.common.freePlan,
-    starter: dict.common.starterPlan,
-    pro: dict.common.proPlan,
-    enterprise: dict.common.businessPlan,
-  };
-  const planLabel = activeWorkspace?.plan_tier
-    ? planLabels[activeWorkspace.plan_tier] || activeWorkspace.plan_tier
-    : dict.common.workspace;
+
 
   const queriesUsed = billing?.chat_turns_used ?? 0;
   const queriesLimit = billing?.chat_turns_limit ?? 100;
@@ -195,121 +137,13 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Workspace Switcher */}
-      <div className={cn("relative px-3 pb-3", isCollapsedMode && "px-2 pb-2")} ref={dropdownRef}>
-        <button
-          type="button"
-          onClick={() => setWsDropdownOpen((prev) => !prev)}
-          className={cn(
-            "group flex w-full items-center gap-2 rounded-lg border border-border bg-muted/40 transition-colors hover:bg-muted/70",
-            isCollapsedMode ? "h-10 justify-center p-0" : "px-3 py-2 text-left"
-          )}
-          title={activeWorkspace?.name || dict.common.workspace}
-        >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-onyx text-[10px] font-semibold text-white">
-            {(activeWorkspace?.name || "W").charAt(0).toUpperCase()}
-          </span>
-          {!isCollapsedMode && (
-            <>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium leading-tight text-foreground">
-                  {activeWorkspace?.name || dict.common.workspace}
-                </div>
-                <div className="truncate text-[11px] leading-tight text-muted-foreground">
-                  {planLabel}
-                </div>
-              </div>
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground transition-transform shrink-0",
-                  wsDropdownOpen && "rotate-180"
-                )}
-              />
-            </>
-          )}
-        </button>
 
-        {/* Dropdown Menu */}
-        {wsDropdownOpen && (
-          <div
-            className={cn(
-              "absolute z-50 rounded-xl border border-border bg-popover p-1.5 shadow-lift animate-in",
-              isCollapsedMode
-                ? "start-full top-0 ms-2 w-56"
-                : "start-3 end-3 top-full mt-1.5"
-            )}
-          >
-            <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              {dict.common.switchWorkspace}
-            </div>
-
-            <div className="max-h-48 space-y-0.5 overflow-y-auto">
-              {workspaces.map((ws) => (
-                <button
-                  key={ws.id}
-                  type="button"
-                  onClick={() => handleSelectWorkspace(ws)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] transition-colors",
-                    ws.id === activeWorkspace?.id
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  <span className="truncate">{ws.name}</span>
-                  {ws.id === activeWorkspace?.id && <Check className="h-3.5 w-3.5 shrink-0 ms-1.5" />}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-1 border-t border-border pt-1">
-              {!isCreatingWs ? (
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingWs(true)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-primary hover:bg-muted"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>{dict.common.createWorkspace}</span>
-                </button>
-              ) : (
-                <form onSubmit={handleCreateWorkspace} className="p-1 space-y-1.5">
-                  <input
-                    type="text"
-                    value={newWsName}
-                    onChange={(e) => setNewWsName(e.target.value)}
-                    placeholder="Workspace name"
-                    autoFocus
-                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                  <div className="flex justify-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsCreatingWs(false)}
-                      className="rounded px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!newWsName.trim()}
-                      className="rounded bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground disabled:opacity-50"
-                    >
-                      Create
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* Main Nav Items */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3">
         {!isCollapsedMode && (
           <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-label text-muted-foreground">
-            {dict.common.workspace}
+            Platform
           </p>
         )}
         {navItems.map((item) => {

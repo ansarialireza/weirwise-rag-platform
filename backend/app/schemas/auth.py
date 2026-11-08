@@ -88,7 +88,7 @@ class UserResponse(BaseModel):
 
     id: uuid.UUID
     email: str
-    full_name: str
+    full_name: str | None = None
     is_active: bool
     is_verified: bool = False
     is_superuser: bool

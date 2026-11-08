@@ -1,340 +1,181 @@
-"""Subscription plans, usage tracking, and entitlement enforcement."""
+"""Subscription tier retrieval, document/storage limits, and entitlement validation."""
 
+import logging
 import uuid
-from dataclasses import dataclass
+from decimal import Decimal
 from typing import Optional
 
+from backend.app.models.assistant import Assistant, WorkspacePlanEntitlement
 from backend.app.models.audit import UsageEvent
-from backend.app.models.auth import SubscriptionTier, Workspace
-from backend.app.models.project import Document, KnowledgeSource, Project
+from backend.app.models.auth import SubscriptionTier, User
+from backend.app.models.project import Document, KnowledgeSource
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
-class PlanLimits:
-    tier: str
-    name: str
-    monthly_price_usd: int
-    max_assistants: int
-    max_documents: int
-    max_chat_turns_monthly: int
-    max_file_size_mb: int
-    allowed_models: list[str]
-    features: list[str]
-
-
-PLAN_DEFINITIONS: dict[str, PlanLimits] = {
-    "free": PlanLimits(
-        tier="free",
-        name="Free Trial",
-        monthly_price_usd=0,
-        max_assistants=2,
-        max_documents=10,
-        max_chat_turns_monthly=100,
-        max_file_size_mb=10,
-        allowed_models=["Auto", "Fast"],
-        features=["2 Assistants", "10 Documents", "100 Queries / month", "Standard Support"],
-    ),
-    "starter": PlanLimits(
-        tier="starter",
-        name="Team Starter",
-        monthly_price_usd=29,
-        max_assistants=10,
-        max_documents=100,
-        max_chat_turns_monthly=2500,
-        max_file_size_mb=50,
-        allowed_models=["Auto", "Fast", "Deep Thinking"],
-        features=[
-            "10 Assistants",
-            "100 Documents",
-            "2,500 Queries / month",
-            "Web Widget Embed",
-            "Priority Email Support",
-        ],
-    ),
-    "pro": PlanLimits(
-        tier="pro",
-        name="Pro",
-        monthly_price_usd=49,
-        max_assistants=25,
-        max_documents=500,
-        max_chat_turns_monthly=10000,
-        max_file_size_mb=50,
-        allowed_models=["Auto", "Fast", "Deep Thinking"],
-        features=[
-            "25 Assistants",
-            "500 Documents",
-            "10,000 Queries / month",
-            "Custom Embed Domains",
-            "Dedicated Support",
-        ],
-    ),
-    "enterprise": PlanLimits(
-        tier="enterprise",
-        name="Business",
-        monthly_price_usd=199,
-        max_assistants=50,
-        max_documents=1000,
-        max_chat_turns_monthly=20000,
-        max_file_size_mb=100,
-        allowed_models=["Auto", "Fast", "Deep Thinking"],
-        features=[
-            "50 Assistants",
-            "1,000 Documents",
-            "20,000 Queries / month",
-            "Custom Embed Domains",
-            "Dedicated Support & SLA",
-        ],
-    ),
+# Fallback in-memory catalog used when the subscription_tiers database table is empty
+FALLBACK_TIER_LIMITS: dict[str, dict[str, int]] = {
+    "free": {"max_assistants": 2, "max_documents": 10, "max_chat_turns_monthly": 100, "max_storage_mb": 50, "max_file_size_mb": 10},
+    "starter": {"max_assistants": 5, "max_documents": 50, "max_chat_turns_monthly": 500, "max_storage_mb": 250, "max_file_size_mb": 25},
+    "pro": {"max_assistants": 20, "max_documents": 250, "max_chat_turns_monthly": 2500, "max_storage_mb": 1000, "max_file_size_mb": 50},
+    "enterprise": {"max_assistants": 100, "max_documents": 2000, "max_chat_turns_monthly": 20000, "max_storage_mb": 10000, "max_file_size_mb": 100},
 }
 
 
 class SubscriptionService:
-    @staticmethod
-    def get_plan(tier: str) -> PlanLimits:
-        return PLAN_DEFINITIONS.get(tier.lower(), PLAN_DEFINITIONS["free"])
+    """Subscription, plan entitlement, and resource limit enforcement."""
 
-    @staticmethod
-    async def get_workspace_tier(workspace: Workspace, db: AsyncSession) -> Optional[SubscriptionTier]:
-        """Fetch linked dynamic SubscriptionTier entity from database if present."""
-        if workspace.subscription_tier_id:
-            stmt = select(SubscriptionTier).where(SubscriptionTier.id == workspace.subscription_tier_id)
-            res = await db.execute(stmt)
-            return res.scalar_one_or_none()
-        # Fallback query by workspace.plan_tier name
-        tier_stmt = select(SubscriptionTier).where(func.lower(SubscriptionTier.name) == func.lower(workspace.plan_tier))
-        res = await db.execute(tier_stmt)
-        st = res.scalar_one_or_none()
-        if st:
-            return st
-        # Default to first tier (e.g. Free Trial)
-        res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
-        return res.scalars().first()
+    @classmethod
+    async def get_user_tier(cls, user_id: uuid.UUID, db: AsyncSession) -> Optional[SubscriptionTier]:
+        """Resolve current active subscription tier for user."""
+        from backend.app.models.billing import BillingPlan, BillingSubscription
 
-    @staticmethod
-    def document_limit_for_tier(tier: Optional[SubscriptionTier], fallback_plan: PlanLimits) -> int:
-        """Single source of truth for the per-workspace document limit."""
-        return int(tier.max_assistants) * 50 if tier else fallback_plan.max_documents
-
-    @staticmethod
-    async def get_user_usage(user_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
-        """Aggregate usage events for the user account."""
-        from datetime import UTC, datetime, timedelta
-
-        from backend.app.models.assistant import Assistant, WorkspacePlanEntitlement
-
-        ent = (
-            (await db.execute(select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id)))
-            .scalars()
-            .first()
+        sub_stmt = (
+            select(BillingPlan)
+            .join(BillingSubscription, BillingSubscription.plan_id == BillingPlan.id)
+            .where(BillingSubscription.user_id == user_id, BillingSubscription.status == "active")
         )
+        sub_res = await db.execute(sub_stmt)
+        plan = sub_res.scalar_one_or_none()
 
-        period_start = ent.period_start if ent and ent.period_start else None
-        if period_start is not None and period_start.tzinfo is None:
-            period_start = period_start.replace(tzinfo=UTC)
-        if period_start is None:
-            period_start = datetime.now(UTC) - timedelta(days=30)
+        if plan:
+            # Map BillingPlan to SubscriptionTier interface
+            tier = SubscriptionTier(
+                id=plan.id,
+                name=plan.name,
+                monthly_price=plan.monthly_price,
+                max_assistants=Decimal(plan.max_assistants),
+                max_monthly_messages=Decimal(plan.max_chat_turns_monthly),
+                max_storage_mb=Decimal(plan.max_storage_mb),
+            )
+            return tier
 
-        # Count chat turns from usage events
-        stmt = (
-            select(
-                UsageEvent.event_type,
-                func.coalesce(func.sum(UsageEvent.quantity), 0).label("total"),
-            )
-            .where(
-                (UsageEvent.user_id == user_id)
-                | (UsageEvent.assistant_id.in_(select(Assistant.id).where(Assistant.user_id == user_id))),
-                UsageEvent.created_at >= period_start,
-            )
-            .group_by(UsageEvent.event_type)
-        )
+        # Fallback to Free Trial
+        stmt = select(SubscriptionTier).where(SubscriptionTier.name == "Free Trial")
         res = await db.execute(stmt)
-        usage_map = {row[0]: int(row[1]) for row in res.all()}
+        tier = res.scalar_one_or_none()
+        if not tier:
+            res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
+            tier = res.scalars().first()
+        return tier
 
-        # Count documents directly owned by user's knowledge sources
-        doc_count_res = await db.execute(
-            select(func.count(Document.id))
-            .join(KnowledgeSource, Document.knowledge_source_id == KnowledgeSource.id)
-            .where(KnowledgeSource.user_id == user_id)
-        )
-        doc_count = doc_count_res.scalar() or 0
+    @classmethod
+    async def get_user_document_limit(cls, user_id: uuid.UUID, db: AsyncSession) -> int:
+        """Single source of truth for the per-user document limit."""
+        tier = await cls.get_user_tier(user_id, db)
+        if tier:
+            tier_name = (tier.name or "").lower()
+            if "enterprise" in tier_name:
+                return 2000
+            elif "pro" in tier_name:
+                return 250
+            elif "starter" in tier_name:
+                return 50
+            return 10
 
-        return {
-            "chat_turns": usage_map.get("chat_turn", 0),
-            "documents_indexed": doc_count,
-        }
+        ent_res = await db.execute(select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id))
+        ent = ent_res.scalar_one_or_none()
+        if ent:
+            tier_name = (ent.plan_tier or "free").lower()
+            return FALLBACK_TIER_LIMITS.get(tier_name, FALLBACK_TIER_LIMITS["free"])["max_documents"]
 
-    @staticmethod
-    async def get_workspace_usage(workspace_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
-        """Aggregate usage events for the current workspace billing cycle."""
-        from datetime import UTC, datetime, timedelta
+        return 10
 
-        from backend.app.models.assistant import WorkspacePlanEntitlement
-
-        ent = (
-            await db.execute(
-                select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.workspace_id == workspace_id)
-            )
-        ).scalar_one_or_none()
-
-        period_start = ent.period_start if ent and ent.period_start else None
-        if period_start is not None and period_start.tzinfo is None:
-            period_start = period_start.replace(tzinfo=UTC)
-        if period_start is None:
-            period_start = datetime.now(UTC) - timedelta(days=30)
+    @classmethod
+    async def get_user_usage(cls, user_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
+        """Aggregate usage events for the current user billing cycle."""
+        ent_res = await db.execute(select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id))
+        ent = ent_res.scalar_one_or_none()
+        period_start = ent.period_start if ent else None
 
         stmt = (
-            select(
-                UsageEvent.event_type,
-                func.coalesce(func.sum(UsageEvent.quantity), 0).label("total"),
-            )
-            .where(UsageEvent.workspace_id == workspace_id, UsageEvent.created_at >= period_start)
+            select(UsageEvent.event_type, func.sum(UsageEvent.quantity))
+            .where(UsageEvent.user_id == user_id)
             .group_by(UsageEvent.event_type)
         )
-        res = await db.execute(stmt)
-        usage_map = {row[0]: int(row[1]) for row in res.all()}
-        return {
-            "chat_turns": usage_map.get("chat_turn", 0),
-            "documents_indexed": usage_map.get("document_indexed", 0),
-        }
+        if period_start:
+            stmt = stmt.where(UsageEvent.created_at >= period_start)
 
-    @staticmethod
-    async def get_workspace_storage_mb(workspace_id: uuid.UUID, db: AsyncSession) -> float:
-        """Calculate total uploaded file storage in MB for the workspace."""
+        res = await db.execute(stmt)
+        return {row[0]: int(row[1]) for row in res.all()}
+
+    @classmethod
+    async def get_user_storage_mb(cls, user_id: uuid.UUID, db: AsyncSession) -> float:
+        """Calculate total uploaded file storage in MB for the user."""
         stmt = (
             select(func.coalesce(func.sum(Document.file_size_bytes), 0))
-            .join(KnowledgeSource, KnowledgeSource.id == Document.knowledge_source_id)
-            .join(Project, Project.id == KnowledgeSource.project_id)
-            .where(Project.workspace_id == workspace_id)
+            .where(Document.user_id == user_id)
         )
-        res = await db.execute(stmt)
-        total_bytes = res.scalar() or 0
+        total_bytes = (await db.execute(stmt)).scalar() or 0
         return float(total_bytes) / (1024 * 1024)
 
     @classmethod
-    async def check_chat_entitlement(cls, workspace: Workspace, db: AsyncSession) -> None:
-        """Enforce dynamic quota on monthly inference chat turns.
-        Gracefully blocks action with clean 403 structured payload if limit is reached.
-        """
-        tier = await cls.get_workspace_tier(workspace, db)
-        fallback_plan = cls.get_plan(workspace.plan_tier)
-        max_messages = int(tier.max_monthly_messages) if tier else fallback_plan.max_chat_turns_monthly
-        tier_name = tier.name if tier else workspace.plan_tier
+    async def check_chat_entitlement(cls, user_id: uuid.UUID, db: AsyncSession) -> None:
+        """Verify user has not exhausted monthly chat turns."""
+        tier = await cls.get_user_tier(user_id, db)
+        limit = int(tier.max_monthly_messages) if tier else 100
+        usage = await cls.get_user_usage(user_id, db)
+        current = usage.get("chat_turn", 0)
 
-        usage = await cls.get_workspace_usage(workspace.id, db)
-        current_turns = usage["chat_turns"]
-
-        if current_turns >= max_messages:
+        if current >= limit:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error": "quota_exceeded",
-                    "resource": "chat_turns",
-                    "current": current_turns,
-                    "limit": max_messages,
-                    "tier": tier_name,
-                    "message": (
-                        f"Monthly message quota exceeded for tier '{tier_name}' "
-                        f"({current_turns}/{max_messages} messages). "
-                        "Upgrade required to continue running chat turns."
-                    ),
-                },
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Monthly chat turn limit ({limit}) reached for your account. Upgrade your plan to continue.",
             )
 
     @classmethod
-    async def check_assistant_creation_entitlement(
-        cls, workspace: Workspace, current_count: int, db: Optional[AsyncSession] = None
+    async def check_assistant_entitlement(
+        cls, user_id: uuid.UUID, current_count: int, db: Optional[AsyncSession] = None
     ) -> None:
-        """Enforce limit on total assistants configured per workspace."""
-        tier = await cls.get_workspace_tier(workspace, db) if db else None
-        max_assts = int(tier.max_assistants) if tier else cls.get_plan(workspace.plan_tier).max_assistants
-        tier_name = tier.name if tier else workspace.plan_tier
-
-        if current_count >= max_assts:
+        """Verify user has not exhausted assistant creation limit."""
+        if not db:
+            return
+        tier = await cls.get_user_tier(user_id, db)
+        limit = int(tier.max_assistants) if tier else 2
+        if current_count >= limit:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error": "quota_exceeded",
-                    "resource": "assistants",
-                    "current": current_count,
-                    "limit": max_assts,
-                    "tier": tier_name,
-                    "message": (
-                        f"Assistant creation limit reached for tier '{tier_name}' "
-                        f"({current_count}/{max_assts} assistants). "
-                        "Upgrade required to create more assistants."
-                    ),
-                },
+                detail=f"Assistant limit ({limit}) reached for your account. Upgrade your plan to create more assistants.",
             )
 
     @classmethod
-    async def check_document_upload_entitlement(
-        cls, workspace: Workspace, current_count: int, additional_docs: int = 1, db: Optional[AsyncSession] = None
+    async def check_document_entitlement(
+        cls, user_id: uuid.UUID, current_count: int, additional_docs: int = 1, db: Optional[AsyncSession] = None
     ) -> None:
-        """Enforce limit on total documents indexed per workspace."""
-        tier = await cls.get_workspace_tier(workspace, db) if db else None
-        max_docs = cls.document_limit_for_tier(tier, cls.get_plan(workspace.plan_tier))
-        tier_name = tier.name if tier else workspace.plan_tier
-
-        if (current_count + additional_docs) > max_docs:
+        """Verify adding documents does not exceed the user's document limit."""
+        if not db:
+            return
+        limit = await cls.get_user_document_limit(user_id, db)
+        if (current_count + additional_docs) > limit:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error": "quota_exceeded",
-                    "resource": "documents",
-                    "current": current_count,
-                    "limit": max_docs,
-                    "tier": tier_name,
-                    "message": (
-                        f"Document limit reached for tier '{tier_name}' "
-                        f"({current_count}/{max_docs} documents). "
-                        "Upgrade required to upload more documents."
-                    ),
-                },
+                detail=f"Document limit ({limit}) reached for your account. Cannot add {additional_docs} document(s). Upgrade your plan to index more documents.",
             )
 
     @classmethod
-    async def check_storage_entitlement(cls, workspace: Workspace, additional_bytes: int, db: AsyncSession) -> None:
-        """Enforce workspace total storage MB limit before writing uploaded file."""
-        tier = await cls.get_workspace_tier(workspace, db)
-        max_storage_mb = int(tier.max_storage_mb) if tier else cls.get_plan(workspace.plan_tier).max_file_size_mb
-        tier_name = tier.name if tier else workspace.plan_tier
+    async def check_storage_entitlement(cls, user_id: uuid.UUID, additional_bytes: int, db: AsyncSession) -> None:
+        """Verify uploading file does not exceed total storage MB quota."""
+        tier = await cls.get_user_tier(user_id, db)
+        limit_mb = float(tier.max_storage_mb) if tier else 50.0
+        current_mb = await cls.get_user_storage_mb(user_id, db)
+        added_mb = additional_bytes / (1024 * 1024)
 
-        current_storage_mb = float(await cls.get_workspace_storage_mb(workspace.id, db))
-        incoming_storage_mb = float(additional_bytes) / (1024 * 1024)
-
-        if (current_storage_mb + incoming_storage_mb) > float(max_storage_mb):
+        if (current_mb + added_mb) > limit_mb:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "error": "quota_exceeded",
-                    "resource": "storage_mb",
-                    "current_mb": round(current_storage_mb, 2),
-                    "incoming_mb": round(incoming_storage_mb, 2),
-                    "limit_mb": max_storage_mb,
-                    "tier": tier_name,
-                    "message": (
-                        f"Storage quota exceeded for tier '{tier_name}' "
-                        f"({round(current_storage_mb + incoming_storage_mb, 2)}/{max_storage_mb} MB). "
-                        "Upgrade required to upload larger or additional files."
-                    ),
-                },
+                detail=f"Storage limit ({limit_mb} MB) exceeded for your account. Upgrade your plan to upload more files.",
             )
 
     @classmethod
-    def check_file_size_entitlement(cls, workspace: Workspace, file_size_bytes: int) -> None:
-        """Enforce single-file upload size limit."""
-        plan = cls.get_plan(workspace.plan_tier)
-        max_bytes = plan.max_file_size_mb * 1024 * 1024
-        if file_size_bytes > max_bytes:
+    def check_file_size_entitlement(cls, file_size_bytes: int) -> None:
+        """Verify single file size does not exceed default quota."""
+        limit_mb = 10.0
+        if (file_size_bytes / (1024 * 1024)) > limit_mb:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=(
-                    f"File exceeds plan '{plan.name}' maximum upload size of "
-                    f"{plan.max_file_size_mb} MB. Upgrade your plan for larger file limits."
-                ),
+                detail=f"File exceeds maximum upload size of {limit_mb} MB.",
             )
 
 

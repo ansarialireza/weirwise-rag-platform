@@ -23,7 +23,7 @@ from backend.app.models.assistant import (
     UnansweredQuery,
 )
 from backend.app.models.audit import ApiCredential
-from backend.app.models.project import Document, KnowledgeSource, Project
+from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.assistant import (
     AnswerFeedbackRequest,
     AnswerFeedbackResponse,
@@ -189,13 +189,10 @@ async def resolve_public_deployment(
             detail="This assistant isn't live yet.",
         )
 
-    # Server-to-server API keys bypass browser domain rules but stay workspace-scoped.
+    # Server-to-server API keys bypass browser domain rules but stay user-scoped.
     if x_api_key:
         credential = await _active_api_credential(x_api_key, db)
-        project_workspace = (
-            await db.execute(select(Project.workspace_id).where(Project.id == assistant.project_id))
-        ).scalar_one_or_none()
-        if project_workspace != credential.workspace_id:
+        if assistant.user_id != credential.user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This API key can't access this assistant.",
@@ -290,16 +287,12 @@ async def public_chat(
     # Reject scripted floods before spending quota, retrieval, or provider budget.
     await _guard_public_chat(request, assistant, deployment, credential)
 
-    # Get Workspace ID
-    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
-    ws_id = (await db.execute(p_stmt)).scalar_one()
-
-    # Enforce Usage Quota & Metering
-    await metering_service.check_and_increment_chat_turn(
+    # Enforce Usage Quota & Metering for assistant owner
+    await metering_service.record_chat_turn(
         db=db,
-        workspace_id=ws_id,
-        project_id=assistant.project_id,
+        user_id=assistant.user_id,
         assistant_id=assistant.id,
+        model_name=assistant.model,
     )
 
     # 1. Resolve or Create Conversation
@@ -426,7 +419,7 @@ async def public_chat(
             assistant=assistant,
             query=payload.message,
             passages=[c.content for c in citations],
-            workspace_id=ws_id,
+            user_id=assistant.user_id,
         )
         assistant_reply = answer.content
     else:
@@ -442,7 +435,7 @@ async def public_chat(
         # Webhook dispatch: question.unanswered
         await webhook_dispatcher.dispatch_event(
             db=db,
-            workspace_id=ws_id,
+            user_id=assistant.user_id,
             event_type="question.unanswered",
             payload_data={"query": payload.message, "assistant_id": str(assistant.id)},
         )
@@ -562,14 +555,12 @@ async def request_human_handoff(
     # Dispatch handoff webhook
     a_stmt = select(Assistant).where(Assistant.id == conv.assistant_id)
     assistant = (await db.execute(a_stmt)).scalar_one()
-    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
-    ws_id = (await db.execute(p_stmt)).scalar_one()
 
-    await webhook_dispatcher.dispatch_event(
+    await webhook_dispatcher.dispatch(
         db=db,
-        workspace_id=ws_id,
+        user_id=assistant.user_id,
         event_type="handoff.requested",
-        payload_data={
+        payload={
             "conversation_id": str(conv.id),
             "customer_email": payload.customer_email,
             "reason": payload.reason,

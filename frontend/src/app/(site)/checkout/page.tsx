@@ -58,8 +58,7 @@ function CheckoutContent() {
 
     async function loadStatus() {
       try {
-        const workspaceId = api.getWorkspaceId();
-        const data = await api.getCheckoutStatus(workspaceId, orderId!);
+        const data = await api.getCheckoutStatus(null, orderId!);
         if (active) {
           setStatusInfo(data);
           setError(null);
@@ -289,7 +288,7 @@ function CheckoutContent() {
               <div className="flex items-start gap-3 rounded-lg border border-border/80 bg-muted/20 p-3.5 text-xs text-muted-foreground">
                 <ShieldCheck className="mt-0.5 h-4 w-4 text-signal shrink-0" />
                 <div>
-                  <strong>What happens after payment:</strong> Once your payment is confirmed by the network, your subscription activates automatically. You can safely keep or leave this page; your workspace status will update immediately.
+                  <strong>What happens after payment:</strong> Once your payment is confirmed by the network, your subscription activates automatically. You can safely keep or leave this page; your account status will update immediately.
                 </div>
               </div>
             </div>

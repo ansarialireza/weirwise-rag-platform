@@ -206,7 +206,7 @@ export default function AssistantConfigurePage() {
       setApiKeys(keys);
       setApiKeysError(null);
     } catch (err: any) {
-      setApiKeysError(err.message || "Only workspace owners and admins can manage API keys.");
+      setApiKeysError(err.message || "Failed to load API keys.");
     }
   }, []);
 
@@ -990,7 +990,7 @@ export default function AssistantConfigurePage() {
                   <h2 className="text-sm font-semibold text-foreground">API access</h2>
                 </div>
                 <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">
-                  Connect a backend, mobile app, or support tool. Keys are workspace-wide and can be
+                  Connect a backend, mobile app, or support tool. Keys are account-wide and can be
                   revoked at any time.
                 </p>
 

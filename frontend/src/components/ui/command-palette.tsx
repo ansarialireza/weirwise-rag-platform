@@ -62,7 +62,7 @@ export function CommandPalette() {
   };
 
   const items: CommandItem[] = [
-    { id: "overview", title: "Overview", subtitle: "Your workspace at a glance", icon: LayoutDashboard, category: "Go to", onSelect: () => go("/overview") },
+    { id: "overview", title: "Overview", subtitle: "Your dashboard at a glance", icon: LayoutDashboard, category: "Go to", onSelect: () => go("/overview") },
     { id: "knowledge", title: "Knowledge", subtitle: "Files and websites your assistants can use", icon: Database, category: "Go to", onSelect: () => go("/sources") },
     { id: "assistants", title: "Assistants", subtitle: "Create and manage assistants", icon: Bot, category: "Go to", onSelect: () => go("/assistants") },
     { id: "playground", title: "Test assistant", subtitle: "Ask a real question and check the answer", icon: MessageSquare, category: "Go to", onSelect: () => go("/playground") },

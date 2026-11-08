@@ -98,7 +98,6 @@ class BehavioralStreamProducer:
         redis_client,
         session_id: str,
         user_id: Optional[str],
-        workspace_id: Optional[str],
         device_context: Dict[str, Any],
         geo_context: Dict[str, Any],
         events: list[Dict[str, Any]],
@@ -123,7 +122,6 @@ class BehavioralStreamProducer:
             envelope = {
                 "session_id": session_id,
                 "user_id": user_id,
-                "workspace_id": workspace_id,
                 "device_context": device_context,
                 "geo_context": geo_context,
                 "event": ev,
