@@ -5,16 +5,17 @@ Revises: ebe95bc87fd0
 Create Date: 2026-11-08 19:10:24.419954
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'bf644be45567'
-down_revision: Union[str, None] = 'ebe95bc87fd0'
+revision: str = "bf644be45567"
+down_revision: Union[str, None] = "ebe95bc87fd0"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
