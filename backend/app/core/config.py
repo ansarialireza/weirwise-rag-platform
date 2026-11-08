@@ -133,6 +133,14 @@ class Settings(BaseSettings):
     INITIAL_STAFF_ADMIN_EMAIL: str | None = None
     INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
 
+    # Billing & Rampex Payment Gateway
+    RAMPEX_API_KEY: str | None = None
+    RAMPEX_WEBHOOK_SECRET: str | None = None
+    RAMPEX_API_BASE_URL: str = "https://api.rampex.io"
+    RAMPEX_ENABLED: bool = False
+    RAMPEX_WALLET_ADDRESS: str | None = None
+    BILLING_WEBHOOK_BASE_URL: str | None = None
+
     # RAG & Embedding Engine Default
     DEFAULT_EMBEDDING_MODEL: str = "jina-embeddings-v4"
 

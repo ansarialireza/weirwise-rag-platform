@@ -2,6 +2,10 @@ import {
   User,
   Workspace,
   WorkspaceBillingStatus,
+  BillingPlanInfo,
+  CheckoutResult,
+  CheckoutStatusInfo,
+  InvoiceItem,
   Project,
   KnowledgeSource,
   DocumentItem,
@@ -336,6 +340,96 @@ class ApiClient {
 
   async getWorkspaceBilling(workspaceId: string): Promise<WorkspaceBillingStatus> {
     return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing`);
+  }
+
+  async getPublicPlans(): Promise<BillingPlanInfo[]> {
+    return this.request<BillingPlanInfo[]>("/plans");
+  }
+
+  async initiateCheckout(
+    workspaceId: string,
+    data: { plan_code: string; billing_cycle?: string; customer_email?: string }
+  ): Promise<CheckoutResult> {
+    return this.request<CheckoutResult>(`/workspaces/${workspaceId}/billing/checkout`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCheckoutStatus(workspaceId: string, orderId: string): Promise<CheckoutStatusInfo> {
+    return this.request<CheckoutStatusInfo>(`/workspaces/${workspaceId}/billing/orders/${orderId}/status`);
+  }
+
+  async getWorkspaceInvoices(workspaceId: string): Promise<InvoiceItem[]> {
+    return this.request<InvoiceItem[]>(`/workspaces/${workspaceId}/billing/invoices`);
+  }
+
+  async downloadInvoice(workspaceId: string, invoiceNumber: string): Promise<any> {
+    return this.request<any>(`/workspaces/${workspaceId}/billing/invoices/${invoiceNumber}/download`);
+  }
+
+  async changeWorkspacePlan(workspaceId: string, targetTier: string): Promise<WorkspaceBillingStatus> {
+    return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing/change-plan`, {
+      method: "POST",
+      body: JSON.stringify({ target_tier: targetTier }),
+    });
+  }
+
+  // Admin Financial Center APIs
+  async getAdminFinancialAnalytics(): Promise<any> {
+    return this.request<any>("/admin/financial/analytics");
+  }
+
+  async getAdminPlans(): Promise<BillingPlanInfo[]> {
+    return this.request<BillingPlanInfo[]>("/admin/financial/plans");
+  }
+
+  async createAdminPlan(data: Partial<BillingPlanInfo>): Promise<BillingPlanInfo> {
+    return this.request<BillingPlanInfo>("/admin/financial/plans", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminPlan(planId: string, data: Partial<BillingPlanInfo>): Promise<BillingPlanInfo> {
+    return this.request<BillingPlanInfo>(`/admin/financial/plans/${planId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminSubscriptions(limit = 50, offset = 0): Promise<any[]> {
+    return this.request<any[]>(`/admin/financial/subscriptions?limit=${limit}&offset=${offset}`);
+  }
+
+  async adjustAdminSubscription(subscriptionId: string, data: { target_plan_code: string; extend_days?: number; reason: string }): Promise<any> {
+    return this.request<any>(`/admin/financial/subscriptions/${subscriptionId}/adjust`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminTransactions(limit = 50, offset = 0, statusFilter?: string): Promise<any[]> {
+    const query = statusFilter ? `&status_filter=${encodeURIComponent(statusFilter)}` : "";
+    return this.request<any[]>(`/admin/financial/transactions?limit=${limit}&offset=${offset}${query}`);
+  }
+
+  async reviewAdminTransaction(paymentId: string, data: { action: "approve" | "reject"; notes: string }): Promise<any> {
+    return this.request<any>(`/admin/financial/transactions/${paymentId}/review`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminRampexSettings(): Promise<any> {
+    return this.request<any>("/admin/financial/providers/rampex");
+  }
+
+  async testAdminRampexConnection(): Promise<any> {
+    return this.request<any>("/admin/financial/providers/rampex/test-connection", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   }
 
   async getProjects(workspaceId: string): Promise<Project[]> {

@@ -114,7 +114,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
       ? [{ name: "Platform settings", href: "/admin/operations", icon: SlidersHorizontal }]
       : []),
     ...(["super_admin", "platform_admin", "finance_admin"].includes(adminRole)
-      ? [{ name: "Billing & usage", href: "/admin/finops", icon: CreditCard }]
+      ? [
+          { name: "Financial Center", href: "/admin/financial", icon: CreditCard },
+          { name: "Token FinOps", href: "/admin/finops", icon: SlidersHorizontal },
+        ]
       : []),
     {
       name: "Activity log",

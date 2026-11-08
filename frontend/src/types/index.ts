@@ -21,14 +21,93 @@ export interface Workspace {
 
 export interface WorkspaceBillingStatus {
   workspace_id: string;
-  plan_tier: string;
+  plan_code?: string;
+  plan_tier?: string;
   plan_name: string;
-  monthly_price_usd: number;
+  monthly_price?: number;
+  monthly_price_usd?: number;
+  yearly_price?: number;
+  currency?: string;
+  billing_cycle?: string;
+  status?: string;
+  billing_status?: string;
+  period_start?: string | null;
+  period_end?: string | null;
+  cancel_at_period_end?: boolean;
   chat_turns_used: number;
   chat_turns_limit: number;
   documents_indexed: number;
   documents_limit: number;
-  billing_status: string;
+  assistants_limit?: number;
+  storage_mb_limit?: number;
+  allowed_models?: string[];
+  features?: string[];
+}
+
+export interface BillingPlanInfo {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  monthly_price: number;
+  yearly_price: number;
+  currency: string;
+  is_active: boolean;
+  is_public?: boolean;
+  is_recommended: boolean;
+  sort_order: number;
+  max_assistants: number;
+  max_documents: number;
+  max_chat_turns_monthly: number;
+  max_storage_mb: number;
+  max_file_size_mb: number;
+  allowed_models: string[];
+  features: string[];
+  allow_custom_branding: boolean;
+  allow_api_access: boolean;
+}
+
+export interface CheckoutResult {
+  order_id: string;
+  order_number: string;
+  plan_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider: string;
+  provider_payment_id: string;
+  payment_url?: string;
+  payment_address?: string;
+  qr_code_svg?: string;
+  expires_at?: string;
+}
+
+export interface CheckoutStatusInfo {
+  order_id: string;
+  order_number: string;
+  status: string;
+  amount: number;
+  currency: string;
+  received_amount?: number;
+  received_currency?: string;
+  blockchain_txid?: string;
+  payment_url?: string;
+  payment_address?: string;
+  qr_code_svg?: string;
+  is_subscription_active: boolean;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_number: string;
+  amount: number;
+  currency: string;
+  status: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  paid_at?: string;
+  line_items: Array<{ description: string; amount: number; currency: string }>;
+  created_at: string;
 }
 
 export interface Project {

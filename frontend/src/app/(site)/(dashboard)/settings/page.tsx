@@ -131,12 +131,20 @@ export default function SettingsPage() {
               Plan & Quota
             </h2>
           </div>
-          <Link
-            href="/pricing"
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            {dict.common.upgrade}
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/settings/billing"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              Billing history
+            </Link>
+            <Link
+              href="/pricing"
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              {dict.common.upgrade}
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
