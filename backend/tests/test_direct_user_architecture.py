@@ -19,11 +19,12 @@ Tests:
 """
 
 import uuid
-import pytest
-from fastapi.testclient import TestClient
+
 from backend.app.main import app
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
 
 def _create_verified_user(email: str = None, email_prefix: str = "user"):
     if not email:

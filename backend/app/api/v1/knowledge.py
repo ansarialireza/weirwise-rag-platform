@@ -406,9 +406,7 @@ async def delete_document(
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Delete a document and trigger vector chunk purge."""
-    doc_res = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
-    )
+    doc_res = await db.execute(select(Document).where(Document.id == document_id, Document.user_id == current_user.id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
@@ -437,9 +435,7 @@ async def retry_document_ingestion(
     db: AsyncSession = Depends(get_db_session),
 ) -> DocumentResponse:
     """Re-run ingestion for a document that previously failed processing."""
-    doc_res = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
-    )
+    doc_res = await db.execute(select(Document).where(Document.id == document_id, Document.user_id == current_user.id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
@@ -502,9 +498,7 @@ async def download_document_stream(
     Stream document from cold tier (15TB Google Drive mount) using chunked async streaming.
     Never loads massive files entirely into RAM.
     """
-    doc_res = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
-    )
+    doc_res = await db.execute(select(Document).where(Document.id == document_id, Document.user_id == current_user.id))
     doc = doc_res.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")

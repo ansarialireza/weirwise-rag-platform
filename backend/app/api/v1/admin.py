@@ -21,7 +21,7 @@ from backend.app.models.admin import (
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
-from backend.app.models.auth import AIRoutingStrategy, User
+from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier, User
 from backend.app.models.billing import (
     BillingOrder,
     BillingPayment,
@@ -83,6 +83,7 @@ async def get_admin_access(
     db: AsyncSession = Depends(get_db_session),
 ) -> AdminAccessResponse:
     from backend.app.api.admin_deps import _is_email_admin
+
     if current_admin.is_superuser or _is_email_admin(current_admin.email):
         return AdminAccessResponse(is_admin=True, role=AdminRole.SUPER_ADMIN.value)
 

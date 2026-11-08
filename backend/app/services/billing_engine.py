@@ -6,8 +6,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Optional
 
-from backend.app.models.assistant import WorkspacePlanEntitlement
-from backend.app.models.auth import SubscriptionTier, User
+from backend.app.models.auth import User
 from backend.app.models.billing import (
     BillingCycle,
     BillingInvoice,
@@ -499,9 +498,7 @@ class BillingEngine:
         # Synchronize User PlanEntitlement (Quota Enforcement)
         from backend.app.services.metering import metering_service
 
-        entitlement = await metering_service.get_or_create_entitlements(
-            db, user_id=order.user_id
-        )
+        entitlement = await metering_service.get_or_create_entitlements(db, user_id=order.user_id)
         entitlement.user_id = order.user_id
         entitlement.plan_tier = plan.code
         entitlement.max_assistants = plan.max_assistants
@@ -549,8 +546,6 @@ class BillingEngine:
         stmt = select(BillingInvoice).where(BillingInvoice.user_id == user_id).order_by(desc(BillingInvoice.created_at))
         res = await db.execute(stmt)
         return list(res.scalars().all())
-
-
 
     async def get_invoice_by_number(self, db: AsyncSession, invoice_number: str) -> Optional[BillingInvoice]:
         stmt = select(BillingInvoice).where(BillingInvoice.invoice_number == invoice_number)

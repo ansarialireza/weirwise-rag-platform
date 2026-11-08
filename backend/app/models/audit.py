@@ -60,6 +60,4 @@ class UsageEvent(Base):
 
     user = relationship("User")
 
-    __table_args__ = (
-        Index("ix_usage_user_event", "user_id", "event_type"),
-    )
+    __table_args__ = (Index("ix_usage_user_event", "user_id", "event_type"),)

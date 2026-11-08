@@ -175,6 +175,7 @@ class TokenCostLedger(Base):
     __tablename__ = "admin_token_cost_ledger"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, nullable=True, index=True)
     credential_id = Column(GUID, nullable=True, index=True)
     provider_name = Column(String(50), nullable=False, index=True)
     model_name = Column(String(100), nullable=False, index=True)
@@ -190,9 +191,7 @@ class TokenCostLedger(Base):
     routing_id = Column(GUID, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
 
-    __table_args__ = (
-        Index("ix_ledger_provider_model_time", "provider_name", "model_name", "created_at"),
-    )
+    __table_args__ = (Index("ix_ledger_provider_model_time", "provider_name", "model_name", "created_at"),)
 
 
 class RoutingEvent(Base):
@@ -207,6 +206,7 @@ class RoutingEvent(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     routing_id = Column(GUID, nullable=False, index=True)
+    user_id = Column(GUID, nullable=True, index=True)
     provider_name = Column(String(50), nullable=False, index=True)
     model_name = Column(String(100), nullable=True)
     credential_id = Column(GUID, nullable=True, index=True)

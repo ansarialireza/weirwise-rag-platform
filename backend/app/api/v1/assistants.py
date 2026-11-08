@@ -490,7 +490,7 @@ async def list_assistant_conversations(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ConversationResponse]:
     """Retrieve actual customer and playground conversation history."""
-    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = (
         select(Conversation, func.count(Message.id).label("msg_count"))
@@ -522,7 +522,7 @@ async def get_conversation_messages(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
 
-    assistant = await verify_assistant_access(conv.assistant_id, current_user.id, db)
+    await verify_assistant_access(conv.assistant_id, current_user.id, db)
 
     m_stmt = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.asc())
     msgs = (await db.execute(m_stmt)).scalars().all()
@@ -539,7 +539,7 @@ async def get_knowledge_gap_analytics(
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeGapAnalyticsResponse:
     """Generate actionable analytics on where assistant fails to find reliable evidence."""
-    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     # 1. Unanswered Queries
     uq_stmt = (
@@ -611,7 +611,7 @@ async def list_evaluation_cases(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[EvaluationCaseResponse]:
     """List evaluation suite for assistant."""
-    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = (
         select(EvaluationCase)
@@ -634,7 +634,7 @@ async def run_single_evaluation(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation case not found.")
 
-    assistant = await verify_assistant_access(case.assistant_id, current_user.id, db)
+    await verify_assistant_access(case.assistant_id, current_user.id, db)
 
     updated_case = await evaluation_service.run_evaluation_case(db, case.id)
     return EvaluationCaseResponse.model_validate(updated_case)
@@ -977,7 +977,7 @@ async def list_assistant_deployments(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[DeploymentResponse]:
     """List deployments and widget public keys for assistant."""
-    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = select(Deployment).where(Deployment.assistant_id == assistant_id).order_by(Deployment.created_at.desc())
     res = await db.execute(stmt)
@@ -996,7 +996,7 @@ async def update_assistant_deployment(
     db: AsyncSession = Depends(get_db_session),
 ) -> DeploymentResponse:
     """Update a deployment's sharing rules without rotating its public key."""
-    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     dep_res = await db.execute(
         select(Deployment).where(
@@ -1094,9 +1094,7 @@ async def list_api_credentials(
 ) -> list[ApiCredentialResponse]:
     """List active and revoked API keys for the authenticated user. Raw keys are never returned again."""
     stmt = (
-        select(ApiCredential)
-        .where(ApiCredential.user_id == current_user.id)
-        .order_by(ApiCredential.created_at.desc())
+        select(ApiCredential).where(ApiCredential.user_id == current_user.id).order_by(ApiCredential.created_at.desc())
     )
     res = await db.execute(stmt)
     return [ApiCredentialResponse.model_validate(cred) for cred in res.scalars().all()]

@@ -16,7 +16,6 @@ from backend.app.db.session import get_db_session
 from backend.app.models.auth import (
     EmailVerificationToken,
     PasswordResetToken,
-    SubscriptionTier,
     User,
     UserSession,
 )

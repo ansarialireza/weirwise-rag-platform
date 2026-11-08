@@ -97,9 +97,6 @@ class AccountBillingOverviewResponse(BaseModel):
     features: list[str]
 
 
-
-
-
 class CheckoutInitiateRequest(BaseModel):
     plan_code: str
     billing_cycle: str = "monthly"  # "monthly" or "yearly"

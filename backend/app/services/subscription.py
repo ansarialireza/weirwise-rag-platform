@@ -5,10 +5,10 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 
-from backend.app.models.assistant import Assistant, WorkspacePlanEntitlement
+from backend.app.models.assistant import WorkspacePlanEntitlement
 from backend.app.models.audit import UsageEvent
-from backend.app.models.auth import SubscriptionTier, User
-from backend.app.models.project import Document, KnowledgeSource
+from backend.app.models.auth import SubscriptionTier
+from backend.app.models.project import Document
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,10 +17,34 @@ logger = logging.getLogger(__name__)
 
 # Fallback in-memory catalog used when the subscription_tiers database table is empty
 FALLBACK_TIER_LIMITS: dict[str, dict[str, int]] = {
-    "free": {"max_assistants": 2, "max_documents": 10, "max_chat_turns_monthly": 100, "max_storage_mb": 50, "max_file_size_mb": 10},
-    "starter": {"max_assistants": 5, "max_documents": 50, "max_chat_turns_monthly": 500, "max_storage_mb": 250, "max_file_size_mb": 25},
-    "pro": {"max_assistants": 20, "max_documents": 250, "max_chat_turns_monthly": 2500, "max_storage_mb": 1000, "max_file_size_mb": 50},
-    "enterprise": {"max_assistants": 100, "max_documents": 2000, "max_chat_turns_monthly": 20000, "max_storage_mb": 10000, "max_file_size_mb": 100},
+    "free": {
+        "max_assistants": 2,
+        "max_documents": 10,
+        "max_chat_turns_monthly": 100,
+        "max_storage_mb": 50,
+        "max_file_size_mb": 10,
+    },
+    "starter": {
+        "max_assistants": 5,
+        "max_documents": 50,
+        "max_chat_turns_monthly": 500,
+        "max_storage_mb": 250,
+        "max_file_size_mb": 25,
+    },
+    "pro": {
+        "max_assistants": 20,
+        "max_documents": 250,
+        "max_chat_turns_monthly": 2500,
+        "max_storage_mb": 1000,
+        "max_file_size_mb": 50,
+    },
+    "enterprise": {
+        "max_assistants": 100,
+        "max_documents": 2000,
+        "max_chat_turns_monthly": 20000,
+        "max_storage_mb": 10000,
+        "max_file_size_mb": 100,
+    },
 }
 
 
@@ -104,10 +128,7 @@ class SubscriptionService:
     @classmethod
     async def get_user_storage_mb(cls, user_id: uuid.UUID, db: AsyncSession) -> float:
         """Calculate total uploaded file storage in MB for the user."""
-        stmt = (
-            select(func.coalesce(func.sum(Document.file_size_bytes), 0))
-            .where(Document.user_id == user_id)
-        )
+        stmt = select(func.coalesce(func.sum(Document.file_size_bytes), 0)).where(Document.user_id == user_id)
         total_bytes = (await db.execute(stmt)).scalar() or 0
         return float(total_bytes) / (1024 * 1024)
 
@@ -137,7 +158,9 @@ class SubscriptionService:
         if current_count >= limit:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Assistant limit ({limit}) reached for your account. Upgrade your plan to create more assistants.",
+                detail=(
+                    f"Assistant limit ({limit}) reached for your account. Upgrade your plan to create more assistants."
+                ),
             )
 
     @classmethod
@@ -151,7 +174,10 @@ class SubscriptionService:
         if (current_count + additional_docs) > limit:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Document limit ({limit}) reached for your account. Cannot add {additional_docs} document(s). Upgrade your plan to index more documents.",
+                detail=(
+                    f"Document limit ({limit}) reached for your account. Cannot add {additional_docs} document(s). "
+                    "Upgrade your plan to index more documents."
+                ),
             )
 
     @classmethod
@@ -165,7 +191,9 @@ class SubscriptionService:
         if (current_mb + added_mb) > limit_mb:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Storage limit ({limit_mb} MB) exceeded for your account. Upgrade your plan to upload more files.",
+                detail=(
+                    f"Storage limit ({limit_mb} MB) exceeded for your account. Upgrade your plan to upload more files."
+                ),
             )
 
     @classmethod

@@ -1,6 +1,5 @@
 """User database model and authentication tokens."""
 
-import enum
 import uuid
 
 from backend.app.db.base import GUID, Base, utc_now

@@ -6,7 +6,7 @@ import json
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from backend.app.models.assistant import WebhookDelivery, WebhookSubscription

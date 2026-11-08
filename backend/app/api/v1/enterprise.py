@@ -1,7 +1,5 @@
 """Enterprise BYOK, Azure OpenAI Configuration, and Advanced Retention Management."""
 
-import uuid
-
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
 from backend.app.models.assistant import WorkspaceBYOKCredential

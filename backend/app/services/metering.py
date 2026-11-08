@@ -9,7 +9,7 @@ from backend.app.models.assistant import WorkspacePlanEntitlement
 from backend.app.models.audit import UsageEvent
 from backend.app.models.auth import SubscriptionTier, User
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class MeteringService:
 
         # Lookup user to determine initial tier
         user_res = await db.execute(select(User).where(User.id == user_id))
-        user_obj = user_res.scalar_one_or_none()
+        user_res.scalar_one_or_none()
         plan_name = "free"
 
         # Lookup SubscriptionTier template
@@ -102,7 +102,10 @@ class MeteringService:
             if not ent.allow_overage:
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail=f"Monthly chat turn limit ({ent.monthly_chat_turns_limit}) exceeded for your plan tier ({ent.plan_tier}). Upgrade or enable overages.",
+                    detail=(
+                        f"Monthly chat turn limit ({ent.monthly_chat_turns_limit}) exceeded "
+                        f"for your plan tier ({ent.plan_tier}). Upgrade or enable overages."
+                    ),
                 )
 
         # Increment usage counter
@@ -135,7 +138,10 @@ class MeteringService:
         if current_count >= ent.max_assistants:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Assistant limit ({ent.max_assistants}) reached for your plan ({ent.plan_tier}). Upgrade your plan to create more assistants.",
+                detail=(
+                    f"Assistant limit ({ent.max_assistants}) reached for your plan ({ent.plan_tier}). "
+                    "Upgrade your plan to create more assistants."
+                ),
             )
 
 

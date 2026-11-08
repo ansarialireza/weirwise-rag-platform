@@ -5,16 +5,17 @@ Revises: d1e2f3a4b5c6
 Create Date: 2026-11-08 15:05:03.988375
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'ebe95bc87fd0'
-down_revision: Union[str, None] = 'd1e2f3a4b5c6'
+revision: str = "ebe95bc87fd0"
+down_revision: Union[str, None] = "d1e2f3a4b5c6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -47,62 +48,76 @@ def upgrade() -> None:
     op.create_index("ix_workspace_byok_credentials_user_id", "workspace_byok_credentials", ["user_id"])
 
     # Step 2: Backfill missing user_ids on knowledge_sources and assistants from project memberships
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE knowledge_sources ks
         SET user_id = m.user_id
         FROM projects p
         JOIN memberships m ON m.workspace_id = p.workspace_id
         WHERE ks.user_id IS NULL AND ks.project_id = p.id;
-    """))
+    """)
+    )
 
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE assistants a
         SET user_id = m.user_id
         FROM projects p
         JOIN memberships m ON m.workspace_id = p.workspace_id
         WHERE a.user_id IS NULL AND a.project_id = p.id;
-    """))
+    """)
+    )
 
     # Step 3: Backfill documents.user_id from parent knowledge_source.user_id
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE documents d
         SET user_id = ks.user_id
         FROM knowledge_sources ks
         WHERE d.knowledge_source_id = ks.id AND d.user_id IS NULL;
-    """))
+    """)
+    )
 
     # Step 4: Backfill user_id on workspace_plan_entitlements
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE workspace_plan_entitlements wpe
         SET user_id = m.user_id
         FROM memberships m
         WHERE wpe.user_id IS NULL AND wpe.workspace_id = m.workspace_id;
-    """))
+    """)
+    )
 
     # Deduplicate entitlements if any user has duplicate rows
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         DELETE FROM workspace_plan_entitlements a
         USING workspace_plan_entitlements b
-        WHERE a.user_id IS NOT NULL 
-          AND a.user_id = b.user_id 
+        WHERE a.user_id IS NOT NULL
+          AND a.user_id = b.user_id
           AND a.created_at < b.created_at;
-    """))
+    """)
+    )
 
     # Step 5: Backfill usage_events.user_id
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE usage_events ue
         SET user_id = m.user_id
         FROM memberships m
         WHERE ue.user_id IS NULL AND ue.workspace_id = m.workspace_id;
-    """))
+    """)
+    )
 
-    conn.execute(sa.text("""
+    conn.execute(
+        sa.text("""
         UPDATE usage_events ue
         SET user_id = m.user_id
         FROM projects p
         JOIN memberships m ON m.workspace_id = p.workspace_id
         WHERE ue.user_id IS NULL AND ue.project_id = p.id;
-    """))
+    """)
+    )
 
     # Step 6: Make user_id NOT NULL on customer-owned resources
     op.alter_column("knowledge_sources", "user_id", nullable=False)

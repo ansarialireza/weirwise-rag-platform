@@ -18,12 +18,12 @@ from backend.app.models.billing import (
     SubscriptionStatus,
 )
 from backend.app.schemas.billing import (
+    AccountBillingOverviewResponse,
     CheckoutInitiateRequest,
     CheckoutResponse,
     CheckoutStatusResponse,
     InvoiceResponse,
     PlanResponse,
-    AccountBillingOverviewResponse,
 )
 from backend.app.services.billing_engine import billing_engine
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -90,9 +90,6 @@ async def get_user_billing(
     """Retrieve full dynamic billing overview, active plan, quotas and real usage for authenticated user."""
     overview = await billing_engine.get_user_billing_overview(db, current_user)
     return AccountBillingOverviewResponse(**overview)
-
-
-
 
 
 class LegacyPlanChangeRequest(BaseModel):
@@ -164,9 +161,6 @@ async def change_user_plan_free_or_direct(
     return AccountBillingOverviewResponse(**overview)
 
 
-
-
-
 # ==========================================================
 # 3. CHECKOUT FLOW
 # ==========================================================
@@ -213,9 +207,6 @@ async def create_user_checkout_session(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Payment provider integration error: {e}",
         )
-
-
-
 
 
 @router.get(
@@ -280,9 +271,6 @@ async def get_user_checkout_status(
     )
 
 
-
-
-
 # ==========================================================
 # 4. INVOICES
 # ==========================================================
@@ -315,9 +303,6 @@ async def list_user_invoices(
     ]
 
 
-
-
-
 @router.get(
     "/billing/invoices/{invoice_number}/download",
 )
@@ -343,9 +328,6 @@ async def download_user_invoice_details(
         "status": inv.status.upper(),
         "line_items": inv.line_items,
     }
-
-
-
 
 
 # ==========================================================
