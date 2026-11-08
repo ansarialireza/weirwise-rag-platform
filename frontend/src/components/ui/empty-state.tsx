@@ -33,14 +33,17 @@ export function EmptyState({
         className
       )}
     >
-      {/* Subtle organic SignalFlow animation ambient glow */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center opacity-70">
-        <SignalFlow variant="compact" className="mx-auto max-w-[320px]" />
-      </div>
+      {/* Visual illustration with geometrically centered icon emblem */}
+      <div className="relative mb-4 flex items-center justify-center">
+        {/* Subtle organic SignalFlow animation ambient glow perfectly centered on the icon */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-70">
+          <SignalFlow variant="compact" className="w-[280px] max-w-none" />
+        </div>
 
-      {/* Modern, soft icon emblem with theme-aware accent colors */}
-      <div className="relative mb-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/80 bg-muted/60 text-primary shadow-xs">
-        <Icon className="h-6 w-6 stroke-[1.8]" aria-hidden="true" />
+        {/* Modern, soft icon emblem with theme-aware accent colors */}
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/80 bg-muted/60 text-primary shadow-xs">
+          <Icon className="h-6 w-6 stroke-[1.8]" aria-hidden="true" />
+        </div>
       </div>
 
       {/* Typography: Balanced, responsive, elegant font */}

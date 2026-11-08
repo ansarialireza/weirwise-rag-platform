@@ -435,7 +435,7 @@ export default function AssistantsListPage() {
             </div>
           </details>
 
-          <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
+          <div className="sticky bottom-0 -mx-5 -mb-5 flex items-center justify-end gap-2 border-t border-border/80 bg-card/95 px-5 py-3.5 backdrop-blur-md sm:-mx-6 sm:-mb-6 sm:px-6 sm:py-4">
             <Button type="button" variant="ghost" onClick={closeCreateModal}>
               Cancel
             </Button>
