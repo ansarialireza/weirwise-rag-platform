@@ -30,6 +30,7 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)

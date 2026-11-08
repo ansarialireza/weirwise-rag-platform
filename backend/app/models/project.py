@@ -54,6 +54,7 @@ class KnowledgeSource(Base):
     __tablename__ = "knowledge_sources"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     # Mapping to Weirwise Core Knowledge Base UUID
     core_kb_id = Column(GUID, nullable=True, index=True)

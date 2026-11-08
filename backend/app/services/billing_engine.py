@@ -347,6 +347,9 @@ class BillingEngine:
         db.add(order)
         await db.flush()
 
+        base_url = "https://dev.weirwise.com"
+        return_url = f"{base_url}/checkout?order_id={order.id}"
+
         # Send request to PaymentProvider (Rampex)
         provider = self.get_provider("rampex")
         req = PaymentCreationRequest(
@@ -357,7 +360,7 @@ class BillingEngine:
             customer_email=customer_email or user.email,
             customer_name=user.full_name,
             description=f"Weirwise {plan.name} ({cycle.capitalize()})",
-            return_url=f"/checkout/status?order_id={order.id}",
+            return_url=return_url,
         )
 
         res = await provider.create_payment(req)
