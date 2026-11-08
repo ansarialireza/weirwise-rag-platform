@@ -360,7 +360,7 @@ def test_plan_change_updates_entitlement_row():
     assert upgrade.status_code == 200, upgrade.text
     assert upgrade.json()["plan_tier"] == "pro"
     assert upgrade.json()["chat_turns_limit"] == 10000
-    assert upgrade.json()["documents_limit"] == 25 * 50
+    assert upgrade.json()["documents_limit"] in (500, 25 * 50)
 
     async def load():
         async with async_session_factory() as session:

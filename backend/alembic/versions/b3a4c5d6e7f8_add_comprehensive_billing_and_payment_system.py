@@ -7,10 +7,11 @@ Create Date: 2026-11-08 10:20:00.000000
 """
 
 from typing import Sequence, Union
-from alembic import op
+
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 from backend.app.db.base import GUID, CompatibleJSON
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "b3a4c5d6e7f8"
@@ -73,7 +74,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_billing_subscriptions_plan_id"), "billing_subscriptions", ["plan_id"], unique=False)
     op.create_index(op.f("ix_billing_subscriptions_status"), "billing_subscriptions", ["status"], unique=False)
-    op.create_index(op.f("ix_billing_subscriptions_workspace_id"), "billing_subscriptions", ["workspace_id"], unique=False)
+    op.create_index(
+        op.f("ix_billing_subscriptions_workspace_id"), "billing_subscriptions", ["workspace_id"], unique=False
+    )
 
     # 3. billing_orders table
     op.create_table(
@@ -134,7 +137,9 @@ def upgrade() -> None:
     op.create_index(op.f("ix_billing_payments_blockchain_txid"), "billing_payments", ["blockchain_txid"], unique=False)
     op.create_index(op.f("ix_billing_payments_order_id"), "billing_payments", ["order_id"], unique=False)
     op.create_index(op.f("ix_billing_payments_provider"), "billing_payments", ["provider"], unique=False)
-    op.create_index(op.f("ix_billing_payments_provider_payment_id"), "billing_payments", ["provider_payment_id"], unique=False)
+    op.create_index(
+        op.f("ix_billing_payments_provider_payment_id"), "billing_payments", ["provider_payment_id"], unique=False
+    )
     op.create_index(op.f("ix_billing_payments_status"), "billing_payments", ["status"], unique=False)
 
     # 5. billing_payment_events table
@@ -155,8 +160,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_billing_payment_events_event_id"), "billing_payment_events", ["event_id"], unique=True)
-    op.create_index(op.f("ix_billing_payment_events_event_type"), "billing_payment_events", ["event_type"], unique=False)
-    op.create_index(op.f("ix_billing_payment_events_payment_id"), "billing_payment_events", ["payment_id"], unique=False)
+    op.create_index(
+        op.f("ix_billing_payment_events_event_type"), "billing_payment_events", ["event_type"], unique=False
+    )
+    op.create_index(
+        op.f("ix_billing_payment_events_payment_id"), "billing_payment_events", ["payment_id"], unique=False
+    )
 
     # 6. billing_invoices table
     op.create_table(
@@ -203,7 +212,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_payment_provider_configs_provider_name"), "payment_provider_configs", ["provider_name"], unique=True)
+    op.create_index(
+        op.f("ix_payment_provider_configs_provider_name"), "payment_provider_configs", ["provider_name"], unique=True
+    )
 
 
 def downgrade() -> None:

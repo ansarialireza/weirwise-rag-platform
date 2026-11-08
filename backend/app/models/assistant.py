@@ -308,9 +308,7 @@ class WorkspacePlanEntitlement(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
-    )
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True)
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
     max_knowledge_sources = Column(Integer, default=3, nullable=False)

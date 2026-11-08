@@ -511,8 +511,7 @@ async def download_user_invoice_details(
         "date": inv.created_at.strftime("%Y-%m-%d"),
         "paid_date": inv.paid_at.strftime("%Y-%m-%d") if inv.paid_at else None,
         "billing_period": (
-            f"{inv.billing_period_start.strftime('%Y-%m-%d')} to "
-            f"{inv.billing_period_end.strftime('%Y-%m-%d')}"
+            f"{inv.billing_period_start.strftime('%Y-%m-%d')} to {inv.billing_period_end.strftime('%Y-%m-%d')}"
         ),
         "total": f"{inv.amount} {inv.currency}",
         "status": inv.status.upper(),
@@ -542,8 +541,7 @@ async def download_invoice_details(
         "date": inv.created_at.strftime("%Y-%m-%d"),
         "paid_date": inv.paid_at.strftime("%Y-%m-%d") if inv.paid_at else None,
         "billing_period": (
-            f"{inv.billing_period_start.strftime('%Y-%m-%d')} to "
-            f"{inv.billing_period_end.strftime('%Y-%m-%d')}"
+            f"{inv.billing_period_start.strftime('%Y-%m-%d')} to {inv.billing_period_end.strftime('%Y-%m-%d')}"
         ),
         "total": f"{inv.amount} {inv.currency}",
         "status": inv.status.upper(),

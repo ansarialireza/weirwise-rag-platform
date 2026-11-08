@@ -34,20 +34,6 @@ from backend.app.models.assistant import (
     WorkspaceBYOKCredential,
     WorkspacePlanEntitlement,
 )
-from backend.app.models.billing import (
-    BillingCycle,
-    BillingInvoice,
-    BillingOrder,
-    BillingPayment,
-    BillingPaymentEvent,
-    BillingPlan,
-    BillingSubscription,
-    InvoiceStatus,
-    OrderStatus,
-    PaymentProviderConfig,
-    PaymentStatus,
-    SubscriptionStatus,
-)
 from backend.app.models.audit import (
     ApiCredential,
     AuditEvent,
@@ -71,6 +57,20 @@ from backend.app.models.behavioral import (
     EventCategory,
     UserBehavioralProfile,
     UserBehavioralSession,
+)
+from backend.app.models.billing import (
+    BillingCycle,
+    BillingInvoice,
+    BillingOrder,
+    BillingPayment,
+    BillingPaymentEvent,
+    BillingPlan,
+    BillingSubscription,
+    InvoiceStatus,
+    OrderStatus,
+    PaymentProviderConfig,
+    PaymentStatus,
+    SubscriptionStatus,
 )
 from backend.app.models.project import (
     Document,

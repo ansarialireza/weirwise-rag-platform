@@ -201,10 +201,12 @@ class BillingEngine:
 
         # 2. Entitlement check
         from backend.app.services.metering import metering_service
+
         ent = await metering_service.get_or_create_entitlements(db, user_id=user.id)
 
         # 3. Usage numbers directly for user resources
         from backend.app.services.subscription import subscription_service
+
         usage = await subscription_service.get_user_usage(user.id, db)
 
         return {
@@ -533,15 +535,7 @@ class BillingEngine:
         elif order.workspace_id:
             conditions.append(BillingSubscription.workspace_id == order.workspace_id)
 
-        prev_subs = (
-            (
-                await db.execute(
-                    select(BillingSubscription).where(*conditions)
-                )
-            )
-            .scalars()
-            .all()
-        )
+        prev_subs = (await db.execute(select(BillingSubscription).where(*conditions))).scalars().all()
         for ps in prev_subs:
             ps.status = SubscriptionStatus.CANCELLED.value
             ps.ended_at = now
@@ -642,11 +636,7 @@ class BillingEngine:
     # ==========================================================
 
     async def list_user_invoices(self, db: AsyncSession, user_id: uuid.UUID) -> list[BillingInvoice]:
-        stmt = (
-            select(BillingInvoice)
-            .where(BillingInvoice.user_id == user_id)
-            .order_by(desc(BillingInvoice.created_at))
-        )
+        stmt = select(BillingInvoice).where(BillingInvoice.user_id == user_id).order_by(desc(BillingInvoice.created_at))
         res = await db.execute(stmt)
         return list(res.scalars().all())
 
