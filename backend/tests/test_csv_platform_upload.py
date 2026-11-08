@@ -1,9 +1,10 @@
 import io
-import pytest
+
 from backend.app.main import app
 from fastapi.testclient import TestClient
 
 client = TestClient(app)
+
 
 def test_csv_upload_entitlement_and_extension_allowed():
     # Register and login
@@ -22,7 +23,11 @@ def test_csv_upload_entitlement_and_extension_allowed():
     p_id = p_res.json()["id"]
 
     # Source
-    s_res = client.post(f"/api/v1/projects/{p_id}/sources", headers=headers, json={"name": "CSV Source", "source_type": "file_upload"})
+    s_res = client.post(
+        f"/api/v1/projects/{p_id}/sources",
+        headers=headers,
+        json={"name": "CSV Source", "source_type": "file_upload"},
+    )
     source_id = s_res.json()["id"]
 
     csv_data = b"col1,col2,col3\nval1,val2,val3\n"
