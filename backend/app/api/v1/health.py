@@ -2,6 +2,7 @@
 
 from backend.app.adapters.core_client import CoreApiClient
 from backend.app.core.config import settings
+from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
