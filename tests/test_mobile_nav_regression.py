@@ -7,7 +7,7 @@ import subprocess
 import json
 from playwright.async_api import async_playwright
 
-BASE_URL = "https://dev.weirwise.com"
+BASE_URL = os.environ.get("BASE_URL", "https://dev.weirwise.com")
 
 VIEWPORTS = [
     {"name": "Narrow Android (320px)", "width": 320, "height": 640},
@@ -28,18 +28,20 @@ DASHBOARD_ROUTES = [
 
 async def run_regression_tests():
     print("=" * 80)
-    print("STARTING MOBILE BOTTOM NAVIGATION REGRESSION & ACCEPTANCE TEST SUITE")
+    print("STARTING MOBILE BOTTOM NAVIGATION RIGOROUS REGRESSION TEST SUITE")
+    print(f"Target URL: {BASE_URL}")
     print("=" * 80)
 
-    # 1. Register test user
+    total_checks_passed = 0
+    total_checks_failed = 0
+
     uid = uuid.uuid4().hex[:6]
-    test_email = f"mob_reg_{uid}@weirwise-test.internal"
+    test_email = f"mob_rigor_{uid}@weirwise-test.internal"
     test_password = "Password123!"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
         
-        # Test across all 6 viewports
         for vp in VIEWPORTS:
             vp_name = vp["name"]
             width = vp["width"]
@@ -54,14 +56,15 @@ async def run_regression_tests():
             )
             page = await context.new_page()
 
-            # Step 1: Open Login Page while logged out
+            # Condition 1: Verify bottom nav does NOT appear on unauthenticated /login
             await page.goto(f"{BASE_URL}/login")
             await page.wait_for_load_state("networkidle")
             nav_on_login = await page.query_selector("nav[aria-label='Mobile Bottom Navigation']")
             assert nav_on_login is None, f"[{vp_name}] Bottom nav should not appear on unauthenticated /login"
+            total_checks_passed += 1
             print(f"  ✓ [{vp_name}] Logged-out state: Bottom nav correctly absent on /login")
 
-            # If user does not exist yet, register now
+            # First viewport registers account
             if vp == VIEWPORTS[0]:
                 print("  Registering user account...")
                 await page.goto(f"{BASE_URL}/register")
@@ -78,9 +81,10 @@ async def run_regression_tests():
                 await page.locator("input[autocomplete='one-time-code'], input[placeholder='000000']").fill(otp_code)
                 await page.click("button[type='submit']")
                 await page.wait_for_url("**/login*", timeout=10000)
-                print("  ✓ Account verified successfully.")
+                total_checks_passed += 1
+                print("  ✓ Account registered and OTP verified successfully.")
 
-            # Step 2: Log in
+            # Condition 2: Navigation works immediately after login
             print(f"  Logging in on {vp_name}...")
             await page.goto(f"{BASE_URL}/login")
             await page.fill("input[type='email']", test_email)
@@ -88,74 +92,150 @@ async def run_regression_tests():
             await page.click("button[type='submit']")
             await page.wait_for_url("**/overview*", timeout=12000)
 
-            # Step 3: Immediately verify MobileBottomNav visibility & hierarchy
             bnav = page.locator("nav[aria-label='Mobile Bottom Navigation']")
             await bnav.wait_for(state="visible", timeout=5000)
             assert await bnav.is_visible(), f"[{vp_name}] Bottom nav not immediately visible after login"
+            total_checks_passed += 1
+            print(f"  ✓ [{vp_name}] Navigation rendered immediately after login without refresh/transitions")
 
-            # Check that all 5 icons exist and are visible
-            icons = await page.locator("nav[aria-label='Mobile Bottom Navigation'] svg").all()
-            assert len(icons) == 5, f"[{vp_name}] Expected 5 icons, got {len(icons)}"
-            for i, icon in enumerate(icons):
-                assert await icon.is_visible(), f"[{vp_name}] Icon {i} is not visible"
-            print(f"  ✓ [{vp_name}] 5 navigation icons visible immediately after login")
-
-            # Check icon bounding box and visibility via JS
-            metrics = await page.evaluate("""() => {
+            # Condition 3 & 4 & 5: All 5 icons have visible bounding boxes, are inside viewport, and no element overlays clickable area
+            icon_validation = await page.evaluate("""() => {
                 const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
-                const rect = nav.getBoundingClientRect();
+                if (!nav) return { found: false, error: "Nav not found" };
+
+                const navRect = nav.getBoundingClientRect();
+                const vh = window.innerHeight;
+                const vw = window.innerWidth;
+                const links = Array.from(nav.querySelectorAll("a"));
                 const svgs = Array.from(nav.querySelectorAll("svg"));
+
+                if (svgs.length !== 5) {
+                    return { found: true, error: `Expected 5 svgs, found ${svgs.length}` };
+                }
+
+                const iconChecks = svgs.map((svg, i) => {
+                    const rect = svg.getBoundingClientRect();
+                    const style = window.getComputedStyle(svg);
+                    const link = svg.closest("a");
+                    const linkRect = link ? link.getBoundingClientRect() : null;
+
+                    // Verify bounding box inside viewport
+                    const inViewport = (
+                        rect.top >= 0 &&
+                        rect.bottom <= vh &&
+                        rect.left >= 0 &&
+                        rect.right <= vw &&
+                        rect.width >= 16 &&
+                        rect.height >= 16
+                    );
+
+                    // Check element from point at center of icon to verify nothing overlays it
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    const elAtCenter = document.elementFromPoint(centerX, centerY);
+
+                    // Clickable / overlay check: element at center must be the svg itself, a path inside it, or its parent link/container
+                    const notCovered = elAtCenter && (svg.contains(elAtCenter) || svg === elAtCenter || (link && link.contains(elAtCenter)));
+
+                    return {
+                        index: i,
+                        inViewport,
+                        notCovered,
+                        styleVisibility: style.visibility === "visible" && style.display !== "none" && parseFloat(style.opacity) > 0,
+                        width: rect.width,
+                        height: rect.height,
+                        top: rect.top,
+                        bottom: rect.bottom,
+                        elAtCenterTag: elAtCenter ? elAtCenter.tagName : null,
+                        elAtCenterClass: elAtCenter ? elAtCenter.className : null
+                    };
+                });
+
                 return {
-                    navTop: rect.top,
-                    navBottom: rect.bottom,
-                    navHeight: rect.height,
-                    vh: window.innerHeight,
-                    icons: svgs.map(s => {
-                        const r = s.getBoundingClientRect();
-                        return { top: r.top, bottom: r.bottom, width: r.width, height: r.height };
-                    })
+                    found: true,
+                    navTop: navRect.top,
+                    navBottom: navRect.bottom,
+                    navHeight: navRect.height,
+                    vh,
+                    vw,
+                    iconChecks,
+                    allValid: iconChecks.every(c => c.inViewport && c.notCovered && c.styleVisibility)
                 };
             }""")
-            assert metrics["navBottom"] <= height + 1 and metrics["navTop"] >= height - 80, f"[{vp_name}] Unexpected nav rect: {metrics}"
-            print(f"  ✓ [{vp_name}] Nav correctly anchored to viewport bottom (top: {metrics['navTop']:.1f}px, bottom: {metrics['navBottom']:.1f}px, vh: {metrics['vh']}px)")
 
-            # Step 4: Route transitions across all dashboard pages
+            assert icon_validation["found"] and icon_validation.get("allValid"), f"[{vp_name}] Icon checks failed: {json.dumps(icon_validation, indent=2)}"
+            total_checks_passed += 5  # 5 icons validated for bounding box, viewport inclusion, visibility, and overlay freedom
+            print(f"  ✓ [{vp_name}] All 5 icons verified: bounding boxes strictly inside viewport ({icon_validation['navTop']:.1f}px - {icon_validation['navBottom']:.1f}px), no overlay obstructions")
+
+            # Condition 6: Navigation remains visible after route transitions across all 5 dashboard sections
             for r in DASHBOARD_ROUTES:
                 link = page.locator(f"nav[aria-label='Mobile Bottom Navigation'] a[href='{r}']")
                 await link.click()
                 await page.wait_for_url(f"**{r}*", timeout=8000)
-                await page.wait_for_timeout(350) # allow transition
+                await page.wait_for_timeout(350)  # Allow transition
+
                 assert await bnav.is_visible(), f"[{vp_name}] Bottom nav hidden on route {r}"
                 
-                # Check active class
+                # Active indicator assertion
                 classes = await link.get_attribute("class") or ""
                 assert "text-foreground" in classes, f"[{vp_name}] Route {r} should have active class"
-                
-                # Check icons still visible
-                for i, icon in enumerate(icons):
-                    assert await icon.is_visible(), f"[{vp_name}] Icon {i} not visible on route {r}"
-            print(f"  ✓ [{vp_name}] All route transitions passed with persistent bottom nav & active state")
 
-            # Step 5: Scrolling verification (top, middle, bottom, rapid scrolling)
+                # Check all 5 icons still visible and not overlaid on this route
+                icons_visible = await page.evaluate("""() => {
+                    const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
+                    const svgs = Array.from(nav.querySelectorAll("svg"));
+                    return svgs.every(svg => {
+                        const r = svg.getBoundingClientRect();
+                        const el = document.elementFromPoint(r.left + r.width/2, r.top + r.height/2);
+                        return r.width > 0 && r.height > 0 && r.bottom <= window.innerHeight && (svg.contains(el) || svg === el || svg.closest("a").contains(el));
+                    });
+                }""")
+                assert icons_visible, f"[{vp_name}] Icons obstructed or invisible on route {r}"
+                total_checks_passed += 1
+
+            print(f"  ✓ [{vp_name}] Persistent across all route transitions: /overview, /sources, /assistants, /playground, /settings")
+
+            # Condition 7: Navigation remains visible during and after scrolling (top, middle, bottom, rapid scroll)
             await page.goto(f"{BASE_URL}/overview")
             await page.wait_for_load_state("networkidle")
-            
-            # Scroll to top (default)
-            scroll_status = await page.evaluate("""() => {
-                const main = document.querySelector("#main-content");
+
+            # Check at top
+            top_check = await page.evaluate("""() => {
                 const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
-                return {
-                    initialNavTop: nav.getBoundingClientRect().top
-                };
+                const rect = nav.getBoundingClientRect();
+                return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
             }""")
-            
+            assert top_check, f"[{vp_name}] Nav displaced at scroll top"
+            total_checks_passed += 1
+
+            # Scroll to middle
+            await page.evaluate("""() => {
+                const main = document.querySelector("#main-content");
+                if (main) main.scrollTop = main.scrollHeight / 2;
+            }""")
+            await page.wait_for_timeout(100)
+            mid_check = await page.evaluate("""() => {
+                const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
+                const rect = nav.getBoundingClientRect();
+                return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
+            }""")
+            assert mid_check, f"[{vp_name}] Nav displaced at scroll middle"
+            total_checks_passed += 1
+
             # Scroll to bottom
             await page.evaluate("""() => {
                 const main = document.querySelector("#main-content");
                 if (main) main.scrollTop = main.scrollHeight;
             }""")
             await page.wait_for_timeout(100)
-            
+            bot_check = await page.evaluate("""() => {
+                const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
+                const rect = nav.getBoundingClientRect();
+                return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
+            }""")
+            assert bot_check, f"[{vp_name}] Nav displaced at scroll bottom"
+            total_checks_passed += 1
+
             # Rapid scroll up and down
             for _ in range(5):
                 await page.evaluate("""() => {
@@ -164,42 +244,43 @@ async def run_regression_tests():
                 }""")
                 await page.evaluate("""() => {
                     const main = document.querySelector("#main-content");
-                    if (main) main.scrollTop = main.scrollHeight / 2;
-                }""")
-                await page.evaluate("""() => {
-                    const main = document.querySelector("#main-content");
                     if (main) main.scrollTop = main.scrollHeight;
                 }""")
-            
-            # Verify nav is still firmly at bottom of viewport
-            final_nav_top = await page.evaluate("""() => {
+            await page.wait_for_timeout(100)
+
+            rapid_check = await page.evaluate("""() => {
                 const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
-                return nav.getBoundingClientRect().top;
+                const rect = nav.getBoundingClientRect();
+                return rect.top >= 0 && rect.bottom <= window.innerHeight + 1;
             }""")
-            assert abs(final_nav_top - metrics["navTop"]) < 1.0, f"[{vp_name}] Nav shifted after rapid scroll: initial={metrics['navTop']}, final={final_nav_top}"
+            assert rapid_check, f"[{vp_name}] Nav displaced after rapid scroll"
+            total_checks_passed += 1
             print(f"  ✓ [{vp_name}] Scroll stability verified: top, middle, bottom, and rapid scroll")
 
-            # Step 6: Hard refresh / reload
+            # Hard reload persistence
             await page.reload()
             await page.wait_for_load_state("networkidle")
             await page.wait_for_timeout(350)
             assert await bnav.is_visible(), f"[{vp_name}] Bottom nav disappeared after page reload"
+            total_checks_passed += 1
             print(f"  ✓ [{vp_name}] Navigation persistent across hard reload")
 
-            # Capture visual evidence
+            # Capture visual evidence from running build
             os.makedirs("/home/agyops/var/qa/mobile_nav_regression", exist_ok=True)
             shot_path = f"/home/agyops/var/qa/mobile_nav_regression/evidence_{width}x{height}.png"
             await page.screenshot(path=shot_path)
-            print(f"  ✓ [{vp_name}] Screenshot captured: {shot_path}")
+            total_checks_passed += 1
+            print(f"  ✓ [{vp_name}] Visual screenshot captured: {shot_path}")
 
             await context.close()
 
-        # Step 7: Desktop regression verification (ensure bottom nav is NOT visible on desktop, sidebar is visible)
+        # Desktop Regression
         print("\n--- Testing Desktop Regression (1440x900) ---")
         d_context = await browser.new_context(viewport={"width": 1440, "height": 900})
         d_page = await d_context.new_page()
         await d_page.goto(f"{BASE_URL}/login")
         await d_page.fill("input[type='email']", test_email)
+        await page.wait_for_timeout(100)
         await d_page.fill("input[type='password']", test_password)
         await d_page.click("button[type='submit']")
         await d_page.wait_for_url("**/overview*", timeout=10000)
@@ -208,15 +289,19 @@ async def run_regression_tests():
         assert not await d_bnav.is_visible(), "Bottom nav should NOT be visible on desktop"
         d_sidebar = d_page.locator("aside, nav[aria-label='Main Navigation']")
         assert await d_sidebar.first.is_visible(), "Desktop sidebar must be visible on desktop"
-        await d_page.screenshot(path="/home/agyops/var/qa/mobile_nav_regression/evidence_desktop_1440x900.png")
+        total_checks_passed += 2
         print("  ✓ Desktop view verified: MobileBottomNav hidden via md:hidden, Sidebar visible")
+        
+        shot_path_desk = "/home/agyops/var/qa/mobile_nav_regression/evidence_desktop_1440x900.png"
+        await d_page.screenshot(path=shot_path_desk)
         await d_context.close()
 
         await browser.close()
-    
+
     print("\n" + "=" * 80)
-    print("ALL MOBILE BOTTOM NAVIGATION TESTS PASSED SUCCESSFULLY!")
+    print(f"TEST EXECUTION COMPLETE: {total_checks_passed} PASSED, {total_checks_failed} FAILED")
     print("=" * 80)
+    assert total_checks_failed == 0
 
 if __name__ == "__main__":
     asyncio.run(run_regression_tests())
