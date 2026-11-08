@@ -405,7 +405,7 @@ export default function SourcesKnowledgePage() {
                 className="gap-2"
               >
                 <Search className="h-4 w-4 text-primary" />
-                Direct Search
+                Search knowledge
               </Button>
               <Button onClick={() => setShowModal(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
@@ -1126,22 +1126,22 @@ export default function SourcesKnowledgePage() {
         </form>
       </Modal>
 
-      {/* Direct Knowledge Search Modal */}
+      {/* Knowledge Search Modal */}
       <Modal
         isOpen={showDirectSearchModal}
         onClose={() => setShowDirectSearchModal(false)}
-        title="Direct Knowledge Search"
+        title="Search knowledge"
         description={
           selectedSource
-            ? `Search directly across documents in “${selectedSource.name}”.`
-            : "Search directly across your indexed knowledge documents."
+            ? `Search across documents in “${selectedSource.name}”.`
+            : "Search across all documents in your knowledge base."
         }
       >
         {selectedSource && (!documents || documents.length === 0 || !documents.some(d => d.status === "ready")) ? (
           <div className="py-6 text-center space-y-2">
-            <p className="text-sm font-medium text-foreground">No indexed documents ready</p>
+            <p className="text-sm font-medium text-foreground">No documents ready yet</p>
             <p className="text-xs text-muted-foreground">
-              Add and wait for at least one document to finish processing before querying direct search.
+              Add at least one document and wait for processing to finish before searching.
             </p>
           </div>
         ) : (
@@ -1165,7 +1165,7 @@ export default function SourcesKnowledgePage() {
             <div className="mt-4 max-h-[400px] overflow-y-auto space-y-3">
               {directSearchHasSearched && directSearchResults.length === 0 && (
                 <div className="py-8 text-center text-sm text-muted-foreground">
-                  No matching knowledge passages found for “{directSearchQuery}”.
+                  No matching passages found for “{directSearchQuery}”.
                 </div>
               )}
 
@@ -1175,8 +1175,8 @@ export default function SourcesKnowledgePage() {
                     <span className="font-semibold text-foreground truncate max-w-[70%]">
                       {res.document_name || res.source_name || "Document excerpt"}
                     </span>
-                    <span className="text-accent font-bold">
-                      Score: {Math.round(res.score * 100)}%
+                    <span className="text-accent font-medium">
+                      {Math.round(res.score * 100)}% match
                     </span>
                   </div>
                   <p className="text-foreground/90 leading-relaxed font-sans line-clamp-4">
