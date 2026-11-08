@@ -22,6 +22,9 @@ from sqlalchemy import select
 _READY_STATES = {"completed", "ready"}
 _FAILED_STATES = {"failed", "error"}
 
+# Semaphore to bound concurrent background indexing tasks and prevent downstream pool exhaustion
+_INGESTION_SEMAPHORE = asyncio.Semaphore(10)
+
 
 async def _wait_for_core_indexing(
     core_client: CoreApiClient, core_doc_id: uuid.UUID, initial_status: str | None
@@ -87,6 +90,11 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
     - Step 3: Cold Transfer moves the raw file to /mnt/gdrive vault (the permanent cold tier).
     - Step 4: Failsafe Deletion strictly ensures local temp file is deleted in a finally block.
     """
+    async with _INGESTION_SEMAPHORE:
+        await _process_document_ingestion_inner(document_id)
+
+
+async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
     initial_temp_path = None
     async with async_session_factory() as db:
         # Load document with knowledge source

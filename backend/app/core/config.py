@@ -101,12 +101,13 @@ class Settings(BaseSettings):
     STORAGE_LOCAL_DIR: str = "/tmp/weirwise_uploads"
     STORAGE_COLD_DIR: str = "/mnt/gdrive/weirwise/storage/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
-    ALLOWED_EXTENSIONS: list[str] = [".pdf", ".docx", ".txt", ".md"]
+    ALLOWED_EXTENSIONS: list[str] = [".pdf", ".docx", ".txt", ".md", ".csv"]
     ALLOWED_MIME_TYPES: list[str] = [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/plain",
         "text/markdown",
+        "text/csv",
     ]
 
     # Weirwise Core Integration Contract (Headless RAG Engine)
