@@ -75,8 +75,9 @@ class PlanUpdateRequest(BaseModel):
     allow_api_access: Optional[bool] = None
 
 
-class WorkspaceBillingOverviewResponse(BaseModel):
-    workspace_id: uuid.UUID
+class AccountBillingOverviewResponse(BaseModel):
+    user_id: Optional[uuid.UUID] = None
+    workspace_id: Optional[uuid.UUID] = None  # Backward-compatibility alias
     plan_code: str
     plan_tier: Optional[str] = None  # Backward-compatibility alias
     plan_name: str
@@ -98,6 +99,10 @@ class WorkspaceBillingOverviewResponse(BaseModel):
     storage_mb_limit: int
     allowed_models: list[str]
     features: list[str]
+
+
+# Backward compatibility alias
+WorkspaceBillingOverviewResponse = AccountBillingOverviewResponse
 
 
 class CheckoutInitiateRequest(BaseModel):

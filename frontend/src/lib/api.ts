@@ -338,8 +338,14 @@ class ApiClient {
     });
   }
 
-  async getWorkspaceBilling(workspaceId: string): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing`);
+  async getUserBilling(): Promise<WorkspaceBillingStatus> {
+    return this.request<WorkspaceBillingStatus>("/billing");
+  }
+
+  async getWorkspaceBilling(workspaceId?: string): Promise<WorkspaceBillingStatus> {
+    return this.request<WorkspaceBillingStatus>("/billing").catch(() => {
+      return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing`);
+    });
   }
 
   async getPublicPlans(): Promise<BillingPlanInfo[]> {
@@ -347,31 +353,47 @@ class ApiClient {
   }
 
   async initiateCheckout(
-    workspaceId: string,
+    workspaceId: string | null,
     data: { plan_code: string; billing_cycle?: string; customer_email?: string }
   ): Promise<CheckoutResult> {
-    return this.request<CheckoutResult>(`/workspaces/${workspaceId}/billing/checkout`, {
+    return this.request<CheckoutResult>("/billing/checkout", {
       method: "POST",
       body: JSON.stringify(data),
+    }).catch(() => {
+      return this.request<CheckoutResult>(`/workspaces/${workspaceId}/billing/checkout`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
     });
   }
 
-  async getCheckoutStatus(workspaceId: string, orderId: string): Promise<CheckoutStatusInfo> {
-    return this.request<CheckoutStatusInfo>(`/workspaces/${workspaceId}/billing/orders/${orderId}/status`);
+  async getCheckoutStatus(workspaceId: string | null, orderId: string): Promise<CheckoutStatusInfo> {
+    return this.request<CheckoutStatusInfo>(`/billing/orders/${orderId}/status`).catch(() => {
+      return this.request<CheckoutStatusInfo>(`/workspaces/${workspaceId}/billing/orders/${orderId}/status`);
+    });
   }
 
-  async getWorkspaceInvoices(workspaceId: string): Promise<InvoiceItem[]> {
-    return this.request<InvoiceItem[]>(`/workspaces/${workspaceId}/billing/invoices`);
+  async getWorkspaceInvoices(workspaceId?: string): Promise<InvoiceItem[]> {
+    return this.request<InvoiceItem[]>("/billing/invoices").catch(() => {
+      return this.request<InvoiceItem[]>(`/workspaces/${workspaceId}/billing/invoices`);
+    });
   }
 
-  async downloadInvoice(workspaceId: string, invoiceNumber: string): Promise<any> {
-    return this.request<any>(`/workspaces/${workspaceId}/billing/invoices/${invoiceNumber}/download`);
+  async downloadInvoice(workspaceId: string | null, invoiceNumber: string): Promise<any> {
+    return this.request<any>(`/billing/invoices/${invoiceNumber}/download`).catch(() => {
+      return this.request<any>(`/workspaces/${workspaceId}/billing/invoices/${invoiceNumber}/download`);
+    });
   }
 
-  async changeWorkspacePlan(workspaceId: string, targetTier: string): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing/change-plan`, {
+  async changeWorkspacePlan(workspaceId: string | null, targetTier: string): Promise<WorkspaceBillingStatus> {
+    return this.request<WorkspaceBillingStatus>("/billing/change-plan", {
       method: "POST",
       body: JSON.stringify({ target_tier: targetTier }),
+    }).catch(() => {
+      return this.request<WorkspaceBillingStatus>(`/workspaces/${workspaceId}/billing/change-plan`, {
+        method: "POST",
+        body: JSON.stringify({ target_tier: targetTier }),
+      });
     });
   }
 

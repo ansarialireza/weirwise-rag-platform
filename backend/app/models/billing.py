@@ -101,12 +101,13 @@ class BillingPlan(Base):
 
 
 class BillingSubscription(Base):
-    """Workspace active or past SaaS subscription."""
+    """User active or past SaaS subscription."""
 
     __tablename__ = "billing_subscriptions"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True)
     plan_id = Column(GUID, ForeignKey("billing_plans.id", ondelete="RESTRICT"), nullable=False, index=True)
     status = Column(String(50), default=SubscriptionStatus.ACTIVE.value, nullable=False, index=True)
     billing_cycle = Column(String(20), default=BillingCycle.MONTHLY.value, nullable=False)
@@ -120,6 +121,7 @@ class BillingSubscription(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
+    user = relationship("User")
     workspace = relationship("Workspace")
     plan = relationship("BillingPlan", back_populates="subscriptions")
     orders = relationship("BillingOrder", back_populates="subscription")
@@ -133,8 +135,8 @@ class BillingOrder(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     order_number = Column(String(64), unique=True, nullable=False, index=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True)
     plan_id = Column(GUID, ForeignKey("billing_plans.id", ondelete="RESTRICT"), nullable=False, index=True)
     subscription_id = Column(
         GUID, ForeignKey("billing_subscriptions.id", ondelete="SET NULL"), nullable=True, index=True
@@ -148,8 +150,8 @@ class BillingOrder(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    workspace = relationship("Workspace")
     user = relationship("User")
+    workspace = relationship("Workspace")
     plan = relationship("BillingPlan", back_populates="orders")
     subscription = relationship("BillingSubscription", back_populates="orders")
     payments = relationship("BillingPayment", back_populates="order")
@@ -223,7 +225,8 @@ class BillingInvoice(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     invoice_number = Column(String(64), unique=True, nullable=False, index=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True)
     subscription_id = Column(
         GUID, ForeignKey("billing_subscriptions.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -241,6 +244,7 @@ class BillingInvoice(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
+    user = relationship("User")
     workspace = relationship("Workspace")
     subscription = relationship("BillingSubscription", back_populates="invoices")
     order = relationship("BillingOrder", back_populates="invoice")

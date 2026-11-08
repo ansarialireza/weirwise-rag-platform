@@ -184,25 +184,84 @@ class BillingEngine:
     # 2. SUBSCRIPTION MANAGEMENT & CURRENT STATUS
     # ==========================================================
 
-    async def get_active_subscription(self, db: AsyncSession, workspace_id: uuid.UUID) -> Optional[BillingSubscription]:
-        """Fetch current active subscription for a workspace."""
+    async def get_user_billing_overview(self, db: AsyncSession, user: User) -> dict[str, Any]:
+        """Build unified user-facing account billing & subscription status payload."""
+        await self.ensure_default_plans(db)
+
+        # 1. Fetch user active subscription
+        sub = await self.get_active_subscription(db, user_id=user.id)
+
+        plan = None
+        if sub:
+            plan = (await db.execute(select(BillingPlan).where(BillingPlan.id == sub.plan_id))).scalar_one_or_none()
+        if not plan:
+            plan = await self.get_plan_by_code(db, "free")
+        if not plan:
+            plan = (await self.list_plans(db, public_only=True))[0]
+
+        # 2. Entitlement check
+        from backend.app.services.metering import metering_service
+        ent = await metering_service.get_or_create_entitlements(db, user_id=user.id)
+
+        # 3. Usage numbers directly for user resources
+        from backend.app.services.subscription import subscription_service
+        usage = await subscription_service.get_user_usage(user.id, db)
+
+        return {
+            "user_id": user.id,
+            "workspace_id": user.id,  # backward compatibility alias
+            "plan_code": plan.code,
+            "plan_tier": plan.code,
+            "plan_name": plan.name,
+            "monthly_price": float(plan.monthly_price),
+            "monthly_price_usd": int(plan.monthly_price),
+            "yearly_price": float(plan.yearly_price),
+            "currency": plan.currency,
+            "billing_cycle": sub.billing_cycle if sub else "monthly",
+            "status": sub.status if sub else ("active" if user.is_active else "suspended"),
+            "billing_status": "active" if (sub or user.is_active) else "suspended",
+            "period_start": sub.current_period_start.isoformat()
+            if sub
+            else (ent.period_start.isoformat() if ent else None),
+            "period_end": sub.current_period_end.isoformat()
+            if sub
+            else (ent.period_end.isoformat() if ent and ent.period_end else None),
+            "cancel_at_period_end": sub.cancel_at_period_end if sub else False,
+            "chat_turns_used": usage["chat_turns"],
+            "chat_turns_limit": plan.max_chat_turns_monthly,
+            "documents_indexed": usage["documents_indexed"],
+            "documents_limit": plan.max_documents,
+            "assistants_limit": plan.max_assistants,
+            "storage_mb_limit": plan.max_storage_mb,
+            "allowed_models": plan.allowed_models,
+            "features": plan.features,
+        }
+
+    async def get_active_subscription(
+        self,
+        db: AsyncSession,
+        workspace_id: Optional[uuid.UUID] = None,
+        user_id: Optional[uuid.UUID] = None,
+    ) -> Optional[BillingSubscription]:
+        """Fetch current active subscription for a user or workspace."""
         now = datetime.now(UTC)
-        stmt = (
-            select(BillingSubscription)
-            .where(
-                BillingSubscription.workspace_id == workspace_id,
-                BillingSubscription.status.in_([SubscriptionStatus.ACTIVE.value, SubscriptionStatus.TRIALING.value]),
-                BillingSubscription.current_period_end > now,
-            )
-            .order_by(desc(BillingSubscription.created_at))
-        )
+        conditions = [
+            BillingSubscription.status.in_([SubscriptionStatus.ACTIVE.value, SubscriptionStatus.TRIALING.value]),
+            BillingSubscription.current_period_end > now,
+        ]
+        if user_id:
+            conditions.append(BillingSubscription.user_id == user_id)
+        elif workspace_id:
+            conditions.append(BillingSubscription.workspace_id == workspace_id)
+
+        stmt = select(BillingSubscription).where(*conditions).order_by(desc(BillingSubscription.created_at))
         res = await db.execute(stmt)
         return res.scalars().first()
 
     async def get_workspace_billing_overview(self, db: AsyncSession, workspace: Workspace) -> dict[str, Any]:
         """Build unified user-facing billing & subscription status payload."""
         await self.ensure_default_plans(db)
-        sub = await self.get_active_subscription(db, workspace.id)
+        sub = await self.get_active_subscription(db, workspace_id=workspace.id)
 
         plan = None
         if sub:
@@ -257,12 +316,12 @@ class BillingEngine:
     async def create_checkout_order(
         self,
         db: AsyncSession,
-        workspace: Workspace,
+        workspace: Optional[Workspace],
         user: User,
         plan_code: str,
         billing_cycle: str = "monthly",
         customer_email: Optional[str] = None,
-    ) -> tuple[BillingOrder, BillingPayment]:
+    ) -> tuple[BillingOrder, BillingPayment, str]:
         """Create internal BillingOrder and initiate payment link with Rampex provider."""
         plan = await self.get_plan_by_code(db, plan_code)
         if not plan:
@@ -277,7 +336,7 @@ class BillingEngine:
         order_number = f"WW-ORD-{int(datetime.now(UTC).timestamp())}-{uuid.uuid4().hex[:6].upper()}"
         order = BillingOrder(
             order_number=order_number,
-            workspace_id=workspace.id,
+            workspace_id=workspace.id if workspace else None,
             user_id=user.id,
             plan_id=plan.id,
             billing_cycle=cycle,
@@ -355,7 +414,7 @@ class BillingEngine:
         existing_event = (await db.execute(existing_event_stmt)).scalar_one_or_none()
         if existing_event and existing_event.processed:
             logger.info(f"Duplicate Rampex webhook event '{event_id}' safely acknowledged without re-processing.")
-            return {"status": "already_processed", "event_id": event_id}
+            return {"status": "already_processed", "event_id": event_id, "result": {"status": "already_processed"}}
 
         # 4. Find payment by provider_payment_id or order_number
         woo_order_id = payload.get("woo_order_id")
@@ -440,6 +499,7 @@ class BillingEngine:
         logger.info(f"Payment {payment.id} verified and subscription {sub.id} activated successfully.")
 
         return {
+            "success": True,
             "status": "success",
             "payment_id": str(payment.id),
             "order_id": str(order.id),
@@ -463,14 +523,17 @@ class BillingEngine:
         duration_days = 365 if order.billing_cycle == BillingCycle.YEARLY.value else 30
         period_end = now + timedelta(days=duration_days)
 
-        # Deactivate any previous active subscription
+        # Deactivate any previous active subscription for this user or workspace
+        conditions = [BillingSubscription.status == SubscriptionStatus.ACTIVE.value]
+        if order.user_id:
+            conditions.append(BillingSubscription.user_id == order.user_id)
+        elif order.workspace_id:
+            conditions.append(BillingSubscription.workspace_id == order.workspace_id)
+
         prev_subs = (
             (
                 await db.execute(
-                    select(BillingSubscription).where(
-                        BillingSubscription.workspace_id == order.workspace_id,
-                        BillingSubscription.status == SubscriptionStatus.ACTIVE.value,
-                    )
+                    select(BillingSubscription).where(*conditions)
                 )
             )
             .scalars()
@@ -484,6 +547,7 @@ class BillingEngine:
             plan = (await db.execute(select(BillingPlan).where(BillingPlan.id == order.plan_id))).scalar_one()
         # Create new active subscription
         sub = BillingSubscription(
+            user_id=order.user_id,
             workspace_id=order.workspace_id,
             plan_id=plan.id,
             status=SubscriptionStatus.ACTIVE.value,
@@ -497,21 +561,24 @@ class BillingEngine:
 
         order.subscription_id = sub.id
 
-        # Update workspace plan_tier & dynamic SubscriptionTier link
-        ws_stmt = select(Workspace).where(Workspace.id == order.workspace_id)
-        ws = (await db.execute(ws_stmt)).scalar_one()
-        ws.plan_tier = plan.code
+        # Update workspace plan_tier if workspace present
+        if order.workspace_id:
+            ws_stmt = select(Workspace).where(Workspace.id == order.workspace_id)
+            ws = (await db.execute(ws_stmt)).scalar_one_or_none()
+            if ws:
+                ws.plan_tier = plan.code
+                st_stmt = select(SubscriptionTier).where(func.lower(SubscriptionTier.name) == plan.name.lower())
+                db_st = (await db.execute(st_stmt)).scalar_one_or_none()
+                if db_st:
+                    ws.subscription_tier_id = db_st.id
 
-        # Link to legacy SubscriptionTier if exists with same name
-        st_stmt = select(SubscriptionTier).where(func.lower(SubscriptionTier.name) == plan.name.lower())
-        db_st = (await db.execute(st_stmt)).scalar_one_or_none()
-        if db_st:
-            ws.subscription_tier_id = db_st.id
-
-        # Synchronize WorkspacePlanEntitlement (Quota Enforcement)
+        # Synchronize User and Account PlanEntitlement (Quota Enforcement)
         from backend.app.services.metering import metering_service
 
-        entitlement = await metering_service.get_or_create_entitlements(db, ws.id)
+        entitlement = await metering_service.get_or_create_entitlements(
+            db, workspace_id=order.workspace_id, user_id=order.user_id
+        )
+        entitlement.user_id = order.user_id
         entitlement.plan_tier = plan.code
         entitlement.max_assistants = plan.max_assistants
         entitlement.max_knowledge_sources = plan.max_knowledge_sources
@@ -528,7 +595,8 @@ class BillingEngine:
         invoice_number = f"INV-{now.strftime('%Y%m')}-{uuid.uuid4().hex[:6].upper()}"
         invoice = BillingInvoice(
             invoice_number=invoice_number,
-            workspace_id=ws.id,
+            user_id=order.user_id,
+            workspace_id=order.workspace_id,
             subscription_id=sub.id,
             order_id=order.id,
             amount=order.amount,
@@ -548,19 +616,20 @@ class BillingEngine:
         db.add(invoice)
 
         # Mirror to FinancialInvoice for admin FinOps backward-compatibility
-        from backend.app.models.admin import FinancialInvoice
+        if order.workspace_id:
+            from backend.app.models.admin import FinancialInvoice
 
-        fin_inv = FinancialInvoice(
-            workspace_id=ws.id,
-            invoice_number=invoice_number,
-            amount_usd=order.amount,
-            plan_tier=plan.code,
-            status="paid",
-            billing_period_start=now,
-            billing_period_end=period_end,
-            paid_at=now,
-        )
-        db.add(fin_inv)
+            fin_inv = FinancialInvoice(
+                workspace_id=order.workspace_id,
+                invoice_number=invoice_number,
+                amount_usd=order.amount,
+                plan_tier=plan.code,
+                status="paid",
+                billing_period_start=now,
+                billing_period_end=period_end,
+                paid_at=now,
+            )
+            db.add(fin_inv)
 
         await db.flush()
         return sub, invoice
@@ -568,6 +637,15 @@ class BillingEngine:
     # ==========================================================
     # 6. BILLING HISTORY & INVOICE LOOKUP
     # ==========================================================
+
+    async def list_user_invoices(self, db: AsyncSession, user_id: uuid.UUID) -> list[BillingInvoice]:
+        stmt = (
+            select(BillingInvoice)
+            .where(BillingInvoice.user_id == user_id)
+            .order_by(desc(BillingInvoice.created_at))
+        )
+        res = await db.execute(stmt)
+        return list(res.scalars().all())
 
     async def list_workspace_invoices(self, db: AsyncSession, workspace_id: uuid.UUID) -> list[BillingInvoice]:
         stmt = (

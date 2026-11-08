@@ -306,8 +306,9 @@ class WorkspacePlanEntitlement(Base):
     __tablename__ = "workspace_plan_entitlements"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+        GUID, ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
     )
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
@@ -323,6 +324,8 @@ class WorkspacePlanEntitlement(Base):
     period_end = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    user = relationship("User")
 
 
 class WorkspaceBYOKCredential(Base):

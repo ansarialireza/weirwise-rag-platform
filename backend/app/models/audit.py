@@ -52,7 +52,8 @@ class UsageEvent(Base):
     __tablename__ = "usage_events"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    workspace_id = Column(GUID, nullable=True, index=True)
     project_id = Column(GUID, nullable=True, index=True)
     assistant_id = Column(GUID, nullable=True, index=True)
     event_type = Column(String(100), nullable=False)  # "chat_turn", "document_indexed"
@@ -60,4 +61,9 @@ class UsageEvent(Base):
     metadata_info = Column("metadata", CompatibleJSON, default=dict, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    __table_args__ = (Index("ix_usage_workspace_event", "workspace_id", "event_type"),)
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("ix_usage_workspace_event", "workspace_id", "event_type"),
+        Index("ix_usage_user_event", "user_id", "event_type"),
+    )

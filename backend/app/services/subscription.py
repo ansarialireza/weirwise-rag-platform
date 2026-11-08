@@ -119,6 +119,54 @@ class SubscriptionService:
         return int(tier.max_assistants) * 50 if tier else fallback_plan.max_documents
 
     @staticmethod
+    async def get_user_usage(user_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
+        """Aggregate usage events for the user account."""
+        from datetime import UTC, datetime, timedelta
+
+        from backend.app.models.assistant import Assistant, WorkspacePlanEntitlement
+
+        ent = (
+            (await db.execute(select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id)))
+            .scalars()
+            .first()
+        )
+
+        period_start = ent.period_start if ent and ent.period_start else None
+        if period_start is not None and period_start.tzinfo is None:
+            period_start = period_start.replace(tzinfo=UTC)
+        if period_start is None:
+            period_start = datetime.now(UTC) - timedelta(days=30)
+
+        # Count chat turns from usage events
+        stmt = (
+            select(
+                UsageEvent.event_type,
+                func.coalesce(func.sum(UsageEvent.quantity), 0).label("total"),
+            )
+            .where(
+                (UsageEvent.user_id == user_id)
+                | (UsageEvent.assistant_id.in_(select(Assistant.id).where(Assistant.user_id == user_id))),
+                UsageEvent.created_at >= period_start,
+            )
+            .group_by(UsageEvent.event_type)
+        )
+        res = await db.execute(stmt)
+        usage_map = {row[0]: int(row[1]) for row in res.all()}
+
+        # Count documents directly owned by user's knowledge sources
+        doc_count_res = await db.execute(
+            select(func.count(Document.id))
+            .join(KnowledgeSource, Document.knowledge_source_id == KnowledgeSource.id)
+            .where(KnowledgeSource.user_id == user_id)
+        )
+        doc_count = doc_count_res.scalar() or 0
+
+        return {
+            "chat_turns": usage_map.get("chat_turn", 0),
+            "documents_indexed": doc_count,
+        }
+
+    @staticmethod
     async def get_workspace_usage(workspace_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
         """Aggregate usage events for the current workspace billing cycle."""
         from datetime import UTC, datetime, timedelta
