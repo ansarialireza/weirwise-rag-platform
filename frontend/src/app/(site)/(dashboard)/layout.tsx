@@ -174,7 +174,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
         />
 
         <main id="main-content" className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-content px-4 py-6 pb-24 sm:px-6 sm:py-8 lg:px-10 lg:pb-12">
+          <div className="mx-auto w-full max-w-content px-4 py-5 pb-24 sm:px-6 sm:py-8 lg:px-10 lg:pb-12">
             {children}
           </div>
         </main>

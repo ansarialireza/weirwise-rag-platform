@@ -59,10 +59,10 @@ export function MobileBottomNav() {
       aria-label="Mobile Bottom Navigation"
       className="fixed inset-x-0 bottom-0 z-50 block border-t border-border/80 bg-background/95 backdrop-blur-xl md:hidden select-none"
       style={{
-        paddingBottom: "max(0.375rem, env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "max(0.25rem, env(safe-area-inset-bottom, 0px))",
       }}
     >
-      <div className="flex h-14 w-full items-center justify-around px-1">
+      <div className="flex h-16 w-full items-center justify-around px-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.active;
@@ -72,32 +72,34 @@ export function MobileBottomNav() {
               key={item.id}
               href={item.href}
               className={cn(
-                "group relative flex min-w-[54px] flex-1 flex-col items-center justify-center py-0.5 transition-all duration-150 active:scale-95",
+                "group relative flex min-w-0 flex-1 flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95",
                 isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {/* Material 3 Capsule Indicator */}
-              <div
-                className={cn(
-                  "relative flex h-7 w-12 items-center justify-center rounded-full transition-all duration-200",
-                  isActive
-                    ? "bg-accent/15 text-accent shadow-sm"
-                    : "bg-transparent text-muted-foreground group-active:bg-muted/60"
-                )}
-              >
-                <Icon
+              {/* Material Design 3 Pill Indicator: w-16 h-8 rounded-full */}
+              <div className="relative flex items-center justify-center">
+                <div
                   className={cn(
-                    "h-5 w-5 transition-transform duration-200",
-                    isActive ? "stroke-[2.2]" : "stroke-[1.7]"
+                    "flex h-8 w-14 sm:w-16 items-center justify-center rounded-full transition-all duration-200 ease-out",
+                    isActive
+                      ? "bg-accent/15 text-accent shadow-sm"
+                      : "bg-transparent text-muted-foreground group-active:bg-muted/50"
                   )}
-                  aria-hidden="true"
-                />
+                >
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 transition-transform duration-200",
+                      isActive ? "stroke-[2.2] scale-105" : "stroke-[1.8]"
+                    )}
+                    aria-hidden="true"
+                  />
+                </div>
               </div>
 
-              {/* Label */}
+              {/* Navigation Label: Single line, no wrap */}
               <span
                 className={cn(
-                  "mt-0.5 max-w-[64px] truncate text-center text-[10px] tracking-tight leading-tight transition-colors",
+                  "mt-1 w-full truncate text-center text-[10.5px] leading-tight tracking-tight transition-colors px-0.5",
                   isActive ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
                 )}
               >
