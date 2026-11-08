@@ -9,7 +9,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   return (
     <div
       key={pathname}
-      className="w-full min-h-screen transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-1"
+      className="w-full min-h-screen transition-opacity duration-200 ease-out animate-in-opacity"
     >
       {children}
     </div>

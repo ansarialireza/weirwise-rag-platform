@@ -98,6 +98,47 @@ async def run_regression_tests():
             total_checks_passed += 1
             print(f"  ✓ [{vp_name}] Navigation rendered immediately after login without refresh/transitions")
 
+            # Condition 2b: Immediate mount stability check (assert zero initial vertical shift / transform dislocation)
+            immediate_mount_geometry = await page.evaluate("""() => {
+                const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
+                if (!nav) return null;
+                const rect = nav.getBoundingClientRect();
+                const svgs = Array.from(nav.querySelectorAll("svg")).map(s => s.getBoundingClientRect());
+                const style = window.getComputedStyle(nav);
+                return {
+                    navTop: rect.top,
+                    navBottom: rect.bottom,
+                    navHeight: rect.height,
+                    transform: style.transform,
+                    svgTops: svgs.map(s => s.top)
+                };
+            }""")
+            assert immediate_mount_geometry is not None
+            # Wait 400ms (beyond the standard 280ms route animation window)
+            await page.wait_for_timeout(400)
+            steady_state_geometry = await page.evaluate("""() => {
+                const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
+                if (!nav) return null;
+                const rect = nav.getBoundingClientRect();
+                const svgs = Array.from(nav.querySelectorAll("svg")).map(s => s.getBoundingClientRect());
+                return {
+                    navTop: rect.top,
+                    navBottom: rect.bottom,
+                    navHeight: rect.height,
+                    svgTops: svgs.map(s => s.top)
+                };
+            }""")
+            # Verify delta between immediate mount and steady state is 0 (no initial displacement shift)
+            assert abs(immediate_mount_geometry["navTop"] - steady_state_geometry["navTop"]) < 0.5, (
+                f"[{vp_name}] Initial mount shift detected! Immediate: {immediate_mount_geometry['navTop']}px vs Steady: {steady_state_geometry['navTop']}px"
+            )
+            for idx, (imm_top, steady_top) in enumerate(zip(immediate_mount_geometry["svgTops"], steady_state_geometry["svgTops"])):
+                assert abs(imm_top - steady_top) < 0.5, (
+                    f"[{vp_name}] Icon {idx} shifted vertically from {imm_top}px to {steady_top}px!"
+                )
+            total_checks_passed += 2
+            print(f"  ✓ [{vp_name}] Zero initial position shift verified: geometry invariant from initial render through steady state")
+
             # Condition 3 & 4 & 5: All 5 icons have visible bounding boxes, are inside viewport, and no element overlays clickable area
             icon_validation = await page.evaluate("""() => {
                 const nav = document.querySelector("nav[aria-label='Mobile Bottom Navigation']");
