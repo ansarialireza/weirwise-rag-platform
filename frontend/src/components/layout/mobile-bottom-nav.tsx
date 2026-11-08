@@ -56,13 +56,13 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      aria-label="Mobile Android Bottom Navigation"
-      className="fixed inset-x-0 bottom-0 z-50 block border-t border-border/60 bg-background/95 backdrop-blur-xl md:hidden select-none"
+      aria-label="Mobile Bottom Navigation"
+      className="fixed inset-x-0 bottom-0 z-50 block border-t border-border/80 bg-background/95 backdrop-blur-xl md:hidden select-none"
       style={{
-        paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))",
+        paddingBottom: "max(0.375rem, env(safe-area-inset-bottom, 0px))",
       }}
     >
-      <div className="flex h-16 w-full items-center justify-around px-2">
+      <div className="flex h-14 w-full items-center justify-around px-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.active;
@@ -72,14 +72,14 @@ export function MobileBottomNav() {
               key={item.id}
               href={item.href}
               className={cn(
-                "group relative flex min-w-[58px] flex-1 flex-col items-center justify-center py-1 transition-all duration-150 active:scale-95",
+                "group relative flex min-w-[54px] flex-1 flex-col items-center justify-center py-0.5 transition-all duration-150 active:scale-95",
                 isActive ? "text-foreground font-medium" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {/* Material 3 Capsule Indicator */}
               <div
                 className={cn(
-                  "relative flex h-8 w-14 items-center justify-center rounded-full transition-all duration-200",
+                  "relative flex h-7 w-12 items-center justify-center rounded-full transition-all duration-200",
                   isActive
                     ? "bg-accent/15 text-accent shadow-sm"
                     : "bg-transparent text-muted-foreground group-active:bg-muted/60"
@@ -88,7 +88,7 @@ export function MobileBottomNav() {
                 <Icon
                   className={cn(
                     "h-5 w-5 transition-transform duration-200",
-                    isActive ? "stroke-[2.2] scale-110" : "stroke-[1.7]"
+                    isActive ? "stroke-[2.2]" : "stroke-[1.7]"
                   )}
                   aria-hidden="true"
                 />
@@ -97,7 +97,7 @@ export function MobileBottomNav() {
               {/* Label */}
               <span
                 className={cn(
-                  "mt-1 truncate text-[11px] tracking-tight transition-colors",
+                  "mt-0.5 max-w-[64px] truncate text-center text-[10px] tracking-tight leading-tight transition-colors",
                   isActive ? "font-semibold text-foreground" : "font-normal text-muted-foreground"
                 )}
               >
