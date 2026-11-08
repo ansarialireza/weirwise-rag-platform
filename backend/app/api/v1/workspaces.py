@@ -20,6 +20,7 @@ from backend.app.schemas.workspace import (
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Workspaces & Projects"])
@@ -215,7 +216,14 @@ async def add_workspace_member(
         details={"target_user_id": str(target_user.id), "role": payload.role.value},
     )
     db.add(audit)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User is already a member of this workspace.",
+        )
     await db.refresh(membership)
 
     return MembershipResponse(

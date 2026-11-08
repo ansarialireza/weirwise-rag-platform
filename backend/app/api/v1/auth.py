@@ -41,6 +41,7 @@ from backend.app.services.auth_rate_limiter import AuthRateLimiter, client_ip, e
 from backend.app.services.email import email_service
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -149,7 +150,24 @@ async def register(
         expires_at=otp_expiry,
     )
     db.add(verification_token)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # Concurrently created by a competing request for the same email
+        existing_check = await db.execute(select(User).where(User.email == payload.email.lower()))
+        competing_user = existing_check.scalar_one_or_none()
+        if competing_user and competing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists.",
+            )
+        return AuthMessageResponse(
+            message="Account created successfully. Please enter the verification code sent to your email.",
+            verification_otp=otp_code
+            if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+            else None,
+        )
 
     # Trigger email service
     await email_service.send_verification_otp(user.email, otp_code)
@@ -251,7 +269,24 @@ async def resend_verification(
         expires_at=otp_expiry,
     )
     db.add(verification_token)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # Concurrently created by a competing request for the same email
+        existing_check = await db.execute(select(User).where(User.email == payload.email.lower()))
+        competing_user = existing_check.scalar_one_or_none()
+        if competing_user and competing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists.",
+            )
+        return AuthMessageResponse(
+            message="Account created successfully. Please enter the verification code sent to your email.",
+            verification_otp=otp_code
+            if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+            else None,
+        )
 
     await email_service.send_verification_otp(user.email, otp_code)
 
