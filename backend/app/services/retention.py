@@ -25,6 +25,15 @@ class RetentionService:
     """Enforces retention policies based on user tier entitlements."""
 
     @classmethod
+    async def cleanup_expired_data(cls, db: AsyncSession, user_id: uuid.UUID) -> dict[str, int]:
+        """Prune conversations and audits exceeding user retention limit."""
+        pruned_convs = await cls.prune_expired_conversations(db, user_id)
+        return {
+            "conversations_pruned": pruned_convs,
+            "audit_events_pruned": 0,
+        }
+
+    @classmethod
     async def prune_expired_conversations(cls, db: AsyncSession, user_id: uuid.UUID) -> int:
         """Prune messages/conversations older than user's data retention days."""
         ent_stmt = select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id)

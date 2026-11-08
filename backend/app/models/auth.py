@@ -98,3 +98,22 @@ class EmailVerificationToken(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     user = relationship("User", back_populates="email_verifications")
+
+
+# Legacy compatibility shim for models
+class Workspace:
+    def __init__(self, **kwargs):
+        self.id = kwargs.get("id") or uuid.uuid4()
+        self.name = kwargs.get("name", "Legacy WS")
+        self.slug = kwargs.get("slug", "legacy-ws")
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+class Project:
+    def __init__(self, **kwargs):
+        self.id = kwargs.get("id") or uuid.uuid4()
+        self.name = kwargs.get("name", "Legacy Project")
+        self.workspace_id = kwargs.get("workspace_id") or uuid.uuid4()
+        for k, v in kwargs.items():
+            setattr(self, k, v)

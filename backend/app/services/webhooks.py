@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class WebhookDispatcher:
+    @staticmethod
+    def generate_signature(secret: str, payload_bytes: bytes, timestamp: int) -> str:
+        """Generate HMAC-SHA256 signature for webhook payload: t={timestamp},v1={hex_digest}."""
+        import hashlib
+        import hmac
+
+        signed_payload = f"{timestamp}.".encode("utf-8") + payload_bytes
+        signature = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
+        return f"t={timestamp},v1={signature}"
+
     """Dispatches webhook payloads asynchronously with cryptographic HMAC-SHA256 signatures."""
 
     @classmethod

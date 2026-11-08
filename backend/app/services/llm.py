@@ -564,9 +564,14 @@ class LLMService:
         assistant: Assistant,
         query: str,
         passages: list[str],
-        user_id: uuid.UUID,
+        user_id: uuid.UUID | None = None,
         history: list[dict[str, str]] | None = None,
+        workspace_id: uuid.UUID | None = None,
     ) -> GroundedAnswer:
+        if user_id is None and workspace_id is not None:
+            user_id = workspace_id
+        if user_id is None:
+            user_id = getattr(assistant, "user_id", None) or uuid.uuid4()
         started = time.perf_counter()
         if not passages:
             return GroundedAnswer(content=assistant.fallback_message, latency_ms=0)

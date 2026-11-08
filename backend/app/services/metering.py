@@ -32,7 +32,10 @@ class MeteringService:
         if ent:
             # Check for monthly billing rollover
             now = datetime.now(UTC)
-            if ent.period_end and now >= ent.period_end:
+            period_end = ent.period_end
+            if period_end and period_end.tzinfo is None:
+                period_end = period_end.replace(tzinfo=UTC)
+            if period_end and now >= period_end:
                 logger.info(f"Billing cycle expired for user {user_id}. Rolling over usage.")
                 ent.period_start = now
                 ent.period_end = now.replace(day=28)  # Approximate 1-month window
@@ -101,11 +104,15 @@ class MeteringService:
         if ent.current_period_chat_turns >= ent.monthly_chat_turns_limit:
             if not ent.allow_overage:
                 raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail=(
-                        f"Monthly chat turn limit ({ent.monthly_chat_turns_limit}) exceeded "
-                        f"for your plan tier ({ent.plan_tier}). Upgrade or enable overages."
-                    ),
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": "quota_exceeded",
+                        "resource": "chat_turns",
+                        "message": (
+                            f"Upgrade required: Monthly chat turn limit ({ent.monthly_chat_turns_limit}) "
+                            f"exceeded for your plan tier ({ent.plan_tier})."
+                        ),
+                    },
                 )
 
         # Increment usage counter
@@ -139,7 +146,7 @@ class MeteringService:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
-                    f"Assistant limit ({ent.max_assistants}) reached for your plan ({ent.plan_tier}). "
+                    f"Assistant creation limit reached: ({ent.max_assistants}) for your plan ({ent.plan_tier}). "
                     "Upgrade your plan to create more assistants."
                 ),
             )

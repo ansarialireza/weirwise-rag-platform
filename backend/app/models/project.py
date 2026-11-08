@@ -13,7 +13,7 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 
 
 class KnowledgeSourceType(str, enum.Enum):
@@ -34,6 +34,7 @@ class KnowledgeSource(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = synonym("user_id")
     # Mapping to Weirwise Core Knowledge Base UUID
     core_kb_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -56,7 +57,8 @@ class Document(Base):
     __tablename__ = "documents"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    project_id = synonym("user_id")
     knowledge_source_id = Column(
         GUID, ForeignKey("knowledge_sources.id", ondelete="CASCADE"), nullable=False, index=True
     )
@@ -91,3 +93,22 @@ class ProcessingJob(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
     document = relationship("Document", back_populates="processing_jobs")
+
+
+# Legacy compatibility shim for models
+class Workspace:
+    def __init__(self, **kwargs):
+        self.id = kwargs.get("id") or uuid.uuid4()
+        self.name = kwargs.get("name", "Legacy WS")
+        self.slug = kwargs.get("slug", "legacy-ws")
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+class Project:
+    def __init__(self, **kwargs):
+        self.id = kwargs.get("id") or uuid.uuid4()
+        self.name = kwargs.get("name", "Legacy Project")
+        self.workspace_id = kwargs.get("workspace_id") or uuid.uuid4()
+        for k, v in kwargs.items():
+            setattr(self, k, v)

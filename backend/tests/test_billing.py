@@ -210,35 +210,32 @@ def test_quota_graceful_blocking_chat_and_storage():
 
 def test_document_indexing_increments_workspace_usage_events():
     """Verify that completing document ingestion creates an auditable UsageEvent
-    and increments documents_indexed in workspace billing status.
+    and increments documents_indexed in user billing status.
     """
     import asyncio
     from unittest.mock import AsyncMock, patch
 
     from backend.app.adapters.core_client import CoreApiClient
     from backend.app.db.session import async_session_factory
-    from backend.app.models.auth import Workspace
-    from backend.app.models.project import Document, KnowledgeSource, Project, SourceProcessingStatus
+    from backend.app.models.auth import User
+    from backend.app.models.project import Document, KnowledgeSource, SourceProcessingStatus
     from backend.app.services.subscription import subscription_service
     from backend.app.tasks.ingestion import process_document_ingestion
 
-    slug = f"ws-{uuid.uuid4().hex[:6]}"
+    email = f"usage_{uuid.uuid4().hex[:8]}@example.com"
 
     async def run_flow():
         async with async_session_factory() as db:
-            ws = Workspace(name="Usage Test WS", slug=slug)
-            db.add(ws)
+            user = User(email=email, hashed_password="hashed_pwd", is_verified=True)
+            db.add(user)
             await db.flush()
 
-            proj = Project(workspace_id=ws.id, name="Usage Test Proj", slug=f"proj-{uuid.uuid4().hex[:6]}")
-            db.add(proj)
-            await db.flush()
-
-            ks = KnowledgeSource(project_id=proj.id, name="Usage Test KS")
+            ks = KnowledgeSource(user_id=user.id, name="Usage Test KS")
             db.add(ks)
             await db.flush()
 
             doc = Document(
+                user_id=user.id,
                 knowledge_source_id=ks.id,
                 filename="indexed_sample.pdf",
                 mime_type="application/pdf",
@@ -251,7 +248,7 @@ def test_document_indexing_increments_workspace_usage_events():
             await db.commit()
 
             doc_id = doc.id
-            ws_id = ws.id
+            user_id = user.id
 
         with (
             patch.object(CoreApiClient, "create_knowledge_base", new_callable=AsyncMock) as m_kb,
@@ -266,7 +263,7 @@ def test_document_indexing_increments_workspace_usage_events():
             await process_document_ingestion(doc_id)
 
         async with async_session_factory() as db:
-            usage = await subscription_service.get_workspace_usage(ws_id, db)
-            assert usage["documents_indexed"] == 1
+            usage = await subscription_service.get_user_usage(user_id, db)
+            assert usage["document_indexed"] == 1
 
     asyncio.run(run_flow())
