@@ -582,7 +582,7 @@ async def direct_knowledge_search(
                         source_name=s.name,
                         chunk_index=item.get("chunk_index"),
                         text=item.get("content") or item.get("text", ""),
-                        score=float(item.get("score", 0.0)),
+                        score=float(item.get("similarity_score", 0.0)),
                     )
                 )
             return source_results
