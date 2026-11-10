@@ -23,6 +23,35 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
+    # Step 0: Ensure user_id column exists on knowledge_sources, assistants, and api_credentials
+    conn.execute(
+        sa.text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'knowledge_sources' AND column_name = 'user_id'
+            ) THEN
+                ALTER TABLE knowledge_sources ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+            END IF;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'assistants' AND column_name = 'user_id'
+            ) THEN
+                ALTER TABLE assistants ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+            END IF;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'api_credentials' AND column_name = 'user_id'
+            ) THEN
+                ALTER TABLE api_credentials ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+            END IF;
+        END $$;
+    """)
+    )
+
     # Step 1: Add user_id to documents
     op.add_column(
         "documents",
