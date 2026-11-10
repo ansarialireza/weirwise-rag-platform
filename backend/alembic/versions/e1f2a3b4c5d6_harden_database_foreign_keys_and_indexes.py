@@ -81,7 +81,17 @@ def upgrade() -> None:
     """)
 
     op.execute("CREATE INDEX IF NOT EXISTS ix_api_credentials_workspace_id ON api_credentials (workspace_id);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_api_credentials_user_id ON api_credentials (user_id);")
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'api_credentials' AND column_name = 'user_id'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_api_credentials_user_id ON api_credentials (user_id);
+            END IF;
+        END $$;
+    """)
 
     # -------------------------------------------------------------------------
     # 2. Clean orphaned records and enforce ON DELETE CASCADE constraints
