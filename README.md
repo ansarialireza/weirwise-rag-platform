@@ -1,7 +1,7 @@
 # <p align="center"><img src="frontend/public/weirwise-horizontal.svg" alt="Weirwise Logo" width="280" /><br>Weirwise Platform</p>
 
 <p align="center">
-  <strong>Enterprise Multi-Tenant AI Assistant, Credential Routing & Knowledge Grounding Platform</strong>
+  <strong>Business Assistant and Knowledge Platform</strong>
 </p>
 
 <p align="center">
@@ -18,7 +18,11 @@
 
 **Weirwise** is being built to help businesses turn trusted knowledge into useful AI assistant experiences, while keeping people in control.
 
-The current near-term experience is intentionally focused: a simple internal Weirwise assistant, configured and maintained by the Weirwise team, grounded in curated official product knowledge, and available through text and voice conversation. It helps users understand Weirwise and its currently available capabilities.
+The current product definition is intentionally focused: a simple internal Weirwise assistant,
+configured and maintained by the Weirwise team, grounded in curated official product knowledge,
+and available through text and voice conversation. It helps users understand Weirwise and its
+currently available capabilities. This repository documents the corresponding code; deployment
+and release state are not independently verified here.
 
 The longer-term direction is a platform where businesses can create, publish, manage, and improve assistants grounded in their own knowledge. That broader direction is not a claim that every capability is available today.
 
@@ -38,13 +42,13 @@ See [Product Vision](docs/PRODUCT_VISION.md) for the product definition, current
 ```mermaid
 flowchart TD
     subgraph Client["Frontend (Next.js 15 App Router)"]
-        UI[Workspace & Assistant Studio]
+        UI[User Dashboard & Assistant Studio]
         Playground[Interactive Grounding Playground]
         Admin[Super Admin Control Center]
     end
 
     subgraph API["Platform Backend (FastAPI)"]
-        Auth[Auth & RBAC Middleware]
+        Auth[Authentication & User Ownership]
         Assistants[Assistant & Chat Engine]
         Router[Intelligent Routing Engine]
         Vault[(Encrypted Credential Vault)]
@@ -58,8 +62,8 @@ flowchart TD
     end
 
     subgraph Storage["Data & Vector Infrastructure"]
-        PG[(PostgreSQL / SQLite)]
-        Core[Weirwise Core / Vector Index]
+        PG[(Platform PostgreSQL / SQLite)]
+        Core[Weirwise Core REST API]
     end
 
     UI --> Auth
@@ -78,7 +82,11 @@ flowchart TD
 
 ## Key Capabilities
 
-### 1. Intelligent AI Provider Routing & Failover
+The bullets below describe code present in this repository; they are not a statement that every
+capability is released, enabled, or available to customers. The current product scope is the
+internal Weirwise assistant described in [`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md).
+
+### 1. AI Provider Routing & Failover
 - **Multi-Key Credential Pools**: Register multiple API keys per provider family (OpenAI, Anthropic, Gemini).
 - **Adaptive Routing Strategies**: Choose between `Round-Robin`, `Priority-Based`, `Weighted-Random`, or `Lowest-Cost`.
 - **Provider Account Controls**: Create and update provider display name, routing strategy, model allowlist, availability, and monthly budget from `/admin/providers`.
@@ -86,15 +94,25 @@ flowchart TD
 - **Live Credential Validation**: OpenAI, Anthropic, Gemini, Deepgram, Jina, OpenRouter, and Resend credentials are checked against fixed provider endpoints. Jina validation sends a minimal test embedding and may incur provider usage charges. Invalid credentials remain inactive, and re-enabling a credential requires fresh validation.
 - **Cryptographic Vault**: Credentials encrypted at rest using AES-128-CBC + HMAC-SHA256 (Fernet) with SHA-256 deduplication and prefix masking (`sk-proj-...a1b2`).
 
-The current assistant chat endpoint performs retrieval and returns grounded excerpts or its configured fallback; it does not yet invoke these provider credentials. Accordingly, chat turns do not create provider token/cost ledger entries, and routing controls do not affect chat generation until that integration is implemented.
+The current assistant chat path retrieves passages from linked Core knowledge bases and invokes the
+Platform provider-routing service for grounded answer generation or streaming. If no provider is
+available it can return an extractive answer; without usable passages it uses the configured
+fallback. Provider credentials and provider availability are environment-dependent.
 
 ### 2. FinOps Unit Economics & Ledger
-- **Token Cost Ledger**: Immutable per-request token consumption accounting (prompt, completion, estimated cost in micro-dollars, and latency).
+- **Token Cost Ledger**: Per-request token usage, estimated cost, and latency records when provider-backed generation runs.
 - **Executive Revenue Metrics**: Automatic aggregation of Monthly Recurring Revenue (MRR), Annual Recurring Revenue (ARR), paid invoices, and gross margins derived directly from database records.
 
-### 3. Multi-Tenant Knowledge Grounding
-- **Project & Assistant Scoping**: Multiple assistants per project with custom instructions, temperature, top-k retrieval, and score thresholds.
+### 3. User-Scoped Knowledge Grounding
+- **Assistant & Source Scoping**: User-owned assistants link to user-owned knowledge sources; retrieval is delegated to the separate Core service.
 - **Interactive Playground**: Real-time conversational interface with grounded citation cards, similarity score inspection, and negative grounding fallback detection.
+
+Platform's persisted records are user-scoped; there is no `workspaces` principal or `memberships`
+table and no database row-level security. Workspace-named auxiliary rows are keyed to users.
+Generic integration credentials can be stored,
+but provider-specific content import (including Shopify catalog sync) is not implemented. See
+[`docs/PRODUCT_VISION.md`](docs/PRODUCT_VISION.md) for the current internal-assistant product scope
+and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for implementation boundaries.
 
 ---
 
@@ -122,6 +140,10 @@ cd weirwise-rag-platform
 cp .env.example backend/.env
 ```
 
+Before starting the API, set `DATABASE_URL` and storage paths to isolated locations outside the
+repository. See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) and
+[`docs/DATA_AND_MIGRATIONS.md`](docs/DATA_AND_MIGRATIONS.md).
+
 ### 2. Backend Setup
 ```bash
 cd backend
@@ -134,10 +156,11 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e ".[dev]"
 
-# Run database migrations
+# Run migrations only after configuring an explicit disposable development database.
 alembic upgrade head
 
-# Start backend server (runs at http://localhost:8000)
+# From the repository root, start the backend (runs at http://localhost:8000)
+cd ..
 uvicorn backend.app.main:app --reload
 ```
 
@@ -162,6 +185,14 @@ npm run dev
 # Execute unit and end-to-end integration tests
 pytest backend/tests -v
 ```
+
+## Engineering documentation
+
+- [Architecture](docs/ARCHITECTURE.md) and [domain model](docs/DOMAIN_MODEL.md)
+- [API contracts](docs/API_CONTRACTS.md) and [data/migrations](docs/DATA_AND_MIGRATIONS.md)
+- [AI providers and integrations](docs/AI_AND_INTEGRATIONS.md)
+- [Frontend architecture](docs/FRONTEND_ARCHITECTURE.md) and [testing](docs/TESTING.md)
+- [Security controls and caveats](docs/SECURITY.md)
 
 ### Run Linters & Type Checking
 ```bash

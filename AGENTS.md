@@ -6,7 +6,14 @@ Weirwise Platform is the product application: a FastAPI backend, a Next.js 15 / 
 
 Preserve tenant isolation, authentication and authorization checks, secure session behavior, encrypted credential handling, and safe public runtime behavior. Maintain backend/frontend API compatibility. Follow the established frontend component, localization, responsive layout, accessibility, and design-token conventions. Ordinary customer experiences should describe knowledge and assistant behavior in plain language; progressively disclose RAG, embeddings, chunking, vector search, prompts, and retrieval tuning only in developer or advanced contexts.
 
-Consult `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/DEVELOPMENT.md`, `docs/ARCHITECTURE.md`, `docs/adr/001-architecture-boundaries-and-core-decoupling.md`, backend `pyproject.toml`, frontend `package.json`, and `.github/workflows/ci.yml` for details. When documents conflict, inspect current code and active accepted ADRs; do not treat roadmap material as implemented behavior.
+Consult `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/DEVELOPMENT.md`, `docs/ARCHITECTURE.md`, `docs/API_CONTRACTS.md`, `docs/DOMAIN_MODEL.md`, `docs/DATA_AND_MIGRATIONS.md`, `docs/AI_AND_INTEGRATIONS.md`, `docs/FRONTEND_ARCHITECTURE.md`, `docs/TESTING.md`, and `docs/adr/001-architecture-boundaries-and-core-decoupling.md`, plus backend `pyproject.toml`, frontend `package.json`, and `.github/workflows/ci.yml`. These local instructions and docs are sufficient to work in Platform without access to Brand. When documents conflict, inspect current code and active accepted ADRs; do not treat roadmap material or aspirational ADR decisions as implemented behavior.
+
+The current persisted Platform domain is user-scoped; there is no `workspaces` principal table or
+`memberships` table. Workspace-named auxiliary rows are keyed by user, not shared workspaces. Do
+not assume database row-level security or multi-user workspace authorization from legacy API/UI
+terminology.
+The Platform's own Core REST adapter is the only service boundary to Core. For product scope,
+distinguish the current internal Weirwise assistant from the future self-serve business platform.
 
 ## Working practices
 
@@ -14,7 +21,7 @@ Inspect relevant implementation, tests, docs, configuration, and Git status befo
 
 Codex is explicitly authorized to commit and push changes to `develop` without further approval, including pushes that automatically deploy to development. Create and use feature branches and worktrees when useful. Merging into `main`, pushing directly to `main`, or triggering production deployment always requires explicit user approval. Never perform production deployment without that approval; never assume GitHub environment approval is configured. Do not change deployment scripts without a dedicated implementation plan and review. Keep Platform and Core release versions compatible and record the chosen versions/commits for release work.
 
-For cross-repository agent roles, independent QA, verdict rules, model selection, and installed skills, follow the canonical standards in `../weirwise-brand/governance/AGENT_GOVERNANCE.md`, `../weirwise-brand/governance/QA_WORKFLOW.md`, `../weirwise-brand/governance/MODEL_GOVERNANCE.md`, `../weirwise-brand/governance/MODEL_SELECTION_MATRIX.md`, and `../weirwise-brand/governance/SKILLS_REGISTRY.md`. Use the safe QA runner at `../weirwise-brand/tools/qa/run_qa.py` for clean, isolated checks when that sibling repository is available. A separate QA context must inspect the actual Platform diff; tests alone are not approval. A push to `develop` can automatically deploy to development, so record the actual deployed commit/result after the push.
+Keep changes focused and independently reviewable; tests do not replace inspection of the actual diff. A push to `develop` can automatically deploy to development, so record the actual deployed commit/result after an authorized push. Cross-repository governance in Brand may be consulted when available, but this repository's instructions, tests, and local docs define the minimum workflow and do not require Brand to be present.
 
 ## Verification
 

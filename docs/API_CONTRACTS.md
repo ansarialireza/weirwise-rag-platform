@@ -1,185 +1,71 @@
-# Weirwise API Contracts (v2.0)
+# Platform API and Internal Contract Conventions
 
-This specification defines the public runtime endpoints, webhook contracts, and enterprise APIs.
+> **Status:** Current route overview, checked against `backend/app/main.py` and `backend/app/api/`
+> on November 10, 2026. For exact request/response fields and status codes, the route declarations,
+> Pydantic schemas, and environment-specific OpenAPI document are authoritative.
 
----
+## 1. API surface
 
-## 1. Public Runtime API (For Embed Widgets)
+The application mounts these route groups under `/api/v1` unless noted:
 
-Both public endpoints accept one of three access modes:
-
-| Mode | Header | Use |
-|---|---|---|
-| Share link | none | A published assistant opened directly. |
-| Website widget | `X-Widget-Key: <deployment public_key>` | Browser embeds. Enforces the deployment's allowed domains against `Origin`/`Referer`. |
-| Server integration | `X-API-Key: <workspace API key>` | Backend-to-backend. Workspace-scoped; bypasses browser domain rules. |
-
-API keys are created with workspace owner/admin rights and carry `assistants:read` and/or `assistants:chat` scopes. Config requires `assistants:read`; chat requires `assistants:chat`. Raw keys are returned once at creation and are never retrievable again.
-
-### GET `/api/v1/public/assistants/{assistant_id}/config`
-Retrieves public branding, communication settings, and visual themes for a published assistant.
-
-**Headers:** `X-Widget-Key` or `X-API-Key` (optional), `Origin` (validated when a widget key is used).
-
-**Response (200 OK):**
-```json
-{
-  "assistant_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "name": "Acme Support Bot",
-  "language": "en",
-  "tone": "friendly",
-  "welcome_message": "Hello! How can I help today?",
-  "placeholder_text": "Ask us a question...",
-  "primary_color": "#1B4D3E",
-  "position": "bottom-right",
-  "show_branding": true,
-  "allowed_domains": ["acme.com"]
-}
-```
-
----
-
-### POST `/api/v1/public/assistants/{assistant_id}/chat`
-Interacts with the grounded assistant in real-time.
-
-**Request Body:**
-```json
-{
-  "conversation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", // optional, generated if omitted
-  "message": "What is the return policy?",
-  "visitor_id": "anon_user_12345"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "conversation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "message_id": "c73a24e2-6e2c-471f-a5b6-70e0f808beec",
-  "content": "Items can be returned within 30 days of receipt in original condition.",
-  "is_grounded": true,
-  "citations": [
-    {
-      "source_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-      "document_name": "Return_Policy_2026.pdf",
-      "snippet": "All customers are entitled to a full refund within 30 days...",
-      "score": 0.89
-    }
-  ]
-}
-```
-
----
-
-### POST `/api/v1/public/messages/{message_id}/feedback`
-Records thumbs up or thumbs down feedback for quality tracking.
-
-**Request Body:**
-```json
-{
-  "rating": -1, // 1 for thumbs up, -1 for thumbs down
-  "reason": "Outdated information regarding return shipping fees"
-}
-```
-
----
-
-### POST `/api/v1/public/conversations/{conversation_id}/handoff`
-Requests escalation to a human agent when the assistant is unable to resolve an inquiry.
-
-**Request Body:**
-```json
-{
-  "contact_info": "customer@example.com",
-  "reason": "Requires manual order status lookup"
-}
-```
-
----
-
-## 1.1 Deployment & API Key Management (Dashboard Auth)
-
-All endpoints below require a dashboard bearer token.
-
-| Endpoint | Description |
+| Route module | Responsibility |
 |---|---|
-| `GET /api/v1/assistants/{assistant_id}/deployments` | List deployments and public widget keys. |
-| `POST /api/v1/assistants/{assistant_id}/deployments` | Create a deployment with `name`, `deployment_type`, `allowed_domains`, `theme_config`. |
-| `PATCH /api/v1/assistants/{assistant_id}/deployments/{deployment_id}` | Update `allowed_domains`, `theme_config`, `name`, or `is_active` without rotating the public key. |
-| `GET /api/v1/workspaces/{workspace_id}/api-credentials` | List API keys (prefix and status only). Owner/admin. |
-| `POST /api/v1/workspaces/{workspace_id}/api-credentials` | Create an API key. The raw key is returned once. Owner/admin. |
-| `DELETE /api/v1/workspaces/{workspace_id}/api-credentials/{credential_id}` | Revoke a key immediately. Idempotent. Owner/admin. |
+| `auth.py` | Registration, login, refresh, logout, email verification, and password reset. |
+| `knowledge.py` | Knowledge-source CRUD, file/text ingestion, safe crawl discovery/ingestion, and direct search. |
+| `assistants.py` | Assistant configuration and lifecycle, authenticated chat/streaming, deployments, conversations, evaluations, feedback, and analytics. |
+| `public_runtime.py` | Published assistant configuration/chat and public feedback/handoff flows under `/public`. |
+| `integrations.py` | Business integration credential/configuration operations. |
+| `voice.py` | Voice status and authenticated speech relay operations. |
+| `billing.py`, `enterprise.py`, `workspaces.py`, `admin.py`, `telemetry.py` | Billing, enterprise, compatibility, staff administration, and telemetry routes. |
+| `health.py` | Health routes mounted at the application root. |
 
-`allowed_domains` accepts exact hosts and `*.example.com` wildcard subdomains. An empty list (or `["*"]`) allows every website. Matching is hostname-exact to prevent lookalike-domain bypasses.
+Important public runtime paths include:
 
-### Website widget loader
+- `GET /api/v1/public/assistants/{assistant_id}/config`
+- `POST /api/v1/public/assistants/{assistant_id}/chat`
 
-`/widget.js` is a dependency-free loader served by the platform. It reads:
+Other routes and their exact fields are intentionally not duplicated here. Inspect the active route
+module and generated OpenAPI schema before relying on an endpoint or documenting a new contract.
 
-```html
-<script src="https://<platform-host>/widget.js"
-        data-assistant-id="<uid>"
-        data-key="<deployment public key>"
-        data-position="bottom-right"
-        data-color="#1B4D3E"
-        data-label="Open chat"
-        defer></script>
-```
+## 2. Authentication and authorization boundaries
 
-The loader renders an accessible floating launcher inside a shadow root, lazily creates the `/embed/{assistant_id}` iframe on first open, closes on `Escape`, restores focus, and exposes `window.WeirwiseWidget.open()/close()`.
+- Dashboard routes use a signed access token supplied as a Bearer token or the `access_token`
+  cookie. Authentication resolves a `User`; protected queries must then enforce that user's
+  ownership of each resource.
+- Platform-issued `X-API-Key` credentials are associated with a user and have scopes. They are not
+  workspace-issued keys.
+- Public runtime supports published share access, an active `X-Widget-Key` deployment key with
+  origin/domain checks, and user-owned `X-API-Key` access with endpoint-specific scopes.
+- Widget origin checks are not a replacement for authorization on protected routes. Never trust a
+  client-supplied user, assistant, source, or tenant identifier without an ownership check.
+- Platform authentication and authorization are separate from Core's `X-API-Key` tenant
+  authentication. Platform calls Core through `backend/app/adapters/core_client.py`; it does not
+  pass Platform dashboard credentials through to Core.
 
----
+## 3. Request, response, and error conventions
 
-## 2. Outbound Webhook Signature Contract
+- Define request and response models in `backend/app/schemas/`; route handlers should not expose
+  SQLAlchemy models as an accidental public contract.
+- Validate inputs at the route/schema boundary. Use explicit response models and HTTP status codes.
+- Preserve ownership checks on reads, writes, deletes, background-task dispatch, and public
+  conversation continuation.
+- Keep error responses useful to clients without returning provider secrets, raw credentials,
+  internal prompts, or sensitive implementation details.
+- Treat streamed chat as a separate public contract from ordinary JSON chat; document event framing,
+  terminal behavior, and persistence when it changes.
+- Keep internal service interfaces narrow and typed. Adapters translate external API errors into
+  Platform-owned exceptions; callers should not depend on another repository's internal classes.
 
-Weirwise dispatches webhook events to user-configured webhook URLs (Zapier, n8n, internal webhooks).
+## 4. Compatibility and tests
 
-### Webhook Headers
-```http
-POST https://customer-server.example.com/webhook
-Content-Type: application/json
-X-Weirwise-Event: handoff.requested
-X-Weirwise-Timestamp: 1730363800
-X-Weirwise-Signature: t=1730363800,v1=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
-```
+Changes to paths, authentication modes, scopes, payload fields, defaults, status codes, error shapes,
+stream events, or Core REST usage are compatibility-sensitive. Before changing one:
 
-### Signature Verification Algorithm
-```python
-import hmac, hashlib
+1. Inspect the calling frontend, SDK/adapter, route, schema, and tests.
+2. Record the intended compatibility behavior and any migration/deprecation plan.
+3. Add contract tests at the affected boundary. Mock external providers/Core for unit tests; use
+   isolated services for integration tests.
+4. Update this document only for stable conventions; keep exact schemas in code/OpenAPI.
 
-expected_sig = hmac.new(
-    webhook_secret.encode("utf-8"),
-    f"{timestamp}.{request_body_string}".encode("utf-8"),
-    hashlib.sha256
-).hexdigest()
-
-assert hmac.compare_digest(v1_signature, expected_sig)
-```
-
----
-
-## 3. Knowledge Ingestion & Crawler Discovery
-
-### POST `/api/v1/projects/{project_id}/crawler/discover`
-Discovers sitemaps and recursively crawls web pages with SSRF prevention.
-
-**Request Body:**
-```json
-{
-  "start_url": "https://example.com",
-  "max_pages": 25,
-  "respect_robots": true
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "target_url": "https://example.com",
-  "discovered_count": 12,
-  "pages": [
-    {"url": "https://example.com/about", "title": "About Us", "status": "discovered"},
-    {"url": "https://example.com/faq", "title": "Frequently Asked Questions", "status": "discovered"}
-  ]
-}
-```
+Core REST compatibility is defined by the Core repository's `CONTRACT.md`. Platform product version
+labels do not change Core's API or package release version.

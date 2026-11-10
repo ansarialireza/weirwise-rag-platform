@@ -1,56 +1,53 @@
-# Weirwise Platform Security Architecture & Threat Model
+# Platform Security Controls and Boundaries
 
-## 1. Multi-Tenant Isolation & Authorization
+> **Status:** Implementation-oriented guidance checked against source on November 10, 2026. This is
+> not a certification, penetration-test report, or production configuration statement.
 
-1. **Workspace Boundary Enforcement:**
-   - Every protected route resolves current user authentication, loads the target workspace context, and verifies `Membership` role.
-   - Database queries strictly enforce workspace/project scoping:
-     ```python
-     # Example platform query invariant:
-     query = select(Assistant).where(
-         Assistant.id == assistant_id,
-         Assistant.project_id == current_project_id
-     )
-     ```
-2. **Horizontal Privilege Escalation Prevention:**
-   - IDs are random UUIDv4 identifiers.
-   - Resource ownership is verified on the server side prior to any mutation or read.
+## Authentication and authorization
 
----
+- Dashboard dependencies accept a signed Bearer access token or the `access_token` cookie and
+  resolve an active `User`.
+- Passwords use PBKDF2-HMAC-SHA256 with a per-password random salt. Refresh/reset/verification
+  tokens and Platform API keys are stored as SHA-256 hashes.
+- Platform API credentials are user-owned and scope-checked. Public runtime separately supports
+  published share access, widget deployment keys, and user-issued API credentials.
+- Protected resource queries must include server-side ownership predicates. There is no persisted
+  Workspace principal/Membership relation or database row-level security; workspace-named
+  auxiliary records are user-keyed. Do not describe Platform authorization as workspace RBAC or
+  PostgreSQL RLS.
 
-## 2. Credential & Secret Management
+## Credential handling
 
-1. **Platform API Keys:**
-   - Raw keys format: `wwp_live_<32-byte-hex>` or `wwp_test_<32-byte-hex>`.
-   - Never stored in plaintext. Platform stores only `SHA-256(key + salt)`.
-   - Visible to the user only once upon creation.
-2. **Third-Party & Core API Secrets:**
-   - Stored encrypted at rest using AES-GCM (256-bit) with key rotation support.
-   - Environment variables loaded securely; never committed to git or exposed in client bundles.
-3. **Audit Logging:**
-   - Security-sensitive actions (API key creation, member invitation, role escalation, deletion of knowledge bases) produce persistent `AuditEvent` records with caller IP, timestamp, and metadata.
-   - Content and prompts are redacted from audit entries.
+- Provider and business-integration credentials are encrypted with Fernet in
+  `backend/app/services/vault.py`. The Fernet key is derived from `SECRET_KEY`; it is not a
+  separately versioned/rotatable key in the inspected implementation.
+- Platform API credentials are hashed, whereas deployment `public_key` values are stored for
+  widget runtime use. Do not treat a public widget key as a dashboard credential.
+- Keep secrets server-side, redact them from logs/errors, do not return decrypted values from
+  routes, and use `.env.example` only as the configuration reference.
+- Do not claim independent key rotation, customer-managed provider keys, or a particular
+  cryptographic storage service unless implemented and configured.
 
----
+## Uploads, crawling, and public runtime
 
-## 3. Data Ingestion & Network Hardening
+- Upload handling applies configured extension and size limits and stores files outside the
+  frontend bundle. Keep upload paths non-executable and preserve cleanup behavior.
+- Crawler entry points call the Platform URL-safety checks. Re-check the current scraper
+  implementation before making claims about DNS rebinding, redirect, or egress guarantees.
+- Widget-key requests validate the deployment and allowed hostname. Public configuration/chat
+  routes also apply rate limits; Redis-backed limits have an in-process fallback. Share-link
+  access is distinct from widget-key origin enforcement.
+- Continue to test unauthorized IDs, cross-user access, credential masking, upload limits, and
+  public rate-limit behavior at the owning boundary.
 
-1. **File Upload Security:**
-   - Strictly enforced MIME type whitelisting (PDF, DOCX, TXT, MD, CSV, JSON).
-   - Magic bytes verification to prevent executable file masking.
-   - Enforced maximum file size limit (configurable, default 50 MB).
-   - Files stored in isolated object storage buckets with randomized UUID paths; direct execution paths are blocked.
-2. **SSRF & Web Scraper Protection:**
-   - Prohibit requests resolving to RFC 1918 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopback (`127.0.0.0/8`), or link-local cloud metadata endpoints (`169.254.169.254`).
-   - Restrict protocols to `http` and `https`.
-   - Set strict connection timeouts and redirect caps.
+## Data, operations, and claims
 
----
-
-## 4. Public Deployments & Widget Hardening
-
-1. **Embedded Widget Tokens:**
-   - Embeddable web chat widgets authenticate using scoped, restricted deployment tokens.
-   - Tokens can only invoke conversation turn endpoints on the designated `Assistant`.
-   - Domain whitelisting (CORS / HTTP Referer / Origin header checks) enforced on widget endpoints.
-   - Rate limiting per IP and per session prevents denial-of-wallet and quota exhaustion.
+- Platform and Core use separate APIs, databases, and credentials. Never access Core persistence
+  directly or share its ORM models.
+- Audit and usage tables exist, but their presence alone does not establish a complete immutable
+  audit trail, data-retention guarantee, compliance certification, or encryption-at-rest for the
+  entire database.
+- Environment defaults are for development. Verify production settings, cookie attributes, proxy
+  trust, CORS, HSTS, encryption keys, rate-limit backend, storage permissions, and provider
+  credentials before deployment.
+- Do not commit credentials, customer data, runtime databases, uploads, or generated reports.

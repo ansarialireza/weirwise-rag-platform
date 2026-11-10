@@ -1,96 +1,53 @@
-# Weirwise Platform Domain Model
+# Platform Persisted Domain Model
 
-## 1. Conceptual Domain Hierarchy
+> This describes SQLAlchemy models in `backend/app/models/`, checked on November 10, 2026. It is
+> not a product roadmap or a claim that every route is released.
 
-The domain model enforces strong tenancy, separation of concerns, and least-privilege scoping across all resources.
+## Ownership overview
 
 ```mermaid
 erDiagram
-    User ||--o{ Membership : has
-    Workspace ||--o{ Membership : contains
-    Workspace ||--o{ Project : owns
-    Project ||--o{ KnowledgeSource : scopes
+    User ||--o{ KnowledgeSource : owns
     KnowledgeSource ||--o{ Document : contains
-    Project ||--o{ Assistant : defines
+    User ||--o{ Assistant : owns
     Assistant ||--o{ AssistantKnowledgeSource : links
     KnowledgeSource ||--o{ AssistantKnowledgeSource : links
-    Assistant ||--o{ Conversation : engages
-    Conversation ||--o{ Message : records
-    Project ||--o{ Deployment : configures
-    Workspace ||--o{ ApiCredential : issues
-    Workspace ||--o{ UsageEvent : records
-    Workspace ||--o{ AuditEvent : audits
+    Assistant ||--o{ Conversation : has
+    Conversation ||--o{ Message : contains
+    Assistant ||--o{ Deployment : publishes
+    User ||--o{ ApiCredential : owns
+    User ||--o{ UsageEvent : incurs
+    User ||--o{ AuditEvent : triggers
 ```
 
----
+## Persisted entities
 
-## 2. Core Entities & Invariants
+| Entity | Owner and responsibility |
+|---|---|
+| `User` | Account identity, password hash, verification/admin flags, and authentication records. |
+| `UserSession`, `PasswordResetToken`, `EmailVerificationToken` | User-scoped refresh-session and time-limited account-recovery/verification records; sensitive token values are hashed. |
+| `KnowledgeSource` | Owned by `user_id`; represents an uploaded source or website crawl and may reference a Core knowledge base using `core_kb_id`. |
+| `Document` | Belongs to a user and `KnowledgeSource`; stores Platform metadata and a local storage path, and may reference the indexed Core document using `core_doc_id`. |
+| `ProcessingJob` | Tracks Platform-side processing status and attempts for a document. |
+| `Assistant` | Owned by `user_id`; contains behavior, grounding, language/tone, publication status, and a published configuration snapshot. `core_assistant_id` is an optional external reference, not a shared Core model. |
+| `AssistantKnowledgeSource` | Many-to-many link between assistants and sources, with a priority value. Both sides must be checked against the owning user at the API boundary. |
+| `Conversation`, `Message` | Conversation belongs to an assistant; messages store role/content, citations, token usage, grounding state, and timing. Anonymous runtime conversations can use a session token. |
+| `Deployment` | Belongs to an assistant and stores deployment type, a public widget key, allowed domains, and presentation configuration. |
+| `ApiCredential` | User-owned Platform API key with a stored hash, scopes, active/revocation state, and optional expiry. |
+| `UsageEvent`, `AuditEvent` | User-associated usage and audit records. Their presence does not imply a complete audit trail for every operation. |
+| Billing/admin/provider models | Subscription/payment, provider account/credential, routing, and staff-control records. `WorkspacePlanEntitlement` and `WorkspaceBYOKCredential` are persisted auxiliary models keyed to `user_id`; the former exposes `workspace_id` and the latter `project_id` as synonyms for `user_id`. Neither provides a workspace principal or Membership relation. |
 
-### 1. User & Identity
-- **Entity:** `User`
-- **Fields:** `id` (UUID), `email` (string, unique), `hashed_password` (string), `full_name` (string), `is_active` (bool), `is_superuser` (bool), `created_at`, `updated_at`.
-- **Invariants:** Every user account exists globally, but data access is strictly bounded by `Membership` records in specific Workspaces.
+## Important boundaries and caveats
 
-### 2. Workspace
-- **Entity:** `Workspace`
-- **Fields:** `id` (UUID), `name` (string), `slug` (string, unique), `plan_tier` (string: free, pro, enterprise), `settings` (JSON), `created_at`, `updated_at`.
-- **Invariants:** The top-level administrative and billing boundary. Cross-workspace access is prohibited.
-
-### 3. Membership & Roles
-- **Entity:** `Membership`
-- **Fields:** `id` (UUID), `user_id` (FK), `workspace_id` (FK), `role` (enum: `owner`, `admin`, `member`, `viewer`), `created_at`.
-- **Invariants:** Unique constraint on `(user_id, workspace_id)`. Role dictates platform actions (e.g., only `owner`/`admin` can invite users or manage API credentials).
-
-### 4. Project
-- **Entity:** `Project`
-- **Fields:** `id` (UUID), `workspace_id` (FK), `name` (string), `slug` (string), `description` (text), `created_at`, `updated_at`.
-- **Invariants:**
-  - Belongs to exactly one Workspace.
-  - Assistants and KnowledgeSources are partitioned within a Project.
-
-### 5. KnowledgeSource
-- **Entity:** `KnowledgeSource`
-- **Fields:** `id` (UUID), `project_id` (FK), `core_kb_id` (UUID, nullable), `name` (string), `type` (enum: `file_upload`, `web_crawl`, `notion`, `confluence`), `status` (enum: `draft`, `syncing`, `active`, `error`), `sync_schedule` (string), `created_at`, `updated_at`.
-- **Invariants:**
-  - Scoped to a single Project.
-  - Maps to a tenant knowledge base in Weirwise Core via `core_kb_id`.
-
-### 6. Document
-- **Entity:** `Document`
-- **Fields:** `id` (UUID), `knowledge_source_id` (FK), `core_doc_id` (UUID, nullable), `filename` (string), `mime_type` (string), `file_size_bytes` (bigint), `content_hash` (string, SHA-256), `storage_uri` (string), `status` (enum: `pending`, `uploaded`, `indexing`, `ready`, `failed`), `error_reason` (text), `created_at`, `updated_at`.
-- **Invariants:** Represents an atomic file or crawled page. Status transitions are monotonically tracked.
-
-### 7. Assistant
-- **Entity:** `Assistant`
-- **Fields:** `id` (UUID), `project_id` (FK), `core_assistant_id` (UUID, nullable), `name` (string), `description` (text), `system_instructions` (text), `model_name` (string), `temperature` (float), `max_tokens` (int), `retrieval_threshold` (float), `top_k` (int), `is_published` (bool), `created_at`, `updated_at`.
-- **Invariants:**
-  - Scoped to one Project.
-  - Configures conversational behavior and grounding parameters.
-
-### 8. AssistantKnowledgeSource
-- **Entity:** `AssistantKnowledgeSource`
-- **Fields:** `assistant_id` (FK), `knowledge_source_id` (FK), `priority` (int), `created_at`.
-- **Invariants:**
-  - Compound primary key `(assistant_id, knowledge_source_id)`.
-  - Both Assistant and KnowledgeSource must belong to the exact same Project.
-
-### 9. Conversation & Message
-- **Entity:** `Conversation`
-  - Fields: `id` (UUID), `assistant_id` (FK), `user_id` (FK, nullable), `session_token` (string, nullable), `title` (string), `created_at`, `updated_at`.
-- **Entity:** `Message`
-  - Fields: `id` (UUID), `conversation_id` (FK), `role` (enum: `user`, `assistant`, `system`), `content` (text), `citations` (JSON), `token_count` (int), `latency_ms` (int), `created_at`.
-
-### 10. Deployment
-- **Entity:** `Deployment`
-- **Fields:** `id` (UUID), `assistant_id` (FK), `type` (enum: `web_widget`, `public_api`, `slack_bot`), `allowed_domains` (list of strings), `theme_config` (JSON), `is_active` (bool), `created_at`, `updated_at`.
-
-### 11. ApiCredential
-- **Entity:** `ApiCredential`
-- **Fields:** `id` (UUID), `workspace_id` (FK), `name` (string), `key_prefix` (string, e.g. `wwp_live_`), `key_hash` (string, SHA-256), `scopes` (list of strings), `expires_at` (datetime, nullable), `revoked_at` (datetime, nullable), `created_at`.
-- **Invariants:** Plaintext secret shown only once upon creation. Hash verification enforced on every incoming request.
-
-### 12. UsageEvent & AuditEvent
-- **Entity:** `UsageEvent`
-  - Fields: `id` (UUID), `workspace_id` (FK), `project_id` (FK), `assistant_id` (FK), `event_type` (e.g. `chat_turn`, `document_chunk_indexed`), `units` (int), `timestamp`.
-- **Entity:** `AuditEvent`
-  - Fields: `id` (UUID), `workspace_id` (FK), `user_id` (FK, nullable), `action` (string), `resource_type` (string), `resource_id` (UUID), `metadata` (JSON), `ip_address` (string), `timestamp`.
+- The inspected Platform schema is **user-scoped**, not workspace/membership-scoped. There is no
+  persisted `workspaces` principal table or `memberships` table. The model modules also contain
+  legacy `Workspace`/`Project` compatibility shims and `project_id`/`workspace_id` synonyms; the
+  synonyms resolve to `user_id` and do not provide persisted multi-user workspace authorization.
+- Frontend storage keys and compatibility API names containing `workspace` or `project` do not
+  change the database ownership model.
+- Platform's `User` and Core's `Tenant` are separate identities. Core tenant isolation is enforced
+  by Core API keys; Platform owns the mapping and communicates with Core over REST.
+- Core document IDs and knowledge-base IDs are opaque references. Platform must not query or
+  reinterpret Core's database.
+- Do not add a persisted workspace, membership, role, or cross-user sharing assumption to docs or
+  routes until such a schema and authorization model are implemented and tested.
