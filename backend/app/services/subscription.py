@@ -108,10 +108,6 @@ class SubscriptionService:
         return 10
 
     @classmethod
-    async def get_workspace_usage(cls, workspace_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
-        return await cls.get_user_usage(workspace_id, db)
-
-    @classmethod
     async def get_user_usage(cls, user_id: uuid.UUID, db: AsyncSession) -> dict[str, int]:
         """Aggregate usage events for the current user billing cycle."""
         ent_res = await db.execute(select(WorkspacePlanEntitlement).where(WorkspacePlanEntitlement.user_id == user_id))

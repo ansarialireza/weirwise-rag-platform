@@ -13,10 +13,10 @@ Membership entities. Legacy workspace/project routes and some auxiliary model na
 compatibility.
 
 Platform calls Core through a service-configured API key. Core authenticates the Platform service
-tenant, not an individual Platform user. Platform therefore remains responsible for authorizing its
-own records before using Core resource IDs. Separately, `BusinessIntegration` currently allows only
-one connection per `(user_id, provider)`, so multiple stores from the same provider are not
-implemented.
+tenant, not an individual Platform user. Platform therefore remains responsible for authorizing its own records before using Core resource
+IDs. The integration model now supports multiple connections per user/provider using a stable
+`connection_key`. This is persistence support only and does not imply that Shopify OAuth or catalog
+synchronization is implemented.
 
 ## Decision
 
@@ -29,9 +29,10 @@ implemented.
   compatibility plan have been reviewed.
 - Keep account ownership and authorization in Platform. Core remains independently reusable and
   unaware of Platform accounts, workspaces, and memberships.
-- Do not change schema or run a migration as part of this decision. Any future multi-store work must
-  first define connection identity, provider authorization, uniqueness, backfill, and compatibility
-  behavior.
+- `BusinessIntegration` connections belong to `user_id` and are unique by
+  `(user_id, provider, connection_key)`. Legacy clients use the `default` key; Shopify can derive
+  connection identity from its shop domain. Provider-specific authorization and synchronization
+  remain separate future work.
 
 ## Consequences
 
@@ -42,7 +43,8 @@ implemented.
 - **Trade-off:** Legacy names and shims remain until their consumers can be retired safely.
 - **Trade-off:** A Platform Core service credential does not provide per-user isolation in Core;
   Platform ownership checks on Core resource references are essential.
-- **Limitation:** One connection per user/provider remains the current integration constraint.
+- **Limitation:** The new connection identity supports multiple stored connections, but does not
+  implement Shopify OAuth, catalog synchronization, or recurring jobs.
 
 ## Alternatives considered
 

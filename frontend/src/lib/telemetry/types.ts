@@ -55,7 +55,6 @@ export interface BehavioralEventItem {
 
 export interface BehavioralBatchIngestionRequest {
   session_id: string;
-  workspace_id?: string | null;
   device_context?: DeviceContextSchema;
   geographic_context?: GeographicContextSchema;
   events: BehavioralEventItem[];

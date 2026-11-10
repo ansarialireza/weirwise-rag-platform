@@ -34,14 +34,18 @@ async def connect_integration(
     db: AsyncSession = Depends(get_db_session),
 ) -> BusinessIntegrationResponse:
     """Connect a business service (e.g. Shopify, Zendesk, Gorgias) with encrypted credential storage."""
-    integration = await integrations_service.create_or_update_integration(
-        db=db,
-        user_id=current_user.id,
-        provider=payload.provider,
-        display_name=payload.display_name,
-        credentials=payload.credentials,
-        config=payload.config,
-    )
+    try:
+        integration = await integrations_service.create_or_update_integration(
+            db=db,
+            user_id=current_user.id,
+            provider=payload.provider,
+            display_name=payload.display_name,
+            credentials=payload.credentials,
+            config=payload.config,
+            connection_key=payload.connection_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return BusinessIntegrationResponse.model_validate(integration)
 
 
@@ -72,7 +76,7 @@ async def trigger_integration_sync(
     if not integration:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found.")
 
-    sync_result = await integrations_service.sync_integration_knowledge(db, integration.id)
+    sync_result = await integrations_service.sync_integration_knowledge(db, current_user.id, integration.id)
     if sync_result.get("status") == "not_implemented":
         raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=sync_result["message"])
     if sync_result.get("status") == "failed":

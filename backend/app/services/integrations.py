@@ -3,6 +3,7 @@
 import json
 import uuid
 from typing import Any
+from urllib.parse import urlsplit
 
 from backend.app.core.logging import logger
 from backend.app.models.assistant import BusinessIntegration
@@ -15,6 +16,27 @@ class IntegrationsService:
     """Manages credentials, synchronization, and webhook dispatch for third-party business systems."""
 
     @staticmethod
+    def _connection_key(provider: str, connection_key: str | None, config: dict[str, Any]) -> str:
+        candidate = connection_key
+        if not candidate and provider.lower() == "shopify":
+            candidate = config.get("shop_domain") or config.get("shop_url")
+        if not candidate:
+            return "default"
+
+        candidate = str(candidate).strip()
+        if provider.lower() == "shopify":
+            parsed = urlsplit(candidate if "://" in candidate else f"//{candidate}")
+            if parsed.username or parsed.password or not parsed.hostname or parsed.path not in ("", "/"):
+                raise ValueError("Shopify connection_key must be a shop domain or a stable shop identifier.")
+            candidate = parsed.hostname.rstrip(".").lower()
+        else:
+            candidate = candidate.casefold()
+
+        if not candidate or len(candidate) > 255:
+            raise ValueError("Integration connection_key must contain 1 to 255 characters.")
+        return candidate
+
+    @staticmethod
     async def create_or_update_integration(
         db: AsyncSession,
         user_id: uuid.UUID,
@@ -22,14 +44,17 @@ class IntegrationsService:
         display_name: str,
         credentials: dict[str, Any],
         config: dict[str, Any],
+        connection_key: str | None = None,
     ) -> BusinessIntegration:
         """Encrypt credentials at rest and persist integration."""
+        normalized_provider = provider.lower()
+        resolved_connection_key = IntegrationsService._connection_key(provider, connection_key, config)
         encrypted_blob = CredentialVaultService.encrypt_secret(json.dumps(credentials))
 
-        # Check existing
         stmt = select(BusinessIntegration).where(
             BusinessIntegration.user_id == user_id,
-            BusinessIntegration.provider == provider,
+            BusinessIntegration.provider == normalized_provider,
+            BusinessIntegration.connection_key == resolved_connection_key,
         )
         res = await db.execute(stmt)
         integration = res.scalar_one_or_none()
@@ -42,7 +67,8 @@ class IntegrationsService:
         else:
             integration = BusinessIntegration(
                 user_id=user_id,
-                provider=provider,
+                provider=normalized_provider,
+                connection_key=resolved_connection_key,
                 display_name=display_name,
                 encrypted_credentials=encrypted_blob,
                 config=config,
@@ -65,13 +91,20 @@ class IntegrationsService:
             return {}
 
     @staticmethod
-    async def sync_integration_knowledge(db: AsyncSession, integration_id: uuid.UUID) -> dict[str, Any]:
+    async def sync_integration_knowledge(
+        db: AsyncSession,
+        user_id: uuid.UUID,
+        integration_id: uuid.UUID,
+    ) -> dict[str, Any]:
         """Report sync availability without fabricating imported items.
 
         Credentials are stored, but no provider-specific import adapter exists yet.
         Returning a truthful status is preferable to inventing item counts.
         """
-        stmt = select(BusinessIntegration).where(BusinessIntegration.id == integration_id)
+        stmt = select(BusinessIntegration).where(
+            BusinessIntegration.id == integration_id,
+            BusinessIntegration.user_id == user_id,
+        )
         res = await db.execute(stmt)
         integration = res.scalar_one_or_none()
         if not integration:

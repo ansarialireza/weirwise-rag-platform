@@ -28,7 +28,8 @@ The browser application uses Next.js 15 App Router, React, TypeScript, and Tailw
 ## Account context and compatibility
 
 The dashboard operates in the single account resolved by the authenticated user. It has no workspace
-switcher or account-selected tenant ID; ownership remains a backend decision. Some old client types,
-storage keys, telemetry symbols, and billing helper names retain workspace terminology for
-compatibility. The workspace/project API compatibility layer is deprecated and must not be used to
-build new UI. Do not infer backend authorization or shared-account support from legacy names.
+switcher or account-selected tenant ID; ownership remains a backend decision. The frontend removes
+workspace telemetry state and the unused workspace translation label. A stale local-storage key is
+still cleared during API client initialization for cleanup. The workspace/project API compatibility
+layer is deprecated and must not be used to build new UI. Do not infer backend authorization or
+shared-account support from legacy names.

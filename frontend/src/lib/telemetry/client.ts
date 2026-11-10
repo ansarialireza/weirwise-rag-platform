@@ -37,7 +37,6 @@ export class TelemetryClient {
   private transport: BatchTransport;
   private flushTimer: any = null;
   private isFlushing: boolean = false;
-  private activeWorkspaceId: string | null = null;
   private currentRoute: string = "/";
   private referrerRoute: string | null = null;
   private isBrowser: boolean;
@@ -95,10 +94,6 @@ export class TelemetryClient {
       window.removeEventListener("beforeunload", this.handlePageHide);
     }
     this.initialized = false;
-  }
-
-  public setWorkspaceId(workspaceId: string | null): void {
-    this.activeWorkspaceId = workspaceId;
   }
 
   public setRoute(route: string): void {
@@ -312,7 +307,6 @@ export class TelemetryClient {
 
         const payload: BehavioralBatchIngestionRequest = {
           session_id: this.sessionManager.getSessionId(),
-          workspace_id: this.activeWorkspaceId,
           device_context: ContextCollector.getDeviceContext(this.currentRoute),
           geographic_context: ContextCollector.getGeographicContext(),
           events: queuedItems.map((q) => q.event),
@@ -390,7 +384,6 @@ export class TelemetryClient {
 
     const payload: BehavioralBatchIngestionRequest = {
       session_id: this.sessionManager.getSessionId(),
-      workspace_id: this.activeWorkspaceId,
       device_context: ContextCollector.getDeviceContext(this.currentRoute),
       geographic_context: ContextCollector.getGeographicContext(),
       events: items.map((q) => q.event),

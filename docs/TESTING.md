@@ -1,4 +1,7 @@
-# Platform Testing Strategy
+# Platform Testing Overview
+
+See the repository-root [`TESTING_STRATEGY.md`](../TESTING_STRATEGY.md) for test ownership,
+account-isolation requirements, CI behavior, environment constraints, and known limitations.
 
 Tests should verify behavior at the owning boundary and preserve the separate Platform/Core
 contracts. The test suite is under `backend/tests/` and repository-level `tests/`; frontend checks

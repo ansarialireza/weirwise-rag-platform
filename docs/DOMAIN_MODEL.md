@@ -16,6 +16,7 @@ erDiagram
     Conversation ||--o{ Message : contains
     Assistant ||--o{ Deployment : publishes
     User ||--o{ ApiCredential : owns
+    User ||--o{ BusinessIntegration : owns
     User ||--o{ UsageEvent : incurs
     User ||--o{ AuditEvent : triggers
 ```
@@ -34,6 +35,7 @@ erDiagram
 | `Conversation`, `Message` | Conversation belongs to an assistant, which is user-owned; messages store role/content, citations, token usage, grounding state, and timing. Anonymous runtime conversations can use a session token. |
 | `Deployment` | Belongs to an assistant and stores deployment type, a public widget key, allowed domains, and presentation configuration. |
 | `ApiCredential` | User-owned Platform API key with a stored hash, scopes, active/revocation state, and optional expiry. |
+| `BusinessIntegration` | User-owned provider connection with encrypted credentials and a `connection_key`; multiple connections to the same provider are supported for one user. |
 | `UsageEvent`, `AuditEvent` | User-associated usage and audit records. Their presence does not imply a complete audit trail for every operation. |
 | Billing/admin/provider models | Subscription/payment, provider account/credential, routing, and staff-control records. `WorkspacePlanEntitlement` and `WorkspaceBYOKCredential` are persisted auxiliary models keyed to `user_id`; their legacy names do not provide a workspace principal or membership relation. |
 
@@ -41,7 +43,8 @@ erDiagram
 
 - The Platform's current customer-account principal is `User`. There is no separate `Account`
   model, persisted `workspaces`, `projects`, or `memberships` table, or multi-user account model.
-  Legacy model shims and synonyms exist for compatibility but do not establish ownership.
+  Legacy workspace/project API compatibility routes and auxiliary table names do not establish
+  ownership or membership.
 - Account isolation is enforced by Platform authentication and per-resource ownership checks; it is
   not implemented with PostgreSQL row-level security. Customer-facing routes must derive the
   account from the authenticated user rather than trust client-supplied tenant identifiers.
@@ -51,9 +54,9 @@ erDiagram
   and authorization checks are therefore a security-critical boundary.
 - Core document IDs and knowledge-base IDs are opaque references. Platform must not query or
   reinterpret Core's database.
-- `BusinessIntegration` is unique on `(user_id, provider)` and its service upserts that pair.
-  Multiple stores connected to the same provider are not supported by this schema. A future
-  multi-store connector needs a provider-connection identity and a reviewed, non-destructive
-  migration; do not model each store as a workspace.
+- `BusinessIntegration` is unique on `(user_id, provider, connection_key)` and its service upserts
+  that triple. Older clients without a key use `default`; Shopify can derive the key from the shop
+  domain. Multiple connection records are supported, but provider-specific OAuth, catalog
+  synchronization, retries, and analysis are not implemented by this persistence change.
 - Legacy `/workspaces` and `/projects` API routes are compatibility shims. They are not the
   customer account model and are deprecated for new clients; see [`API_CONTRACTS.md`](API_CONTRACTS.md).
