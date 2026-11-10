@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -30,9 +31,14 @@ interface CommandItem {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,11 +85,11 @@ export function CommandPalette() {
       (item.subtitle && item.subtitle.toLowerCase().includes(query.toLowerCase()))
   );
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in sm:items-start sm:p-6 sm:pt-24"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in-opacity sm:items-start sm:p-6 sm:pt-24"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
@@ -106,7 +112,7 @@ export function CommandPalette() {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground touch-manipulation"
             aria-label="Close quick search"
           >
             <X className="h-4 w-4" />
@@ -130,7 +136,7 @@ export function CommandPalette() {
                     setOpen(false);
                     setQuery("");
                   }}
-                  className="group flex w-full items-center justify-between gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-muted"
+                  className="group flex w-full items-center justify-between gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-muted touch-manipulation"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground group-hover:text-accent">
@@ -150,11 +156,12 @@ export function CommandPalette() {
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2 pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] sm:pb-2 text-[11px] text-muted-foreground">
           <span>Weirwise quick search</span>
           <kbd className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px]">ESC</kbd>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

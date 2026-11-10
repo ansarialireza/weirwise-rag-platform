@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils";
@@ -110,10 +111,10 @@ export function InstallAppButton({ variant = "row", className }: InstallAppButto
         {dict.common.installApp}
       </button>
 
-      {hintOpen && (
+      {hintOpen && typeof document !== "undefined" && createPortal(
         <>
           <div
-            className="fixed inset-0 z-50 bg-onyx/60 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[75] bg-onyx/60 backdrop-blur-[2px] animate-in-opacity"
             onClick={() => setHintOpen(false)}
             aria-hidden="true"
           />
@@ -121,7 +122,7 @@ export function InstallAppButton({ variant = "row", className }: InstallAppButto
             role="dialog"
             aria-modal="true"
             aria-labelledby="ww-install-hint-title"
-            className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md rounded-t-2xl border-t border-border bg-card px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-lift"
+            className="fixed inset-x-0 bottom-0 z-[75] mx-auto max-w-md rounded-t-2xl border-t border-border bg-card px-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))] pt-5 shadow-lift animate-in"
           >
             <div className="flex items-start justify-between gap-3">
               <p
@@ -135,7 +136,7 @@ export function InstallAppButton({ variant = "row", className }: InstallAppButto
                 type="button"
                 onClick={() => setHintOpen(false)}
                 aria-label={dict.common.closeNavigation}
-                className="-me-1 -mt-1 flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="-me-1 -mt-1 flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground touch-manipulation"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -153,12 +154,13 @@ export function InstallAppButton({ variant = "row", className }: InstallAppButto
                 }
                 setHintOpen(false);
               }}
-              className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 touch-manipulation"
             >
               {dict.common.gotIt}
             </button>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );

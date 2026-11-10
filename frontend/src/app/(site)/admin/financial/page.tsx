@@ -340,7 +340,7 @@ export default function AdminFinancialCenter() {
 
           {/* Modal / Form for Editing / Creating Plan */}
           {(creatingPlan || editingPlan) && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in-opacity">
               <div className="rounded-xl border border-border bg-card p-6 w-full max-w-lg space-y-4 shadow-lift max-h-[90vh] overflow-y-auto">
                 <h3 className="font-bold text-foreground text-sm">
                   {creatingPlan ? "Create Dynamic Plan" : `Configure Plan: ${editingPlan?.name}`}
@@ -567,7 +567,7 @@ export default function AdminFinancialCenter() {
 
           {/* Audit Review Modal */}
           {reviewingTx && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in-opacity">
               <div className="rounded-xl border border-border bg-card p-6 w-full max-w-md space-y-4 shadow-lift">
                 <h3 className="font-bold text-foreground text-sm">
                   Manual Transaction Review: {reviewingTx.order_number}

@@ -394,7 +394,7 @@ export default function SourcesKnowledgePage() {
         description="The documents your assistants can answer from. Group them by topic."
         actions={
           hasSources ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -402,12 +402,12 @@ export default function SourcesKnowledgePage() {
                   setDirectSearchHasSearched(false);
                   setDirectSearchResults([]);
                 }}
-                className="gap-2"
+                className="gap-2 touch-manipulation"
               >
                 <Search className="h-4 w-4 text-primary" />
                 Search knowledge
               </Button>
-              <Button onClick={() => setShowModal(true)} className="gap-2">
+              <Button onClick={() => setShowModal(true)} className="gap-2 touch-manipulation">
                 <Plus className="h-4 w-4" />
                 Add knowledge
               </Button>
@@ -837,7 +837,7 @@ export default function SourcesKnowledgePage() {
                                 type="button"
                                 disabled={retryingDocId === doc.id}
                                 onClick={() => handleRetryDocument(doc.id)}
-                                className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50"
+                                className="inline-flex h-8 min-h-[36px] min-w-[36px] sm:min-h-0 sm:min-w-0 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 touch-manipulation"
                               >
                                 <RefreshCw
                                   className={cn("h-3 w-3", retryingDocId === doc.id && "animate-spin")}
@@ -849,7 +849,7 @@ export default function SourcesKnowledgePage() {
                               type="button"
                               disabled={deletingDocId === doc.id}
                               onClick={() => setDocToDelete({ id: doc.id, filename: doc.filename })}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                              className="flex h-8 w-8 min-h-[36px] min-w-[36px] sm:min-h-0 sm:min-w-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50 touch-manipulation"
                               aria-label={`Delete ${doc.filename}`}
                               title="Delete document"
                             >

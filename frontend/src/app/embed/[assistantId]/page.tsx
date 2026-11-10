@@ -347,7 +347,7 @@ export default function AssistantWidgetPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="handoff-dialog-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in-opacity"
         >
           <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-lg">
             <div className="flex items-center justify-between pb-3 border-b border-border/60">

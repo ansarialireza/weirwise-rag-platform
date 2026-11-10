@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,11 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,13 +66,13 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const maxWidths = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-xl" };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in sm:items-center sm:p-6"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in-opacity sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title || "Dialog"}
@@ -88,7 +94,7 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground touch-manipulation"
             aria-label="Close dialog"
           >
             <X className="h-4 w-4" />
@@ -96,11 +102,12 @@ export function Modal({ isOpen, onClose, title, description, children, maxWidth 
         </div>
         <div
           className="flex-1 overflow-y-auto p-5 sm:p-6"
-          style={{ paddingBottom: "max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))" }}
+          style={{ paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.25rem))" }}
         >
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

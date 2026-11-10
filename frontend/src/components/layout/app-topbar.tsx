@@ -50,16 +50,16 @@ export function AppTopbar({ onOpenMenu, onOpenSearch }: AppTopbarProps) {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const close = (event: MouseEvent) => {
+    const close = (event: Event) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMenuOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
-    document.addEventListener("mousedown", close);
+    document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", escape);
     return () => {
-      document.removeEventListener("mousedown", close);
+      document.removeEventListener("pointerdown", close);
       document.removeEventListener("keydown", escape);
     };
   }, [menuOpen]);

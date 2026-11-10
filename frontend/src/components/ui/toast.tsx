@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,11 @@ const ToastContext = createContext<ToastContextType>({
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -43,40 +49,44 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toasts, toast, dismiss }}>
       {children}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-center gap-2 sm:inset-x-auto sm:end-5 sm:items-end"
-      >
-        {toasts.map((t) => (
+      {mounted &&
+        createPortal(
           <div
-            key={t.id}
-            role="alert"
-            className={cn(
-              "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-card p-3.5 text-[13px] shadow-lift animate-in",
-              t.type === "success" && "border-success/30",
-              t.type === "error" && "border-destructive/30",
-              t.type === "info" && "border-border"
-            )}
+            aria-live="polite"
+            className="pointer-events-none fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] z-[100] flex flex-col items-center gap-2 sm:inset-x-auto sm:bottom-4 sm:end-5 sm:items-end"
           >
-            {t.type === "success" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />}
-            {t.type === "error" && <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
-            {t.type === "info" && <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />}
+            {toasts.map((t) => (
+              <div
+                key={t.id}
+                role="alert"
+                className={cn(
+                  "pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border bg-card p-3.5 text-[13px] shadow-lift animate-in",
+                  t.type === "success" && "border-success/30",
+                  t.type === "error" && "border-destructive/30",
+                  t.type === "info" && "border-border"
+                )}
+              >
+                {t.type === "success" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />}
+                {t.type === "error" && <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
+                {t.type === "info" && <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />}
 
-            <div className="flex-1 space-y-0.5">
-              {t.title && <div className="font-semibold text-foreground">{t.title}</div>}
-              <div className="leading-relaxed text-muted-foreground">{t.message}</div>
-            </div>
+                <div className="flex-1 space-y-0.5">
+                  {t.title && <div className="font-semibold text-foreground">{t.title}</div>}
+                  <div className="leading-relaxed text-muted-foreground">{t.message}</div>
+                </div>
 
-            <button
-              onClick={() => dismiss(t.id)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Dismiss notification"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
+                <button
+                  onClick={() => dismiss(t.id)}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground touch-manipulation"
+                  aria-label="Dismiss notification"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>,
+          document.body
+        )}
     </ToastContext.Provider>
   );
 }

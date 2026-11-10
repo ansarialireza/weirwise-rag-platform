@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "./button";
 
@@ -28,6 +29,11 @@ export function AlertDialog({
   variant = "destructive",
 }: AlertDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -73,11 +79,11 @@ export function AlertDialog({
     };
   }, [isOpen, isLoading, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in sm:items-center sm:p-4"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-onyx/50 p-0 backdrop-blur-[2px] animate-in-opacity sm:items-center sm:p-4"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="alert-dialog-title"
@@ -94,7 +100,7 @@ export function AlertDialog({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative z-10 w-full max-w-md space-y-5 rounded-t-2xl border border-border bg-card p-5 shadow-lift outline-none animate-in sm:rounded-xl sm:p-6"
+        className="relative z-10 w-full max-w-md space-y-5 rounded-t-2xl border border-border bg-card p-5 pb-[max(1.5rem,calc(env(safe-area-inset-bottom,0px)+1.25rem))] shadow-lift outline-none animate-in sm:rounded-xl sm:p-6 sm:pb-6"
       >
         <div className="flex items-start gap-3.5">
           <div
@@ -117,12 +123,13 @@ export function AlertDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2.5 pt-2">
           <Button
             type="button"
             data-cancel-action
             variant="ghost"
             size="sm"
+            className="min-h-[40px] px-4 touch-manipulation sm:min-h-[36px]"
             disabled={isLoading}
             onClick={onClose}
           >
@@ -132,6 +139,7 @@ export function AlertDialog({
             type="button"
             variant={variant === "destructive" ? "destructive" : "primary"}
             size="sm"
+            className="min-h-[40px] px-4 touch-manipulation sm:min-h-[36px]"
             isLoading={isLoading}
             onClick={onConfirm}
           >
@@ -139,6 +147,7 @@ export function AlertDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
