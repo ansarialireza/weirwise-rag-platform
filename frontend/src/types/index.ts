@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   email: string;
-  full_name: string;
+  full_name?: string | null;
   is_active: boolean;
   is_verified?: boolean;
   is_superuser: boolean;
@@ -9,25 +9,97 @@ export interface User {
   updated_at: string;
 }
 
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  plan_tier: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+export interface AccountBillingStatus {
+  user_id?: string;
+  plan_code?: string;
+  plan_tier?: string;
+  plan_name: string;
+  monthly_price?: number;
+  monthly_price_usd?: number;
+  yearly_price?: number;
+  currency?: string;
+  billing_cycle?: string;
+  status?: string;
+  billing_status?: string;
+  period_start?: string | null;
+  period_end?: string | null;
+  cancel_at_period_end?: boolean;
+  chat_turns_used: number;
+  chat_turns_limit: number;
+  documents_indexed: number;
+  documents_limit: number;
+  assistants_limit?: number;
+  storage_mb_limit?: number;
+  allowed_models?: string[];
+  features?: string[];
 }
 
-export interface Project {
+export interface BillingPlanInfo {
   id: string;
-  workspace_id: string;
+  code: string;
   name: string;
-  slug: string;
   description?: string;
+  monthly_price: number;
+  yearly_price: number;
+  currency: string;
   is_active: boolean;
+  is_public?: boolean;
+  is_recommended: boolean;
+  sort_order: number;
+  max_assistants: number;
+  max_documents: number;
+  max_chat_turns_monthly: number;
+  max_storage_mb: number;
+  max_file_size_mb: number;
+  allowed_models: string[];
+  features: string[];
+  allow_custom_branding: boolean;
+  allow_api_access: boolean;
+}
+
+export interface CheckoutResult {
+  order_id: string;
+  order_number: string;
+  plan_name: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_method?: string;
+  payment_url?: string;
+  payment_address?: string;
+  qr_code_svg?: string;
+  expires_at?: string;
+}
+
+export interface CheckoutStatusInfo {
+  order_id: string;
+  order_number: string;
+  plan_name?: string;
+  status: string;
+  amount: number;
+  currency: string;
+  payment_method?: string;
+  received_amount?: number;
+  received_currency?: string;
+  blockchain_txid?: string;
+  payment_url?: string;
+  payment_address?: string;
+  qr_code_svg?: string;
+  expires_at?: string;
+  is_subscription_active: boolean;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_number: string;
+  amount: number;
+  currency: string;
+  status: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  paid_at?: string;
+  line_items: Array<{ description: string; amount: number; currency: string }>;
   created_at: string;
-  updated_at: string;
 }
 
 export type KnowledgeSourceType = "file_upload" | "website_crawl";
@@ -35,7 +107,7 @@ export type SourceProcessingStatus = "pending" | "processing" | "ready" | "faile
 
 export interface KnowledgeSource {
   id: string;
-  project_id: string;
+  user_id?: string;
   core_kb_id?: string;
   name: string;
   source_type: KnowledgeSourceType;
@@ -67,7 +139,7 @@ export type EngineMode = "search_only" | "ai_answer";
 
 export interface Assistant {
   id: string;
-  project_id: string;
+  user_id?: string;
   core_assistant_id?: string;
   name: string;
   description?: string;
@@ -140,11 +212,63 @@ export interface PublicAssistantConfig {
 
 export interface ApiCredential {
   id: string;
-  workspace_id: string;
+  user_id?: string;
   name: string;
   key_prefix: string;
   scopes: string[];
   is_active: boolean;
   created_at: string;
   raw_api_key?: string;
+}
+
+export interface DirectSearchResult {
+  document_id: string | null;
+  document_name: string | null;
+  source_id: string | null;
+  source_name: string | null;
+  chunk_index: number | null;
+  text: string;
+  score: number;
+}
+
+export interface DirectSearchResponse {
+  query: string;
+  total_results: number;
+  results: DirectSearchResult[];
+}
+
+export interface ConversationItem {
+  id: string;
+  assistant_id: string;
+  title: string | null;
+  is_escalated: boolean;
+  escalation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+export interface ConversationMessage {
+  id: string;
+  conversation_id: string;
+  role: string;
+  content: string;
+  citations: any[];
+  created_at: string;
+}
+
+export interface KnowledgeGapItem {
+  id: string;
+  query: string;
+  reason: string;
+  date: string;
+}
+
+export interface KnowledgeGapAnalytics {
+  total_unanswered: number;
+  top_unanswered_questions: KnowledgeGapItem[];
+  weak_coverage_topics: string[];
+  positive_feedback_count: number;
+  negative_feedback_count: number;
+  satisfaction_rate_pct: number;
 }

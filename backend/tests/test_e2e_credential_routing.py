@@ -14,8 +14,7 @@ from backend.app.models.admin import (
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant, AssistantStatus
-from backend.app.models.auth import Membership, User, Workspace
-from backend.app.models.project import Project
+from backend.app.models.auth import User
 from backend.app.services.vault import encrypt_credential_secret
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -26,7 +25,7 @@ pytestmark = pytest.mark.asyncio
 async def test_chat_does_not_record_provider_usage_without_provider_execution():
     """Verify retrieval-only chat does not fabricate provider usage or cost ledger entries."""
     async with async_session_factory() as session:
-        # 1. Setup User, Workspace, Project, Assistant
+        # 1. Setup User and Assistant directly
         u = User(
             email=f"e2e-chat-{uuid.uuid4().hex[:6]}@weirwise.local",
             full_name="E2E Chat Tester",
@@ -37,19 +36,8 @@ async def test_chat_does_not_record_provider_usage_without_provider_execution():
         session.add(u)
         await session.flush()
 
-        ws = Workspace(name="E2E Chat Workspace", slug=f"e2e-ws-{uuid.uuid4().hex[:6]}")
-        session.add(ws)
-        await session.flush()
-
-        mem = Membership(workspace_id=ws.id, user_id=u.id, role="owner")
-        session.add(mem)
-
-        proj = Project(workspace_id=ws.id, name="E2E Project", slug=f"proj-{uuid.uuid4().hex[:6]}")
-        session.add(proj)
-        await session.flush()
-
         asst = Assistant(
-            project_id=proj.id,
+            user_id=u.id,
             name="FinOps Routing Assistant",
             model="Auto",
             status=AssistantStatus.PUBLISHED.value,
@@ -86,7 +74,6 @@ async def test_chat_does_not_record_provider_usage_without_provider_execution():
 
         user_id = u.id
         assistant_id = asst.id
-        ws_id = ws.id
         cred_id = cred.id
 
     token = create_jwt_token({"sub": str(user_id)}, timedelta(minutes=30))
@@ -107,7 +94,6 @@ async def test_chat_does_not_record_provider_usage_without_provider_execution():
     # Configured credentials remain untouched until the chat path executes a real provider request.
     async with async_session_factory() as session:
         ledger_stmt = select(TokenCostLedger).where(
-            TokenCostLedger.workspace_id == ws_id,
             TokenCostLedger.credential_id == cred_id,
         )
         ledger_entries = (await session.execute(ledger_stmt)).scalars().all()

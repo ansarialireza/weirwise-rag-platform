@@ -49,7 +49,6 @@ class UserBehavioralSession(Base):
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     session_id = Column(String(128), unique=True, nullable=False, index=True)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True, index=True)
 
     # Geographic Context (Privacy-Preserving, IP NOT stored)
     country_code = Column(String(2), nullable=True, index=True)  # ISO 3166-1 alpha-2, e.g. "DE", "US"
@@ -89,7 +88,6 @@ class UserBehavioralSession(Base):
 
     # Relationships
     user = relationship("User", backref="behavioral_sessions")
-    workspace = relationship("Workspace", backref="behavioral_sessions")
     events = relationship("BehavioralEvent", back_populates="session", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -108,12 +106,11 @@ class BehavioralEvent(Base):
         String(128), ForeignKey("user_behavioral_sessions.session_id", ondelete="CASCADE"), nullable=False, index=True
     )
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True, index=True)
 
     category = Column(String(32), nullable=False, index=True)  # navigation, feature, action, workflow, friction, error
     event_name = Column(String(64), nullable=False, index=True)  # e.g. "workflow.funnel.started"
     component_id = Column(String(128), nullable=True)  # semantic UI target ID
-    route = Column(String(255), nullable=False)  # path e.g. "/workspaces/assistants"
+    route = Column(String(255), nullable=False)  # path e.g. "/assistants"
     referrer_route = Column(String(255), nullable=True)
     duration_ms = Column(Integer, nullable=True)  # Dwell or action duration
     properties = Column(CompatibleJSON, default=dict, nullable=False)  # Bounded, validated payload
@@ -123,7 +120,6 @@ class BehavioralEvent(Base):
     # Relationships
     session = relationship("UserBehavioralSession", back_populates="events")
     user = relationship("User", backref="behavioral_events")
-    workspace = relationship("Workspace", backref="behavioral_events")
 
     __table_args__ = (
         Index("ix_bev_user_created", "user_id", "created_at"),
@@ -137,7 +133,6 @@ class UserBehavioralProfile(Base):
     __tablename__ = "user_behavioral_profiles"
 
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True, index=True)
 
     total_active_days = Column(Integer, default=0, nullable=False)
     total_sessions = Column(Integer, default=0, nullable=False)
@@ -164,7 +159,6 @@ class UserBehavioralProfile(Base):
 
     # Relationships
     user = relationship("User", backref="behavioral_profile", uselist=False)
-    workspace = relationship("Workspace")
 
 
 class BehavioralInsight(Base):

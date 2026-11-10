@@ -10,6 +10,7 @@ provider outages, RBAC, secret safety, and usage/cost accuracy.
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 from backend.app.core.security import create_jwt_token, hash_password
 from backend.app.db.session import async_session_factory
@@ -623,3 +624,81 @@ async def test_usage_and_cost_accounting_is_accurate():
             )
         ).all()
         assert events and events[0].outcome == "success"
+
+
+# 19: TokenManager execute_with_failover seamlessly rotates upon 429/401 and updates telemetry
+@pytest.mark.asyncio
+async def test_token_manager_execute_with_failover_and_telemetry(monkeypatch):
+    """Verify that TokenManager.execute_with_failover:
+    - Retries with secondary credential when primary gets 429 (rate-limited)
+    - Records cooldown_until, last_failure_at, last_used_at on the failed credential
+    - Marks primary as rate_limited and keeps secondary active
+    - Successfully returns secondary credential's response
+    """
+
+    async def fake_validate(provider_name: str, token: str) -> dict:
+        return {"valid": True, "remaining_balance": "100"}
+
+    monkeypatch.setattr(TokenManager, "validate_provider_token", staticmethod(fake_validate))
+
+    provider_name = f"failover-{uuid.uuid4().hex[:8]}"
+
+    async with async_session_factory() as session:
+        # Register 2 valid tokens
+        results = await TokenManager.validate_and_save_provider_tokens(
+            provider_name,
+            "token-alpha-123\ntoken-beta-456",
+            uuid.uuid4(),
+            "admin@weirwise.local",
+            session,
+        )
+        assert len(results) == 2
+        assert results[0]["status"] == "active"
+        assert results[1]["status"] == "active"
+
+        # Simulate request_func: fails on token-alpha with HTTP 429, succeeds on token-beta
+        calls = []
+
+        async def fake_request(token: str):
+            calls.append(token)
+            if "alpha" in token:
+                req = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+                resp = httpx.Response(429, request=req)
+                raise httpx.HTTPStatusError("Rate limited", request=req, response=resp)
+            return {"result": "success_from_beta"}
+
+        outcome = await TokenManager.execute_with_failover(provider_name, fake_request, session)
+        assert outcome == {"result": "success_from_beta"}
+        assert len(calls) == 2
+
+        # Verify credential telemetry and status in database
+        provider = (
+            await session.execute(
+                ProviderAccount.__table__.select().where(ProviderAccount.provider_name == provider_name)
+            )
+        ).first()
+
+        creds = (
+            await session.execute(
+                ProviderCredential.__table__.select()
+                .where(ProviderCredential.provider_id == provider.id)
+                .order_by(ProviderCredential.priority.asc())
+            )
+        ).all()
+
+        cred1, cred2 = creds[0], creds[1]
+
+        # Primary failed with 429 -> RATE_LIMITED, cooldown set, failure timestamp recorded
+        assert cred1.health_status == CredentialHealthStatus.RATE_LIMITED.value
+        assert cred1.consecutive_failures == 1
+        assert cred1.cooling_down_until is not None
+        assert cred1.last_failure_at is not None
+        assert cred1.last_used_at is not None
+        assert cred1.is_active is True  # Rate-limited does not permanently deactivate
+
+        # Secondary succeeded -> HEALTHY, success timestamp recorded
+        assert cred2.health_status == CredentialHealthStatus.HEALTHY.value
+        assert cred2.consecutive_failures == 0
+        assert cred2.last_success_at is not None
+        assert cred2.last_used_at is not None
+        assert cred2.is_active is True

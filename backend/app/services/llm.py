@@ -138,8 +138,19 @@ def _model_for(provider_name: str, requested_model: str) -> str:
     aliases = {"auto", "fast", "deep thinking", "deep", "reasoning"}
     if requested_model and requested_model.strip().lower() not in aliases:
         # Concrete model names are passed through for providers that accept them directly.
-        if provider_name in ("openai", "openrouter", "gemini"):
-            return requested_model.strip()
+        req = requested_model.strip()
+        if provider_name in ("openai", "gemini"):
+            return req
+        if provider_name == "openrouter":
+            # If requested model is already namespaced (e.g. openai/gpt-4o-mini), pass it through.
+            # If it's an unqualified model name (e.g. gpt-4o-mini), prefix with openai/
+            if "/" in req:
+                return req
+            if req.startswith("gpt-") or req.startswith("text-"):
+                return f"openai/{req}"
+            if req.startswith("claude-"):
+                return f"anthropic/{req}"
+            return req
     return _PROVIDER_MODELS.get(provider_name, {}).get(tier, "gpt-4o-mini")
 
 
@@ -553,9 +564,14 @@ class LLMService:
         assistant: Assistant,
         query: str,
         passages: list[str],
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID | None = None,
         history: list[dict[str, str]] | None = None,
+        workspace_id: uuid.UUID | None = None,
     ) -> GroundedAnswer:
+        if user_id is None and workspace_id is not None:
+            user_id = workspace_id
+        if user_id is None:
+            user_id = getattr(assistant, "user_id", None) or uuid.uuid4()
         started = time.perf_counter()
         if not passages:
             return GroundedAnswer(content=assistant.fallback_message, latency_ms=0)
@@ -586,7 +602,7 @@ class LLMService:
                     db,
                     provider_name,
                     model_name=model,
-                    workspace_id=str(workspace_id),
+                    user_id=str(user_id),
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
@@ -636,7 +652,7 @@ class LLMService:
                     await IntelligentRoutingEngine.record_success(
                         db,
                         credential_id=str(resolution.credential.id),
-                        workspace_id=str(workspace_id),
+                        user_id=str(user_id),
                         provider_name=provider_name,
                         model_name=model,
                         input_tokens=input_tokens,
@@ -675,7 +691,7 @@ class LLMService:
         assistant: Assistant,
         query: str,
         passages: list[str],
-        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
         history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[dict[str, Any], None]:
         """Stream a grounded answer, failing over across credentials before the first token.
@@ -728,7 +744,7 @@ class LLMService:
                     db,
                     provider_name,
                     model_name=model,
-                    workspace_id=str(workspace_id),
+                    user_id=str(user_id),
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,
@@ -798,7 +814,7 @@ class LLMService:
                             await IntelligentRoutingEngine.record_success(
                                 db,
                                 credential_id=str(resolution.credential.id),
-                                workspace_id=str(workspace_id),
+                                user_id=str(user_id),
                                 provider_name=provider_name,
                                 model_name=model,
                                 input_tokens=input_tokens,
@@ -856,7 +872,7 @@ class LLMService:
                     await IntelligentRoutingEngine.record_success(
                         db,
                         credential_id=str(resolution.credential.id),
-                        workspace_id=str(workspace_id),
+                        user_id=str(user_id),
                         provider_name=provider_name,
                         model_name=model,
                         input_tokens=input_tokens,

@@ -122,6 +122,10 @@ services:
       - WEIRWISE_STORAGE_DIR=/app/var/data/storage
       - WEIRWISE_INGESTION_MODE=inline
       - WEIRWISE_SECRET_KEY=${PROD_CORE_SECRET_KEY:-weirwise-prod-secret-key-32chars-min-length}
+      - WEIRWISE_EMBEDDING_BASE_URL=${PROD_CORE_EMBEDDING_BASE_URL:-https://api.jina.ai/v1}
+      - WEIRWISE_EMBEDDING_API_KEY=${PROD_CORE_EMBEDDING_API_KEY:-}
+      - WEIRWISE_EMBEDDING_MODEL=${PROD_CORE_EMBEDDING_MODEL:-jina-embeddings-v4}
+      - WEIRWISE_EMBEDDING_DIMENSIONS=${PROD_CORE_EMBEDDING_DIMENSIONS:-1536}
     volumes:
       - prod_core_storage:/app/var/data/storage
     depends_on:

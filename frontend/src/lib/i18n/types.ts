@@ -33,7 +33,7 @@ export interface TranslationDictionary {
     systemTheme: string;
     language: string;
     howItWorks: string;
-    openWorkspace: string;
+    openDashboard: string;
     mainNavigation: string;
     closeNavigation: string;
     openNavigation: string;
@@ -47,6 +47,11 @@ export interface TranslationDictionary {
     source: string;
     copyText: string;
     copied: string;
+    settings: string;
+    usage: string;
+    upgrade: string;
+    collapseSidebar: string;
+    expandSidebar: string;
   };
   auth: {
     signInTitle: string;
@@ -68,6 +73,13 @@ export interface TranslationDictionary {
     authError: string;
     accountNotVerified: string;
     submitting: string;
+    signInWithPassword: string;
+    signInWithOtp: string;
+    sendCode: string;
+    enterOtp: string;
+    codeSent: string;
+    invalidOtp: string;
+    resend: string;
     panelTitle: string;
     agreePrefix: string;
     terms: string;

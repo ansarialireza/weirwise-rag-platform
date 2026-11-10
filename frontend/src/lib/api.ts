@@ -1,18 +1,22 @@
 import {
   User,
-  Workspace,
-  Project,
+  AccountBillingStatus,
+  BillingPlanInfo,
+  CheckoutResult,
+  CheckoutStatusInfo,
+  InvoiceItem,
   KnowledgeSource,
   DocumentItem,
   Assistant,
   ChatMessage,
   Deployment,
   ApiCredential,
+  DirectSearchResponse,
+  ConversationItem,
+  ConversationMessage,
+  KnowledgeGapAnalytics,
 } from "@/types";
 import { friendlyErrorMessage } from "@/lib/errors";
-
-const WORKSPACE_STORAGE_KEY = "wwp_workspace_id";
-const PROJECT_STORAGE_KEY = "wwp_project_id";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
@@ -33,98 +37,19 @@ class ApiClient {
   private token: string | null = null;
   private isRefreshing: boolean = false;
   private refreshPromise: Promise<string | null> | null = null;
-  private workspaceId: string | null = null;
-  private projectId: string | null = null;
-  private tenancyPromise: Promise<{ workspaceId: string; projectId: string }> | null = null;
-  private tenancyVerified = false;
 
   constructor() {
     if (typeof window !== "undefined") {
       // Access tokens stay in memory only. Persistent auth is delivered through
       // HttpOnly cookies set by the API, which scripts cannot read.
       localStorage.removeItem("wwp_token");
-      this.workspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
-      this.projectId = localStorage.getItem(PROJECT_STORAGE_KEY);
+      localStorage.removeItem("wwp_workspace_id");
+      localStorage.removeItem("wwp_project_id");
     }
   }
 
   setToken(token: string | null) {
     this.token = token;
-    if (!token && typeof window !== "undefined") {
-      this.clearTenancy();
-    }
-  }
-
-  private clearTenancy() {
-    this.workspaceId = null;
-    this.projectId = null;
-    this.tenancyPromise = null;
-    this.tenancyVerified = false;
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
-      localStorage.removeItem(PROJECT_STORAGE_KEY);
-    }
-  }
-
-  /**
-   * Resolve the workspace/project the dashboard operates in.
-   * The backend requires project-scoped routes, so the active context is
-   * discovered once per session (and created on first login).
-   */
-  async getTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    // The persisted pair is a preference, not a fact: it survives an account switch
-    // in the same browser, and a project belonging to the previous account 404s for
-    // everyone. It is only trusted after the server has agreed it still exists here.
-    if (this.tenancyVerified && this.workspaceId && this.projectId) {
-      return { workspaceId: this.workspaceId, projectId: this.projectId };
-    }
-    if (!this.tenancyPromise) {
-      this.tenancyPromise = this.resolveTenancy()
-        .then((tenancy) => {
-          this.tenancyVerified = true;
-          return tenancy;
-        })
-        .finally(() => {
-          this.tenancyPromise = null;
-        });
-    }
-    return this.tenancyPromise;
-  }
-
-  private async resolveTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    const workspaces = await this.request<Workspace[]>("/workspaces");
-    let workspace = workspaces.find((w) => w.id === this.workspaceId) || workspaces[0];
-    if (!workspace) {
-      workspace = await this.request<Workspace>("/workspaces", {
-        method: "POST",
-        body: JSON.stringify({ name: "My Workspace" }),
-      });
-    }
-
-    const projects = await this.request<Project[]>(`/workspaces/${workspace.id}/projects`);
-    let project = projects.find((p) => p.id === this.projectId) || projects[0];
-    if (!project) {
-      project = await this.request<Project>(`/workspaces/${workspace.id}/projects`, {
-        method: "POST",
-        body: JSON.stringify({ name: "Default Project" }),
-      });
-    }
-
-    this.workspaceId = workspace.id;
-    this.projectId = project.id;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspace.id);
-      localStorage.setItem(PROJECT_STORAGE_KEY, project.id);
-    }
-    return { workspaceId: workspace.id, projectId: project.id };
-  }
-
-  getWorkspaceId(): string | null {
-    return this.workspaceId;
-  }
-
-  getProjectId(): string | null {
-    return this.projectId;
   }
 
   getToken(): string | null {
@@ -227,7 +152,7 @@ class ApiClient {
   }
 
   // Auth Endpoints
-  async register(data: { email: string; password: string; full_name: string }): Promise<{ message: string; verification_otp?: string }> {
+  async register(data: { email: string; password: string; full_name?: string }): Promise<{ message: string; verification_otp?: string }> {
     return this.request<{ message: string; verification_otp?: string }>("/auth/register", {
       method: "POST",
       body: JSON.stringify(data),
@@ -271,6 +196,22 @@ class ApiClient {
     return res;
   }
 
+  async sendLoginOtp(data: { email: string }): Promise<{ message: string; verification_otp?: string }> {
+    return this.request<{ message: string; verification_otp?: string }>("/auth/send-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async loginWithOtp(data: { email: string; otp: string }): Promise<{ access_token: string; refresh_token: string }> {
+    const res = await this.request<{ access_token: string; refresh_token: string }>("/auth/login-otp", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    this.setToken(res.access_token);
+    return res;
+  }
+
   async logout(): Promise<void> {
     try {
       await this.request("/auth/logout", { method: "POST" });
@@ -283,24 +224,108 @@ class ApiClient {
     return this.request<User>("/auth/me");
   }
 
-  // Workspace & Project Endpoints
-  async getWorkspaces(): Promise<Workspace[]> {
-    return this.request<Workspace[]>("/workspaces");
+  async getAccountBilling(): Promise<AccountBillingStatus> {
+    return this.request<AccountBillingStatus>("/billing");
   }
 
-  async getProjects(workspaceId: string): Promise<Project[]> {
-    return this.request<Project[]>(`/workspaces/${workspaceId}/projects`);
+  async getPublicPlans(): Promise<BillingPlanInfo[]> {
+    return this.request<BillingPlanInfo[]>("/plans");
   }
 
-  // Knowledge Sources Endpoints (Project-scoped)
+  async initiateCheckout(data: {
+    plan_code: string;
+    billing_cycle?: string;
+    customer_email?: string;
+  }): Promise<CheckoutResult> {
+    return this.request<CheckoutResult>("/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCheckoutStatus(orderId: string): Promise<CheckoutStatusInfo> {
+    return this.request<CheckoutStatusInfo>(`/billing/orders/${orderId}/status`);
+  }
+
+  async getInvoices(): Promise<InvoiceItem[]> {
+    return this.request<InvoiceItem[]>("/billing/invoices");
+  }
+
+  async downloadInvoice(invoiceNumber: string): Promise<any> {
+    return this.request<any>(`/billing/invoices/${invoiceNumber}/download`);
+  }
+
+  async changePlan(targetTier: string): Promise<AccountBillingStatus> {
+    return this.request<AccountBillingStatus>("/billing/change-plan", {
+      method: "POST",
+      body: JSON.stringify({ target_tier: targetTier }),
+    });
+  }
+
+  // Admin Financial Center APIs
+  async getAdminFinancialAnalytics(): Promise<any> {
+    return this.request<any>("/admin/financial/analytics");
+  }
+
+  async getAdminPlans(): Promise<BillingPlanInfo[]> {
+    return this.request<BillingPlanInfo[]>("/admin/financial/plans");
+  }
+
+  async createAdminPlan(data: Partial<BillingPlanInfo>): Promise<BillingPlanInfo> {
+    return this.request<BillingPlanInfo>("/admin/financial/plans", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAdminPlan(planId: string, data: Partial<BillingPlanInfo>): Promise<BillingPlanInfo> {
+    return this.request<BillingPlanInfo>(`/admin/financial/plans/${planId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminSubscriptions(limit = 50, offset = 0): Promise<any[]> {
+    return this.request<any[]>(`/admin/financial/subscriptions?limit=${limit}&offset=${offset}`);
+  }
+
+  async adjustAdminSubscription(subscriptionId: string, data: { target_plan_code: string; extend_days?: number; reason: string }): Promise<any> {
+    return this.request<any>(`/admin/financial/subscriptions/${subscriptionId}/adjust`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminTransactions(limit = 50, offset = 0, statusFilter?: string): Promise<any[]> {
+    const query = statusFilter ? `&status_filter=${encodeURIComponent(statusFilter)}` : "";
+    return this.request<any[]>(`/admin/financial/transactions?limit=${limit}&offset=${offset}${query}`);
+  }
+
+  async reviewAdminTransaction(paymentId: string, data: { action: "approve" | "reject"; notes: string }): Promise<any> {
+    return this.request<any>(`/admin/financial/transactions/${paymentId}/review`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getAdminRampexSettings(): Promise<any> {
+    return this.request<any>("/admin/financial/providers/rampex");
+  }
+
+  async testAdminRampexConnection(): Promise<any> {
+    return this.request<any>("/admin/financial/providers/rampex/test-connection", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  }
+
+  // Knowledge Sources Endpoints (Direct User Owned)
   async getSources(): Promise<KnowledgeSource[]> {
-    const { projectId } = await this.getTenancy();
-    return this.request<KnowledgeSource[]>(`/projects/${projectId}/sources`);
+    return this.request<KnowledgeSource[]>("/sources");
   }
 
   async createSource(data: { name: string; source_type: string; target_url?: string; settings?: Record<string, any> }): Promise<KnowledgeSource> {
-    const { projectId } = await this.getTenancy();
-    return this.request<KnowledgeSource>(`/projects/${projectId}/sources`, {
+    return this.request<KnowledgeSource>("/sources", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -334,6 +359,13 @@ class ApiClient {
     };
   }
 
+  async pasteTextDocument(sourceId: string, title: string, content: string): Promise<DocumentItem> {
+    return this.request<DocumentItem>(`/sources/${sourceId}/documents/paste-text`, {
+      method: "POST",
+      body: JSON.stringify({ title, content }),
+    });
+  }
+
   async deleteDocument(documentId: string): Promise<void> {
     return this.request<void>(`/documents/${documentId}`, {
       method: "DELETE",
@@ -352,10 +384,16 @@ class ApiClient {
     });
   }
 
-  // Assistant Endpoints (Project-scoped)
+  async updateSource(sourceId: string, data: { name?: string; settings?: Record<string, any> }): Promise<KnowledgeSource> {
+    return this.request<KnowledgeSource>(`/sources/${sourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Assistant Endpoints (Direct User Owned)
   async getAssistants(): Promise<Assistant[]> {
-    const { projectId } = await this.getTenancy();
-    return this.request<Assistant[]>(`/projects/${projectId}/assistants`);
+    return this.request<Assistant[]>("/assistants");
   }
 
   async getAssistant(id: string): Promise<Assistant> {
@@ -363,8 +401,7 @@ class ApiClient {
   }
 
   async createAssistant(data: Partial<Assistant>): Promise<Assistant> {
-    const { projectId } = await this.getTenancy();
-    return this.request<Assistant>(`/projects/${projectId}/assistants`, {
+    return this.request<Assistant>("/assistants", {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -386,6 +423,44 @@ class ApiClient {
   async unpublishAssistant(id: string): Promise<Assistant> {
     return this.request<Assistant>(`/assistants/${id}/unpublish`, {
       method: "POST",
+    });
+  }
+
+  async deleteAssistant(id: string): Promise<void> {
+    await this.request<void>(`/assistants/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async duplicateAssistant(id: string): Promise<Assistant> {
+    return this.request<Assistant>(`/assistants/${id}/duplicate`, {
+      method: "POST",
+    });
+  }
+
+  async directSearch(query: string, sourceIds?: string[], topK: number = 5): Promise<DirectSearchResponse> {
+    return this.request<DirectSearchResponse>("/knowledge/search", {
+      method: "POST",
+      body: JSON.stringify({ query, source_ids: sourceIds, top_k: topK }),
+    });
+  }
+
+  async getAssistantConversations(assistantId: string, limit: number = 50, offset: number = 0): Promise<ConversationItem[]> {
+    return this.request<ConversationItem[]>(`/assistants/${assistantId}/conversations?limit=${limit}&offset=${offset}`);
+  }
+
+  async getConversationMessages(conversationId: string): Promise<ConversationMessage[]> {
+    return this.request<ConversationMessage[]>(`/conversations/${conversationId}/messages`);
+  }
+
+  async getAssistantKnowledgeGaps(assistantId: string): Promise<KnowledgeGapAnalytics> {
+    return this.request<KnowledgeGapAnalytics>(`/assistants/${assistantId}/analytics/knowledge-gaps`);
+  }
+
+  async requestHumanHandoff(conversationId: string, data: { customer_email?: string; customer_name?: string; reason: string }): Promise<any> {
+    return this.request(`/public/conversations/${conversationId}/handoff`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 
@@ -605,21 +680,18 @@ class ApiClient {
   }
 
   async createApiCredential(data: { name: string; scopes: string[] }): Promise<ApiCredential> {
-    const { workspaceId } = await this.getTenancy();
-    return this.request<ApiCredential>(`/workspaces/${workspaceId}/api-credentials`, {
+    return this.request<ApiCredential>("/api-credentials", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async listApiCredentials(): Promise<ApiCredential[]> {
-    const { workspaceId } = await this.getTenancy();
-    return this.request<ApiCredential[]>(`/workspaces/${workspaceId}/api-credentials`);
+    return this.request<ApiCredential[]>("/api-credentials");
   }
 
   async revokeApiCredential(credentialId: string): Promise<void> {
-    const { workspaceId } = await this.getTenancy();
-    await this.request<void>(`/workspaces/${workspaceId}/api-credentials/${credentialId}`, {
+    await this.request<void>(`/api-credentials/${credentialId}`, {
       method: "DELETE",
     });
   }

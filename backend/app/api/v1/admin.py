@@ -21,7 +21,16 @@ from backend.app.models.admin import (
     TokenCostLedger,
 )
 from backend.app.models.assistant import Assistant
-from backend.app.models.auth import AIRoutingStrategy, Membership, SubscriptionTier, User, Workspace
+from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier, User
+from backend.app.models.billing import (
+    BillingOrder,
+    BillingPayment,
+    BillingPlan,
+    BillingSubscription,
+    OrderStatus,
+    PaymentProviderConfig,
+    PaymentStatus,
+)
 from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.admin import (
     AdminAccessResponse,
@@ -49,6 +58,15 @@ from backend.app.schemas.admin import (
     SubscriptionTierUpdate,
     SystemMetricsResponse,
 )
+from backend.app.schemas.billing import (
+    AdminSubscriptionAdjustmentRequest,
+    ManualPaymentReviewRequest,
+    PlanCreateRequest,
+    PlanResponse,
+    PlanUpdateRequest,
+    ProviderConfigResponse,
+)
+from backend.app.services.billing_engine import billing_engine
 from backend.app.services.public_rate_limiter import PublicRateLimiter
 from backend.app.services.vault import encrypt_credential_secret
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -64,7 +82,9 @@ async def get_admin_access(
     current_admin: User = Depends(require_admin_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AdminAccessResponse:
-    if current_admin.is_superuser:
+    from backend.app.api.admin_deps import _is_email_admin
+
+    if current_admin.is_superuser or _is_email_admin(current_admin.email):
         return AdminAccessResponse(is_admin=True, role=AdminRole.SUPER_ADMIN.value)
 
     role_assignment = (
@@ -129,7 +149,6 @@ async def get_system_metrics(
     # Count totals
     total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
     active_users = (await db.execute(select(func.count(User.id)).where(User.is_active.is_(True)))).scalar() or 0
-    total_workspaces = (await db.execute(select(func.count(Workspace.id)))).scalar() or 0
     total_assistants = (await db.execute(select(func.count(Assistant.id)))).scalar() or 0
     total_sources = (await db.execute(select(func.count(KnowledgeSource.id)))).scalar() or 0
     total_documents = (await db.execute(select(func.count(Document.id)))).scalar() or 0
@@ -147,13 +166,13 @@ async def get_system_metrics(
         or 0.0
     )
 
-    # Current recurring revenue is based on active workspaces' persisted subscription tier.
+    # Current recurring revenue is based on active user subscriptions
     revenue_res = float(
         (
             await db.execute(
-                select(func.sum(SubscriptionTier.monthly_price))
-                .join(Workspace, Workspace.subscription_tier_id == SubscriptionTier.id)
-                .where(Workspace.is_active.is_(True))
+                select(func.sum(BillingPlan.monthly_price))
+                .join(BillingSubscription, BillingSubscription.plan_id == BillingPlan.id)
+                .where(BillingSubscription.status == "active")
             )
         ).scalar()
         or 0.0
@@ -190,7 +209,6 @@ async def get_system_metrics(
     return SystemMetricsResponse(
         total_users=total_users,
         active_users=active_users,
-        total_workspaces=total_workspaces,
         total_assistants=total_assistants,
         total_sources=total_sources,
         total_documents=total_documents,
@@ -1243,7 +1261,7 @@ class AdminUserItemResponse(BaseModel):
     is_active: bool
     is_superuser: bool
     is_verified: bool
-    workspaces_count: int
+    assistants_count: int = 0
     created_at: datetime
 
 
@@ -1306,8 +1324,8 @@ async def list_admin_users(
 ):
     """Data-dense listing of platform users with membership counts and activity status."""
     stmt = (
-        select(User, func.count(Membership.id).label("ws_count"))
-        .outerjoin(Membership, Membership.user_id == User.id)
+        select(User, func.count(Assistant.id).label("ast_count"))
+        .outerjoin(Assistant, Assistant.user_id == User.id)
         .where(
             *([User.email.ilike(f"%{q.strip()}%") | User.full_name.ilike(f"%{q.strip()}%")] if q and q.strip() else [])
         )
@@ -1319,7 +1337,7 @@ async def list_admin_users(
     rows = (await db.execute(stmt)).all()
 
     items = []
-    for user_obj, ws_count in rows:
+    for user_obj, ast_count in rows:
         items.append(
             AdminUserItemResponse(
                 id=user_obj.id,
@@ -1328,7 +1346,7 @@ async def list_admin_users(
                 is_active=user_obj.is_active,
                 is_superuser=user_obj.is_superuser,
                 is_verified=user_obj.is_verified,
-                workspaces_count=ws_count or 0,
+                assistants_count=ast_count or 0,
                 created_at=user_obj.created_at,
             )
         )
@@ -1412,3 +1430,373 @@ async def list_global_activity_ledger(
             )
         )
     return items
+
+
+# =========================================================================
+# FINANCIAL CONTROL CENTER ENDPOINTS (B2B SaaS BILLING & RAMPEX ENGINE)
+# =========================================================================
+
+
+@router.get("/financial/analytics")
+async def get_financial_analytics(
+    current_admin: User = Depends(
+        require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN, AdminRole.FINANCE_ADMIN])
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Aggregate actual real financial records from the database."""
+    return await billing_engine.get_admin_financial_analytics(db)
+
+
+@router.get("/financial/plans", response_model=List[PlanResponse])
+async def list_admin_plans(
+    current_admin: User = Depends(
+        require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN, AdminRole.FINANCE_ADMIN])
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List all billing plans including private and inactive tiers."""
+    plans = await billing_engine.list_plans(db, public_only=False)
+    return [
+        PlanResponse(
+            id=p.id,
+            code=p.code,
+            name=p.name,
+            description=p.description,
+            monthly_price=float(p.monthly_price),
+            yearly_price=float(p.yearly_price),
+            currency=p.currency,
+            is_active=p.is_active,
+            is_recommended=p.is_recommended,
+            sort_order=p.sort_order,
+            max_assistants=p.max_assistants,
+            max_documents=p.max_documents,
+            max_chat_turns_monthly=p.max_chat_turns_monthly,
+            max_storage_mb=p.max_storage_mb,
+            max_file_size_mb=p.max_file_size_mb,
+            allowed_models=p.allowed_models,
+            features=p.features,
+            allow_custom_branding=p.allow_custom_branding,
+            allow_api_access=p.allow_api_access,
+        )
+        for p in plans
+    ]
+
+
+@router.post("/financial/plans", response_model=PlanResponse)
+async def create_admin_plan(
+    payload: PlanCreateRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.FINANCE_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Create a new commercial billing plan."""
+    existing = await billing_engine.get_plan_by_code(db, payload.code)
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plan code '{payload.code}' already exists")
+
+    plan = BillingPlan(**payload.model_dump())
+    db.add(plan)
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="billing.plan_create",
+        target_entity="billing_plan",
+        target_id=payload.code,
+        details=payload.model_dump(mode="json"),
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(plan)
+
+    return PlanResponse(
+        id=plan.id,
+        code=plan.code,
+        name=plan.name,
+        description=plan.description,
+        monthly_price=float(plan.monthly_price),
+        yearly_price=float(plan.yearly_price),
+        currency=plan.currency,
+        is_active=plan.is_active,
+        is_recommended=plan.is_recommended,
+        sort_order=plan.sort_order,
+        max_assistants=plan.max_assistants,
+        max_documents=plan.max_documents,
+        max_chat_turns_monthly=plan.max_chat_turns_monthly,
+        max_storage_mb=plan.max_storage_mb,
+        max_file_size_mb=plan.max_file_size_mb,
+        allowed_models=plan.allowed_models,
+        features=plan.features,
+        allow_custom_branding=plan.allow_custom_branding,
+        allow_api_access=plan.allow_api_access,
+    )
+
+
+@router.put("/financial/plans/{plan_id}", response_model=PlanResponse)
+async def update_admin_plan(
+    plan_id: uuid.UUID,
+    payload: PlanUpdateRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.FINANCE_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Update dynamic plan limits, pricing, and capabilities."""
+    plan = await billing_engine.get_plan_by_id(db, plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(plan, field, value)
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="billing.plan_update",
+        target_entity="billing_plan",
+        target_id=str(plan.id),
+        details=update_data,
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(plan)
+
+    return PlanResponse(
+        id=plan.id,
+        code=plan.code,
+        name=plan.name,
+        description=plan.description,
+        monthly_price=float(plan.monthly_price),
+        yearly_price=float(plan.yearly_price),
+        currency=plan.currency,
+        is_active=plan.is_active,
+        is_recommended=plan.is_recommended,
+        sort_order=plan.sort_order,
+        max_assistants=plan.max_assistants,
+        max_documents=plan.max_documents,
+        max_chat_turns_monthly=plan.max_chat_turns_monthly,
+        max_storage_mb=plan.max_storage_mb,
+        max_file_size_mb=plan.max_file_size_mb,
+        allowed_models=plan.allowed_models,
+        features=plan.features,
+        allow_custom_branding=plan.allow_custom_branding,
+        allow_api_access=plan.allow_api_access,
+    )
+
+
+@router.get("/financial/subscriptions")
+async def list_admin_subscriptions(
+    limit: int = 50,
+    offset: int = 0,
+    current_admin: User = Depends(
+        require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN, AdminRole.FINANCE_ADMIN])
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List customer subscriptions with user details."""
+    stmt = (
+        select(BillingSubscription, User.email.label("user_email"), BillingPlan.name.label("plan_name"))
+        .join(User, BillingSubscription.user_id == User.id)
+        .join(BillingPlan, BillingSubscription.plan_id == BillingPlan.id)
+        .order_by(BillingSubscription.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    rows = (await db.execute(stmt)).all()
+    return [
+        {
+            "id": str(sub.id),
+            "user_id": str(sub.user_id),
+            "user_email": u_email,
+            "plan_name": p_name,
+            "status": sub.status,
+            "billing_cycle": sub.billing_cycle,
+            "current_period_start": sub.current_period_start.isoformat(),
+            "current_period_end": sub.current_period_end.isoformat(),
+            "cancel_at_period_end": sub.cancel_at_period_end,
+            "created_at": sub.created_at.isoformat(),
+        }
+        for sub, u_email, p_name in rows
+    ]
+
+
+@router.post("/financial/subscriptions/{subscription_id}/adjust")
+async def adjust_admin_subscription(
+    subscription_id: uuid.UUID,
+    payload: AdminSubscriptionAdjustmentRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.FINANCE_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Controlled manual subscription adjustment with immutable audit record."""
+    stmt = select(BillingSubscription).where(BillingSubscription.id == subscription_id)
+    sub = (await db.execute(stmt)).scalar_one_or_none()
+    if not sub:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
+
+    new_plan = await billing_engine.get_plan_by_code(db, payload.target_plan_code)
+    if not new_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Plan '{payload.target_plan_code}' not found"
+        )
+
+    sub.plan_id = new_plan.id
+    if payload.extend_days:
+        sub.current_period_end = sub.current_period_end + timedelta(days=payload.extend_days)
+
+    # Synchronize entitlements
+    from backend.app.services.metering import metering_service
+
+    ent = await metering_service.get_or_create_entitlements(db, sub.user_id)
+    ent.plan_tier = new_plan.code
+    ent.max_assistants = new_plan.max_assistants
+    ent.max_knowledge_sources = new_plan.max_knowledge_sources
+    ent.monthly_chat_turns_limit = new_plan.max_chat_turns_monthly
+    ent.max_storage_mb = new_plan.max_storage_mb
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action="billing.subscription_manual_adjustment",
+        target_entity="billing_subscription",
+        target_id=str(sub.id),
+        details={"target_plan": new_plan.code, "extend_days": payload.extend_days, "reason": payload.reason},
+    )
+    db.add(audit)
+    await db.commit()
+    return {"status": "success", "message": "Subscription adjusted successfully"}
+
+
+@router.get("/financial/transactions")
+async def list_admin_transactions(
+    limit: int = 50,
+    offset: int = 0,
+    status_filter: Optional[str] = None,
+    current_admin: User = Depends(
+        require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN, AdminRole.FINANCE_ADMIN])
+    ),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Search and filter transactions with full cryptocurrency settlement details."""
+    query = (
+        select(
+            BillingPayment,
+            BillingOrder.order_number,
+            User.email.label("user_email"),
+            BillingPlan.name.label("plan_name"),
+        )
+        .join(BillingOrder, BillingPayment.order_id == BillingOrder.id)
+        .join(User, BillingOrder.user_id == User.id)
+        .join(BillingPlan, BillingOrder.plan_id == BillingPlan.id)
+        .order_by(BillingPayment.created_at.desc())
+    )
+    if status_filter:
+        query = query.where(BillingPayment.status == status_filter.lower().strip())
+    query = query.limit(limit).offset(offset)
+
+    rows = (await db.execute(query)).all()
+    return [
+        {
+            "id": str(p.id),
+            "order_number": ord_num,
+            "user_email": ws_name,
+            "plan_name": pl_name,
+            "provider": p.provider,
+            "provider_payment_id": p.provider_payment_id,
+            "amount": float(p.amount),
+            "currency": p.currency,
+            "received_amount": float(p.received_amount) if p.received_amount else None,
+            "received_currency": p.received_currency,
+            "payout_amount": float(p.payout_amount) if p.payout_amount else None,
+            "payout_currency": p.payout_currency,
+            "status": p.status,
+            "blockchain_txid": p.blockchain_txid,
+            "payment_url": p.payment_url,
+            "payment_address": p.payment_address,
+            "paid_at": p.paid_at.isoformat() if p.paid_at else None,
+            "created_at": p.created_at.isoformat(),
+            "review_reason": p.review_reason,
+        }
+        for p, ord_num, ws_name, pl_name in rows
+    ]
+
+
+@router.post("/financial/transactions/{payment_id}/review")
+async def review_payment_transaction(
+    payment_id: uuid.UUID,
+    payload: ManualPaymentReviewRequest,
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.FINANCE_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Support exceptional manual review cases (underpaid, disputes) with audit logs."""
+    p_stmt = select(BillingPayment).where(BillingPayment.id == payment_id)
+    payment = (await db.execute(p_stmt)).scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+
+    action = payload.action.lower().strip()
+    if action == "approve":
+        payment.status = PaymentStatus.COMPLETED.value
+        payment.resolved_by = current_admin.id
+        payment.resolved_at = datetime.now(UTC)
+        payment.order.status = OrderStatus.PAID.value
+        await billing_engine.activate_subscription_for_order(db, payment.order, payment)
+    elif action == "reject":
+        payment.status = PaymentStatus.FAILED.value
+        payment.resolved_by = current_admin.id
+        payment.resolved_at = datetime.now(UTC)
+        payment.order.status = OrderStatus.FAILED.value
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Action must be 'approve' or 'reject'")
+
+    audit = AdminAuditLog(
+        actor_id=current_admin.id,
+        actor_email=current_admin.email,
+        action=f"billing.payment_{action}",
+        target_entity="billing_payment",
+        target_id=str(payment.id),
+        details={"notes": payload.notes, "previous_status": payment.status},
+    )
+    db.add(audit)
+    await db.commit()
+    return {"status": "success", "new_status": payment.status}
+
+
+@router.get("/financial/providers/rampex", response_model=ProviderConfigResponse)
+async def get_rampex_provider_settings(
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """View Rampex gateway configuration status with masked secrets."""
+    stmt = select(PaymentProviderConfig).where(PaymentProviderConfig.provider_name == "rampex")
+    cfg = (await db.execute(stmt)).scalar_one_or_none()
+
+    key_prefix = (
+        cfg.key_prefix
+        if cfg and cfg.key_prefix
+        else (settings.RAMPEX_API_KEY[:10] + "..." + settings.RAMPEX_API_KEY[-4:] if settings.RAMPEX_API_KEY else None)
+    )
+    is_enabled = cfg.is_enabled if cfg else settings.RAMPEX_ENABLED
+    base_url = cfg.api_base_url if cfg else settings.RAMPEX_API_BASE_URL
+    status_str = cfg.verification_status if cfg else ("active" if settings.RAMPEX_API_KEY else "untested")
+
+    return ProviderConfigResponse(
+        provider_name="rampex",
+        display_name="Rampex Payment Gateway",
+        is_enabled=is_enabled,
+        api_base_url=base_url,
+        key_prefix=key_prefix,
+        wallet_address=settings.RAMPEX_WALLET_ADDRESS,
+        supported_currencies=["USD", "EUR", "GBP", "USDC", "USDT"],
+        verification_status=status_str,
+        last_verified_at=cfg.last_verified_at.isoformat() if cfg and cfg.last_verified_at else None,
+    )
+
+
+@router.post("/financial/providers/rampex/test-connection")
+async def test_rampex_connection(
+    current_admin: User = Depends(require_admin_role([AdminRole.SUPER_ADMIN, AdminRole.PLATFORM_ADMIN])),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Perform real connectivity test against Rampex /api-validate-key."""
+    provider = billing_engine.get_provider("rampex")
+    res = await provider.validate_credentials()
+    return res

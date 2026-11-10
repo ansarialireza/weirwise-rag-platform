@@ -15,7 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 
 
 class AssistantStatus(str, enum.Enum):
@@ -30,7 +30,8 @@ class Assistant(Base):
     __tablename__ = "assistants"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    project_id = Column(GUID, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = synonym("user_id")
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -43,7 +44,7 @@ class Assistant(Base):
     show_sources = Column(Boolean, default=True, nullable=False)
     temperature = Column(Float, default=0.2, nullable=False)
     max_tokens = Column(Integer, default=1024, nullable=False)
-    score_threshold = Column(Float, default=0.7, nullable=False)
+    score_threshold = Column(Float, default=0.55, nullable=False)
     top_k = Column(Integer, default=4, nullable=False)
 
     # Business Personality & Customization
@@ -65,7 +66,7 @@ class Assistant(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    project = relationship("Project", back_populates="assistants")
+    user = relationship("User")
     source_links = relationship("AssistantKnowledgeSource", back_populates="assistant", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="assistant", cascade="all, delete-orphan")
     deployments = relationship("Deployment", back_populates="assistant", cascade="all, delete-orphan")
@@ -246,7 +247,8 @@ class BusinessIntegration(Base):
     __tablename__ = "business_integrations"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = synonym("user_id")
     provider = Column(String(50), nullable=False, index=True)  # shopify, zendesk, gorgias, google_drive, notion
     display_name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -258,7 +260,7 @@ class BusinessIntegration(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider", name="uq_workspace_integration_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_integration_provider"),)
 
 
 class WebhookSubscription(Base):
@@ -267,7 +269,8 @@ class WebhookSubscription(Base):
     __tablename__ = "webhook_subscriptions"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = synonym("user_id")
     target_url = Column(String(1024), nullable=False)
     secret_key = Column(String(128), nullable=False)
     events = Column(CompatibleJSON, default=list, nullable=False)
@@ -306,9 +309,8 @@ class WorkspacePlanEntitlement(Base):
     __tablename__ = "workspace_plan_entitlements"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(
-        GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
-    )
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    workspace_id = synonym("user_id")
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
     max_knowledge_sources = Column(Integer, default=3, nullable=False)
@@ -324,6 +326,8 @@ class WorkspacePlanEntitlement(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
+    user = relationship("User")
+
 
 class WorkspaceBYOKCredential(Base):
     """Enterprise Bring-Your-Own-Key per tenant."""
@@ -331,7 +335,8 @@ class WorkspaceBYOKCredential(Base):
     __tablename__ = "workspace_byok_credentials"
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(GUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    project_id = synonym("user_id")
     provider_name = Column(String(50), nullable=False)  # openai, anthropic, azure_openai
     api_endpoint = Column(String(512), nullable=True)
     deployment_id = Column(String(255), nullable=True)
@@ -342,4 +347,4 @@ class WorkspaceBYOKCredential(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("workspace_id", "provider_name", name="uq_workspace_byok_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider_name", name="uq_user_byok_provider"),)

@@ -32,7 +32,7 @@ interface AdminStats {
   documents_count?: number;
   total_storage_bytes?: number;
   storage_used_bytes?: number;
-  workspaces_count?: number;
+  assistants_count?: number;
   total_tokens_burned?: number;
   total_ai_spend_usd?: number;
   total_queries_answered?: number;

@@ -85,41 +85,35 @@ export function SiteHeader({ className }: SiteHeaderProps) {
           ))}
         </nav>
 
-        {/* One preference pair for the whole bar, at every width. The mobile
-            sheet used to carry its own copy, which meant the header held two
-            theme buttons and two language buttons at once. */}
-        <div className="flex items-center gap-2">
-          <PreferenceControls />
-
+        {/* Action group on desktop: clean & focused on navigation & conversion */}
+        <div className="flex items-center gap-3">
           <div className="hidden items-center gap-2 md:flex">
-            <InstallAppButton variant="pill" className="ms-1 border border-border" />
-
             {mounted && !authLoading ? (
               isAuthenticated ? (
                 <Link
                   href="/overview"
-                  className="ms-2 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
-                  {dict.common.openWorkspace}
+                  {dict.common.openDashboard}
                 </Link>
               ) : (
                 <>
                   <Link
                     href="/login"
-                    className="ms-2 inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     {dict.common.signIn}
                   </Link>
                   <Link
                     href="/register"
-                    className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                    className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                   >
                     {dict.landing.primaryCta}
                   </Link>
                 </>
               )
             ) : (
-              <span className="ms-2 h-10 w-28 animate-pulse rounded-lg bg-muted" />
+              <span className="h-9 w-24 animate-pulse rounded-lg bg-muted" />
             )}
           </div>
 
@@ -168,23 +162,23 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
                   >
-                    {dict.common.openWorkspace}
+                    {dict.common.openDashboard}
                   </Link>
                 ) : (
                   <>
                     <Link
-                      href="/register"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
-                    >
-                      {dict.landing.primaryCta}
-                    </Link>
-                    <Link
                       href="/login"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground"
+                      className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                     >
                       {dict.common.signIn}
+                    </Link>
+                    <Link
+                      href="/register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-card text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      {dict.landing.primaryCta}
                     </Link>
                   </>
                 )
@@ -193,7 +187,12 @@ export function SiteHeader({ className }: SiteHeaderProps) {
               )}
             </div>
 
-            <InstallAppButton variant="row" className="mt-6" />
+            <div className="mt-6 flex items-center justify-between border-t border-border/60 pt-4">
+              <span className="text-xs text-muted-foreground">{dict.common.language} / {dict.common.theme}</span>
+              <PreferenceControls />
+            </div>
+
+            <InstallAppButton variant="row" className="mt-4" />
           </div>
         </>
       )}

@@ -36,7 +36,7 @@ export default function OverviewPage() {
         setAssistants(aList);
         setSources(sList);
       })
-      .catch((err: any) => setError(err.message || "We couldn't load your workspace right now. Please try again."))
+      .catch((err: any) => setError(err.message || "We couldn't load your account data right now. Please try again."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -249,15 +249,17 @@ export default function OverviewPage() {
           </div>
 
           {sources.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <FileText className="mx-auto h-5 w-5 text-muted-foreground/70" />
-              <p className="mt-2 text-sm font-medium text-foreground">No knowledge yet</p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-center transition-colors">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <FileText className="h-5 w-5" />
+              </div>
+              <p className="mt-2.5 text-sm font-semibold text-foreground">No knowledge yet</p>
               <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
                 Add documents so your assistant has something to answer from.
               </p>
               <Link
                 href="/sources"
-                className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-medium text-primary-foreground"
+                className="mt-3.5 inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-transform active:scale-95 hover:opacity-90"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add knowledge
@@ -309,15 +311,17 @@ export default function OverviewPage() {
           </div>
 
           {assistants.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <Sparkles className="mx-auto h-5 w-5 text-muted-foreground/70" />
-              <p className="mt-2 text-sm font-medium text-foreground">No assistants yet</p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-4 py-8 text-center transition-colors">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <p className="mt-2.5 text-sm font-semibold text-foreground">No assistants yet</p>
               <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
                 Create one to turn your knowledge into answers.
               </p>
               <Link
                 href="/assistants"
-                className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-medium text-primary-foreground"
+                className="mt-3.5 inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-transform active:scale-95 hover:opacity-90"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Create assistant

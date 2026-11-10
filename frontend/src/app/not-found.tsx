@@ -19,7 +19,7 @@ export default function NotFound() {
             We couldn&apos;t find that page
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            The page may have moved or been deleted. Check the address, or head back to your workspace.
+            The page may have moved or been deleted. Check the address, or head back to your dashboard.
           </p>
         </div>
 

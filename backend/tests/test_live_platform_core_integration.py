@@ -46,12 +46,6 @@ def get_jina_token():
     env_token = os.getenv("JINA_API_KEY") or os.getenv("WEIRWISE_EMBEDDING_API_KEY")
     if env_token and env_token.startswith("jina_"):
         return env_token
-    secrets_path = os.getenv("TEST_SECRETS_PATH", r"C:\Users\Alireza\GitHub\test-secrets\.env.testing")
-    if os.path.exists(secrets_path):
-        with open(secrets_path, "r", encoding="utf-8") as f:
-            for line in f:
-                if line.strip().startswith("jina_"):
-                    return line.strip()
     return None
 
 

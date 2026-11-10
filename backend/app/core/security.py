@@ -95,8 +95,8 @@ def generate_secure_token(prefix: str = "wwp_") -> tuple[str, str]:
     return raw, hashed
 
 
-def generate_otp_code(length: int = 6) -> str:
-    """Generate a cryptographically secure numeric OTP code (e.g. 6-digit)."""
+def generate_otp_code(length: int = 4) -> str:
+    """Generate a cryptographically secure numeric OTP code (defaults to 4 digits)."""
     return "".join(secrets.choice("0123456789") for _ in range(length))
 
 

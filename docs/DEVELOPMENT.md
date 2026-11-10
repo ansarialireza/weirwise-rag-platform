@@ -1,88 +1,52 @@
-# Weirwise Platform Development & Setup Guide
+# Platform Development Guide
 
-## 1. Prerequisites
+> Read [`ARCHITECTURE.md`](ARCHITECTURE.md), [`API_CONTRACTS.md`](API_CONTRACTS.md), and
+> [`AGENTS.md`](../AGENTS.md) before changing behavior. Platform and Core are separate services
+> with separate databases; use Core's public REST API only.
 
-- **Python:** 3.11+
-- **Node.js:** 18+ (Node 20+ recommended)
-- **Docker & Docker Compose:** For running local services (PostgreSQL, Redis, MinIO).
-  *(Note: SQLite and local storage fallbacks can be used during early local testing if Docker is unavailable).*
+## Requirements
 
----
+- Python 3.11 or newer (CI currently uses Python 3.12).
+- Node.js 20 recommended (CI uses Node 20).
+- PostgreSQL for PostgreSQL-specific behavior; SQLite is available for some local/test workflows.
+- Redis for Redis-backed rate limiting and the separate behavioral-intelligence stream worker.
 
-## 2. Environment Configuration
+## Environment and local state
 
-1. Clone or navigate to the repository:
-   ```bash
-   cd "Weirwise Platform"
-   ```
+The backend settings load `backend/.env`; use `.env.example` as the template. Configure an
+explicit disposable local database and storage paths outside the repository before running the
+application, tests, or migrations. Configure `WEIRWISE_CORE_BASE_URL` and the Core API key only
+when exercising Core integration; never commit actual credentials.
 
-2. Copy the sample environment file:
-   ```bash
-   cp .env.example .env
-   ```
+## Run the application
 
-3. Configure your local parameters in `.env`.
+From the repository root, install the backend in the environment using the repository's existing
+dependency files, then start:
 
----
-
-## 3. Starting Local Supporting Services
-
-Using Docker Compose:
-```bash
-docker compose up -d
+```text
+uvicorn backend.app.main:app --reload
 ```
-This spins up:
-- Platform PostgreSQL (`localhost:5433`)
-- Platform Redis (`localhost:6379`)
-- Platform MinIO Object Storage (`localhost:9000` / Console on `9001`)
 
----
+From `frontend/`, install the dependencies and start the UI:
 
-## 4. Backend Setup & Local Execution
+```text
+npm install
+npm run dev
+```
 
-1. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv .venv
-   # Windows PowerShell:
-   .venv\Scripts\Activate.ps1
-   # Linux/macOS:
-   source .venv/bin/activate
-   ```
+The API's local OpenAPI page is enabled only in development, dev, or test environments. The API
+process initializes SQLAlchemy metadata at startup. This is not a replacement for reviewing or
+applying the repository's Alembic revisions; see [`DATA_AND_MIGRATIONS.md`](DATA_AND_MIGRATIONS.md).
 
-2. Install dependencies:
-   ```bash
-   pip install -e backend/
-   pip install -r backend/requirements.txt
-   ```
+## Background processing
 
-3. Run the development server:
-   ```bash
-   uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
+Knowledge ingestion is dispatched using FastAPI `BackgroundTasks` in the API process and forwards
+document indexing to Core over HTTP. A separate Redis Streams behavioral-intelligence daemon is
+implemented in `backend/app/services/behavioral_worker_daemon.py`. Celery is declared as a backend
+dependency, but the inspected ingestion path is not wired to Celery.
 
-4. Verify health endpoints:
-   ```bash
-   curl http://localhost:8000/health/live
-   curl http://localhost:8000/health/ready
-   ```
+## Validation
 
-5. Run test suite:
-   ```bash
-   pytest backend/tests -v
-   ```
-
----
-
-## 5. Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+Use the exact backend and frontend commands in [`TESTING.md`](TESTING.md). Use disposable services
+and data only. Do not deploy, migrate a shared database, or commit generated databases, uploads,
+build output, logs, or reports.

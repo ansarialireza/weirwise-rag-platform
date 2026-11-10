@@ -95,7 +95,7 @@ class EmailService:
         subject = "Verify your Weirwise Platform account"
         text = (
             f"Welcome to Weirwise Platform!\n\n"
-            f"Your 6-digit email verification code is: {otp_code}\n\n"
+            f"Your verification code is: {otp_code}\n\n"
             f"This code will expire in {settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES} minutes.\n"
             f"If you did not request this account, you can safely ignore this email.\n"
         )
@@ -107,7 +107,7 @@ class EmailService:
         >
             <h2 style="color: #101114; margin-bottom: 16px;">Verify your Weirwise account</h2>
             <p style="color: #34363A; font-size: 14px; line-height: 20px;">
-                Use the verification code below to complete your registration and activate your personal workspace:
+                Use the verification code below to complete your registration and activate your account:
             </p>
             <div
                 style="margin: 24px 0; padding: 16px; background-color: #F4F5F6;

@@ -2,6 +2,7 @@
 
 from backend.app.adapters.core_client import CoreApiClient
 from backend.app.core.config import settings
+from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
@@ -45,7 +46,8 @@ async def readiness_check(
     try:
         await db.execute(text("SELECT 1"))
     except Exception as e:
-        db_status = f"unhealthy: {e!s}"
+        logger.error(f"Readiness DB probe failed: {e}")
+        db_status = f"unhealthy: {type(e).__name__}"
 
     # 2. Redis check
     redis_status = "not_configured"
@@ -58,7 +60,8 @@ async def readiness_check(
             await redis_client.aclose()
             redis_status = "connected"
         except Exception as e:
-            redis_status = f"unhealthy: {e!s}"
+            logger.error(f"Readiness Redis probe failed: {e}")
+            redis_status = f"unhealthy: {type(e).__name__}"
 
     # 3. Core Engine check
     core_client = CoreApiClient()

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
-import { KnowledgeSource, DocumentItem } from "@/types";
+import { KnowledgeSource, DocumentItem, DirectSearchResult } from "@/types";
 import { formatBytes } from "@/lib/i18n/format";
 import {
   AlertCircle,
@@ -10,9 +10,11 @@ import {
   ExternalLink,
   FileText,
   FolderOpen,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -35,8 +37,11 @@ const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
 
 function describeProcessingError(raw?: string | null): string {
   const text = (raw || "").toLowerCase();
+  if (text.includes("docx") || text.includes("word") || text.includes("xlsx") || text.includes("excel")) {
+    return "Word and Excel files are not directly supported yet. Please save or export them as PDF before uploading.";
+  }
   if (text.includes("too large") || text.includes("size limit")) {
-    return "This file is too large to prepare. Try a smaller copy.";
+    return "This file is too large to prepare. Try a smaller copy (under 50MB).";
   }
   if (text.includes("unsupported") || text.includes("file type")) {
     return "This file type isn't supported yet. Try a PDF, TXT, Markdown, or CSV file.";
@@ -79,6 +84,44 @@ export default function SourcesKnowledgePage() {
   const [sourceType, setSourceType] = useState<"file_upload" | "website_crawl">("file_upload");
   const [targetUrl, setTargetUrl] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Rename collection state
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+
+  // Paste text state
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pasteTitle, setPasteTitle] = useState("");
+  const [pasteContent, setPasteContent] = useState("");
+  const [isPasting, setIsPasting] = useState(false);
+
+  // Direct Semantic Search State
+  const [showDirectSearchModal, setShowDirectSearchModal] = useState(false);
+  const [directSearchQuery, setDirectSearchQuery] = useState("");
+  const [isSearchingDirect, setIsSearchingDirect] = useState(false);
+  const [directSearchResults, setDirectSearchResults] = useState<DirectSearchResult[]>([]);
+  const [directSearchHasSearched, setDirectSearchHasSearched] = useState(false);
+
+  const handleDirectSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directSearchQuery.trim()) return;
+    setIsSearchingDirect(true);
+    try {
+      const sourceIds = selectedSource ? [selectedSource.id] : undefined;
+      const res = await api.directSearch(directSearchQuery, sourceIds, 5);
+      setDirectSearchResults(res.results);
+      setDirectSearchHasSearched(true);
+    } catch (err: any) {
+      toast({
+        type: "error",
+        title: "Search failed",
+        message: err.message || "Failed to search knowledge base.",
+      });
+    } finally {
+      setIsSearchingDirect(false);
+    }
+  };
 
   const loadSources = useCallback(async () => {
     try {
@@ -184,7 +227,15 @@ export default function SourcesKnowledgePage() {
     });
 
     if (valid.length === 0) {
-      setUploadError("Choose PDF, TXT, Markdown, or CSV files.");
+      const hasOffice = files.some((f) => {
+        const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+        return [".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt"].includes(ext);
+      });
+      if (hasOffice) {
+        setUploadError("Word and Excel documents must be saved as PDF before uploading. We accept PDF, TXT, Markdown, and CSV.");
+      } else {
+        setUploadError("Please choose PDF, TXT, Markdown, or CSV files (up to 50MB each).");
+      }
       return;
     }
     if (valid.length < files.length) {
@@ -343,10 +394,24 @@ export default function SourcesKnowledgePage() {
         description="The documents your assistants can answer from. Group them by topic."
         actions={
           hasSources ? (
-            <Button onClick={() => setShowModal(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add knowledge
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDirectSearchModal(true);
+                  setDirectSearchHasSearched(false);
+                  setDirectSearchResults([]);
+                }}
+                className="gap-2"
+              >
+                <Search className="h-4 w-4 text-primary" />
+                Search knowledge
+              </Button>
+              <Button onClick={() => setShowModal(true)} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add knowledge
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -477,6 +542,19 @@ export default function SourcesKnowledgePage() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setRenameValue(selectedSource.name);
+                          setShowRenameModal(true);
+                        }}
+                        className="gap-1.5 text-muted-foreground hover:text-foreground"
+                        aria-label={`Rename ${selectedSource.name}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Rename</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={loadDocuments}
                         isLoading={refreshing}
                         className="gap-1.5"
@@ -530,46 +608,84 @@ export default function SourcesKnowledgePage() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
                           <Upload className="h-4 w-4" />
-                          {isDragging ? "Drop to add these files" : "Add more files to this collection"}
+                          {isDragging ? "Drop to add these files" : "Add more content to this collection"}
                         </span>
-                        <label className="inline-flex cursor-pointer">
-                          <input
-                            type="file"
-                            multiple
-                            className="sr-only"
-                            accept={ACCEPTED_EXTENSIONS.join(",")}
-                            onChange={handleFileInput}
-                            disabled={uploading}
-                          />
-                          <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
-                            <Plus className="h-3.5 w-3.5" />
-                            Choose files
-                          </span>
-                        </label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setPasteTitle("");
+                              setPasteContent("");
+                              setShowPasteModal(true);
+                            }}
+                            className="gap-1.5"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Paste text
+                          </Button>
+                          <label className="inline-flex cursor-pointer">
+                            <input
+                              type="file"
+                              multiple
+                              className="sr-only"
+                              accept={ACCEPTED_EXTENSIONS.join(",")}
+                              onChange={handleFileInput}
+                              disabled={uploading}
+                              aria-label="Upload files"
+                            />
+                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                              <Plus className="h-3.5 w-3.5" />
+                              Choose files
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                           <Upload className="h-4 w-4" />
                         </div>
-                        <p className="text-sm font-medium text-foreground">
-                          Drop files here, or choose from your device
-                        </p>
-                        <p className="text-xs text-muted-foreground">PDF, TXT, Markdown, or CSV · multiple files welcome</p>
-                        <label className="mt-1 inline-flex cursor-pointer">
-                          <input
-                            type="file"
-                            multiple
-                            className="sr-only"
-                            accept={ACCEPTED_EXTENSIONS.join(",")}
-                            onChange={handleFileInput}
-                            disabled={uploading}
-                          />
-                          <span className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70">
-                            <Plus className="h-3.5 w-3.5" />
-                            Choose files
-                          </span>
-                        </label>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Drop files here, or choose from your device
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            PDF, TXT, Markdown, or CSV up to 50MB · multiple files welcome
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2.5 pt-1">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setPasteTitle("");
+                              setPasteContent("");
+                              setShowPasteModal(true);
+                            }}
+                            className="gap-1.5"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Paste text
+                          </Button>
+                          <label className="inline-flex cursor-pointer">
+                            <input
+                              type="file"
+                              multiple
+                              className="sr-only"
+                              accept={ACCEPTED_EXTENSIONS.join(",")}
+                              onChange={handleFileInput}
+                              disabled={uploading}
+                              aria-label="Upload files"
+                            />
+                            <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-muted/70 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                              <Plus className="h-3.5 w-3.5" />
+                              Choose files
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -593,16 +709,27 @@ export default function SourcesKnowledgePage() {
                     </div>
 
                     {documents.length > 0 && (
-                      <div className="relative w-full sm:w-56">
-                        <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="text"
-                          placeholder="Filter documents…"
-                          value={docFilter}
-                          onChange={(e) => setDocFilter(e.target.value)}
-                          className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-3 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                        />
-                      </div>
+                        <div className="relative w-full sm:w-64">
+                          <Search className="pointer-events-none absolute start-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                          <input
+                            type="text"
+                            placeholder="Filter documents…"
+                            value={docFilter}
+                            onChange={(e) => setDocFilter(e.target.value)}
+                            aria-label="Filter documents"
+                            className="h-9 w-full rounded-lg border border-border bg-input ps-9 pe-8 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                          />
+                          {docFilter && (
+                            <button
+                              type="button"
+                              onClick={() => setDocFilter("")}
+                              aria-label="Clear document filter"
+                              className="absolute end-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                     )}
                   </div>
 
@@ -664,8 +791,19 @@ export default function SourcesKnowledgePage() {
                       </p>
                     </div>
                   ) : filteredDocuments.length === 0 ? (
-                    <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                      No documents match “{docFilter}”.
+                    <div className="space-y-2 px-5 py-10 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        No documents match “{docFilter}”.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDocFilter("")}
+                        className="text-xs text-primary"
+                      >
+                        Clear filter
+                      </Button>
                     </div>
                   ) : (
                     <ul className="divide-y divide-border/60">
@@ -834,6 +972,221 @@ export default function SourcesKnowledgePage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Rename Collection Modal */}
+      <Modal
+        isOpen={showRenameModal}
+        onClose={() => setShowRenameModal(false)}
+        title="Rename collection"
+        description="Change the display name of this collection."
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!selectedSource || !renameValue.trim()) return;
+            setIsRenaming(true);
+            try {
+              const updated = await api.updateSource(selectedSource.id, {
+                name: renameValue.trim(),
+              });
+              setSources((prev) =>
+                prev.map((s) => (s.id === updated.id ? { ...s, name: updated.name } : s))
+              );
+              setSelectedSource((prev) =>
+                prev && prev.id === updated.id ? { ...prev, name: updated.name } : prev
+              );
+              toast({
+                type: "success",
+                message: `Successfully renamed to "${updated.name}".`,
+              });
+              setShowRenameModal(false);
+            } catch (err: any) {
+              toast({
+                type: "error",
+                message: err.message || "Could not rename collection.",
+              });
+            } finally {
+              setIsRenaming(false);
+            }
+          }}
+          className="space-y-4 pt-2"
+        >
+          <Input
+            label="Collection name"
+            required
+            placeholder="e.g. Employee Handbook"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            autoFocus
+          />
+
+          <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowRenameModal(false)}
+              disabled={isRenaming}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={isRenaming}
+              disabled={!renameValue.trim() || Boolean(selectedSource && renameValue.trim() === selectedSource.name)}
+            >
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Paste Text Modal */}
+      <Modal
+        isOpen={showPasteModal}
+        onClose={() => setShowPasteModal(false)}
+        title="Paste text or notes"
+        description="Add raw text, meeting notes, policies, or snippets directly into this collection."
+        maxWidth="lg"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!selectedSource || !pasteTitle.trim() || !pasteContent.trim()) return;
+            setIsPasting(true);
+            try {
+              const doc = await api.pasteTextDocument(
+                selectedSource.id,
+                pasteTitle.trim(),
+                pasteContent.trim()
+              );
+              setDocuments((prev) => [doc, ...prev]);
+              toast({
+                type: "success",
+                message: `Added "${doc.filename}". Processing started.`,
+              });
+              setShowPasteModal(false);
+              setPasteTitle("");
+              setPasteContent("");
+            } catch (err: any) {
+              toast({
+                type: "error",
+                message: err.message || "Could not save pasted text.",
+              });
+            } finally {
+              setIsPasting(false);
+            }
+          }}
+          className="space-y-4 pt-2"
+        >
+          <Input
+            label="Document title"
+            required
+            placeholder="e.g. Q3 SLA Agreement, Remote Work Guidelines"
+            value={pasteTitle}
+            onChange={(e) => setPasteTitle(e.target.value)}
+            autoFocus
+          />
+
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-xs font-medium text-foreground">Content</label>
+              <span className="text-[11px] tabular-nums text-muted-foreground">
+                {pasteContent.length.toLocaleString()} characters ·{" "}
+                {pasteContent.trim() ? pasteContent.trim().split(/\s+/).length : 0} words
+              </span>
+            </div>
+            <textarea
+              required
+              rows={8}
+              placeholder="Paste text, notes, guidelines, or markdown content here..."
+              value={pasteContent}
+              onChange={(e) => setPasteContent(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring font-mono"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowPasteModal(false)}
+              disabled={isPasting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              isLoading={isPasting}
+              disabled={!pasteTitle.trim() || !pasteContent.trim()}
+            >
+              Add to knowledge
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Knowledge Search Modal */}
+      <Modal
+        isOpen={showDirectSearchModal}
+        onClose={() => setShowDirectSearchModal(false)}
+        title="Search knowledge"
+        description={
+          selectedSource
+            ? `Search across documents in “${selectedSource.name}”.`
+            : "Search across all documents in your knowledge base."
+        }
+      >
+        {selectedSource && (!documents || documents.length === 0 || !documents.some(d => d.status === "ready")) ? (
+          <div className="py-6 text-center space-y-2">
+            <p className="text-sm font-medium text-foreground">No documents ready yet</p>
+            <p className="text-xs text-muted-foreground">
+              Add at least one document and wait for processing to finish before searching.
+            </p>
+          </div>
+        ) : (
+          <>
+            <form onSubmit={handleDirectSearch} className="space-y-4 pt-2">
+              <div className="flex gap-2">
+                <Input
+                  required
+                  placeholder="Search concepts, policies, product terms..."
+                  value={directSearchQuery}
+                  onChange={(e) => setDirectSearchQuery(e.target.value)}
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button type="submit" isLoading={isSearchingDirect} disabled={!directSearchQuery.trim()}>
+                  Search
+                </Button>
+              </div>
+            </form>
+
+            <div className="mt-4 max-h-[400px] overflow-y-auto space-y-3">
+              {directSearchHasSearched && directSearchResults.length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No matching passages found for “{directSearchQuery}”.
+                </div>
+              )}
+
+              {directSearchResults.map((res, idx) => (
+                <div key={idx} className="rounded-lg border border-border bg-muted/40 p-3 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-muted-foreground font-mono text-[11px]">
+                    <span className="font-semibold text-foreground truncate max-w-[70%]">
+                      {res.document_name || res.source_name || "Document excerpt"}
+                    </span>
+                    <span className="text-accent font-medium">
+                      {Math.round(res.score * 100)}% match
+                    </span>
+                  </div>
+                  <p className="text-foreground/90 leading-relaxed font-sans line-clamp-4">
+                    {res.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Modal>
     </div>
   );

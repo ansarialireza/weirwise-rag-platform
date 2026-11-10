@@ -28,25 +28,37 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-border bg-card px-6 text-center",
-        compact ? "py-10" : "py-16",
+        "relative flex flex-col items-center justify-center text-center overflow-hidden rounded-2xl border border-border/80 bg-card/60 backdrop-blur-sm px-6 transition-all",
+        compact ? "py-10" : "py-16 sm:py-20",
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 opacity-60">
-        <SignalFlow variant="compact" className="mx-auto max-w-[260px]" />
+      {/* Visual illustration with geometrically centered icon emblem */}
+      <div className="relative mb-4 flex items-center justify-center">
+        {/* Subtle organic SignalFlow animation ambient glow perfectly centered on the icon */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-70">
+          <SignalFlow variant="compact" className="w-[280px] max-w-none" />
+        </div>
+
+        {/* Modern, soft icon emblem with theme-aware accent colors */}
+        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/80 bg-muted/60 text-primary shadow-xs">
+          <Icon className="h-6 w-6 stroke-[1.8]" aria-hidden="true" />
+        </div>
       </div>
-      <div className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-muted text-accent">
-        <Icon className="h-5 w-5" aria-hidden="true" />
-      </div>
-      <h3 className="relative mt-4 text-[15px] font-semibold tracking-tight text-foreground">{title}</h3>
-      <p className="relative mt-1.5 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+
+      {/* Typography: Balanced, responsive, elegant font */}
+      <h3 className="relative text-base sm:text-lg font-semibold tracking-tight text-foreground text-center">
+        {title}
+      </h3>
+      <p className="relative mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-muted-foreground text-center">
         {description}
       </p>
+
+      {/* Action Buttons: Unified with Platform Button Tokens */}
       {(actionLabel && onAction) || secondaryAction ? (
-        <div className="relative mt-5 flex flex-wrap items-center justify-center gap-2">
+        <div className="relative mt-6 flex flex-wrap items-center justify-center gap-2.5">
           {actionLabel && onAction && (
-            <Button variant="primary" size="sm" onClick={onAction}>
+            <Button variant="primary" size="md" onClick={onAction}>
               {actionLabel}
             </Button>
           )}

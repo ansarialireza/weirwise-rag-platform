@@ -15,13 +15,9 @@ from backend.app.core.security import (
 from backend.app.db.session import get_db_session
 from backend.app.models.auth import (
     EmailVerificationToken,
-    Membership,
     PasswordResetToken,
-    SubscriptionTier,
     User,
     UserSession,
-    Workspace,
-    WorkspaceRole,
 )
 from backend.app.schemas.auth import (
     AuthMessageResponse,
@@ -29,8 +25,10 @@ from backend.app.schemas.auth import (
     PasswordResetRequest,
     RefreshTokenRequest,
     ResendVerificationRequest,
+    SendOtpLoginRequest,
     TokenResponse,
     UserLoginRequest,
+    UserOtpLoginRequest,
     UserRegisterRequest,
     UserResponse,
     VerifyEmailRequest,
@@ -39,6 +37,7 @@ from backend.app.services.auth_rate_limiter import AuthRateLimiter, client_ip, e
 from backend.app.services.email import email_service
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -73,58 +72,20 @@ async def register(
             )
         # If unverified account exists, re-issue OTP and update password/name
         existing_user.hashed_password = hash_password(payload.password)
-        existing_user.full_name = payload.full_name
+        if payload.full_name:
+            existing_user.full_name = payload.full_name
         user = existing_user
     else:
+        resolved_name = (payload.full_name or "").strip() or None
         user = User(
             email=payload.email.lower(),
             hashed_password=hash_password(payload.password),
-            full_name=payload.full_name,
+            full_name=resolved_name,
             is_active=True,
             is_verified=False,
         )
         db.add(user)
         await db.flush()
-
-        # Provision initial personal workspace & primary project for user
-        first_name = (user.full_name or "").strip().split()[0] if user.full_name else ""
-        if not first_name:
-            first_name = user.email.split("@")[0].capitalize()
-        ws_name = f"{first_name}'s Workspace"
-        ws_slug = f"ws-{user.id.hex[:8]}"
-
-        tier_res = await db.execute(select(SubscriptionTier).where(SubscriptionTier.name == "Free Trial"))
-        default_tier = tier_res.scalar_one_or_none()
-        if not default_tier:
-            tier_res = await db.execute(select(SubscriptionTier).order_by(SubscriptionTier.monthly_price.asc()))
-            default_tier = tier_res.scalars().first()
-
-        workspace = Workspace(
-            name=ws_name,
-            slug=ws_slug,
-            plan_tier=default_tier.name.lower().replace(" ", "_") if default_tier else "free",
-            subscription_tier_id=default_tier.id if default_tier else None,
-        )
-        db.add(workspace)
-        await db.flush()
-
-        membership = Membership(
-            workspace_id=workspace.id,
-            user_id=user.id,
-            role=WorkspaceRole.OWNER.value,
-        )
-        db.add(membership)
-
-        # Provision initial intuitive project for user
-        from backend.app.models.project import Project
-
-        initial_project = Project(
-            workspace_id=workspace.id,
-            name="Main Project",
-            slug=f"proj-{user.id.hex[:8]}",
-            description="Primary workspace project for knowledge bases and assistants.",
-        )
-        db.add(initial_project)
 
     # Invalidate any prior unused OTPs for this user
     await db.execute(
@@ -135,7 +96,7 @@ async def register(
     )
 
     # Generate 6-digit OTP
-    otp_code = generate_otp_code(6)
+    otp_code = generate_otp_code(4)
     otp_hash = hash_token(otp_code)
     otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
 
@@ -145,16 +106,33 @@ async def register(
         expires_at=otp_expiry,
     )
     db.add(verification_token)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # Concurrently created by a competing request for the same email
+        existing_check = await db.execute(select(User).where(User.email == payload.email.lower()))
+        competing_user = existing_check.scalar_one_or_none()
+        if competing_user and competing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists.",
+            )
+        return AuthMessageResponse(
+            message="Account created successfully. Please enter the verification code sent to your email.",
+            verification_otp=otp_code
+            if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+            else None,
+        )
 
     # Trigger email service
     await email_service.send_verification_otp(user.email, otp_code)
 
     return AuthMessageResponse(
-        message="Account created successfully. Please enter the 6-digit verification code sent to your email.",
-        verification_otp=(
-            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
-        ),
+        message="Account created successfully. Please enter the verification code sent to your email.",
+        verification_otp=otp_code
+        if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+        else None,
     )
 
 
@@ -237,7 +215,7 @@ async def resend_verification(
         return AuthMessageResponse(message="Account is already verified. You can log in.")
 
     # Generate new 6-digit OTP
-    otp_code = generate_otp_code(6)
+    otp_code = generate_otp_code(4)
     otp_hash = hash_token(otp_code)
     otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
 
@@ -247,15 +225,32 @@ async def resend_verification(
         expires_at=otp_expiry,
     )
     db.add(verification_token)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # Concurrently created by a competing request for the same email
+        existing_check = await db.execute(select(User).where(User.email == payload.email.lower()))
+        competing_user = existing_check.scalar_one_or_none()
+        if competing_user and competing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this email address already exists.",
+            )
+        return AuthMessageResponse(
+            message="Account created successfully. Please enter the verification code sent to your email.",
+            verification_otp=otp_code
+            if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+            else None,
+        )
 
     await email_service.send_verification_otp(user.email, otp_code)
 
     return AuthMessageResponse(
-        message="A new 6-digit verification code has been dispatched to your email.",
-        verification_otp=(
-            otp_code if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None
-        ),
+        message="A new verification code has been dispatched to your email.",
+        verification_otp=otp_code
+        if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+        else None,
     )
 
 
@@ -354,6 +349,153 @@ async def login(
     await db.commit()
 
     # Set secure, persistent HttpOnly cookies for browser clients (30-day session retention)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=raw_refresh,
+        httponly=True,
+        samesite="lax",
+        secure=not settings.DEBUG,
+        max_age=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+        path="/",
+    )
+
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=raw_refresh,
+        expires_in=settings.SESSION_COOKIE_MAX_AGE_SECONDS,
+    )
+
+
+@router.post("/send-otp", response_model=AuthMessageResponse)
+async def send_login_otp(
+    payload: SendOtpLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+) -> AuthMessageResponse:
+    """Send an OTP code for passwordless email login."""
+    ip = client_ip(request)
+    email = payload.email.strip().lower()
+
+    # Rate limiting
+    ip_limit = await AuthRateLimiter.check("otp_ip", ip, 5, 300)
+    if not ip_limit.allowed:
+        enforce_limit(ip_limit)
+
+    stmt = select(User).where(User.email == email)
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+
+    if not user:
+        # Prevent user enumeration: respond generically without sending email
+        return AuthMessageResponse(
+            message="If an account exists with this email, a verification code has been sent.",
+            verification_otp=None,
+        )
+
+    # Invalidate old email tokens
+    old_tokens_stmt = select(EmailVerificationToken).where(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.is_used.is_(False),
+    )
+    old_tokens = (await db.execute(old_tokens_stmt)).scalars().all()
+    for tok in old_tokens:
+        tok.is_used = True
+
+    otp_code = generate_otp_code(4)
+    otp_hash = hash_token(otp_code)
+    otp_expiry = datetime.now(UTC) + timedelta(minutes=settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES)
+
+    db.add(
+        EmailVerificationToken(
+            user_id=user.id,
+            token_hash=otp_hash,
+            expires_at=otp_expiry,
+            is_used=False,
+        )
+    )
+    await db.commit()
+
+    await email_service.send_verification_otp(user.email, otp_code)
+
+    return AuthMessageResponse(
+        message="Verification code sent to your email.",
+        verification_otp=None,
+    )
+
+
+@router.post("/login-otp", response_model=TokenResponse)
+async def login_with_otp(
+    payload: UserOtpLoginRequest,
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db_session),
+) -> TokenResponse:
+    """Authenticate and create persistent session via email OTP."""
+    ip = client_ip(request)
+    email = payload.email.strip().lower()
+
+    ip_limit = await AuthRateLimiter.check("otp_login_ip", ip, 10, 300)
+    if not ip_limit.allowed:
+        enforce_limit(ip_limit)
+
+    stmt = select(User).where(User.email == email)
+    res = await db.execute(stmt)
+    user = res.scalar_one_or_none()
+
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code.",
+        )
+
+    otp_hash = hash_token(payload.otp.strip())
+    now = datetime.now(UTC)
+
+    tok_stmt = select(EmailVerificationToken).where(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.token_hash == otp_hash,
+        EmailVerificationToken.is_used.is_(False),
+        EmailVerificationToken.expires_at > now,
+    )
+    tok_res = await db.execute(tok_stmt)
+    token_record = tok_res.scalar_one_or_none()
+
+    if not token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired verification code.",
+        )
+
+    token_record.is_used = True
+    if not user.is_verified:
+        user.is_verified = True
+
+    # Issue access token
+    access_expiry = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_jwt_token({"sub": str(user.id), "email": user.email}, access_expiry)
+
+    # Issue persistent refresh token (30 days)
+    raw_refresh, refresh_hash = generate_secure_token("wwp_ref_")
+    refresh_expiry = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    session = UserSession(
+        user_id=user.id,
+        refresh_token_hash=refresh_hash,
+        expires_at=refresh_expiry,
+    )
+    db.add(session)
+    await db.commit()
+
+    # Set secure persistent HttpOnly cookies (30 days)
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -527,7 +669,7 @@ async def request_password_reset(
         )
 
     # Generate 6-digit OTP or secure token for password reset
-    raw_token = generate_otp_code(6)
+    raw_token = generate_otp_code(4)
     token_hash = hash_token(raw_token)
     expires = datetime.now(UTC) + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
 

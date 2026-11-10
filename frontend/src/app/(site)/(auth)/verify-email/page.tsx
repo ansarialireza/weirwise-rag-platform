@@ -28,8 +28,8 @@ function VerifyEmailForm() {
     setSuccess(null);
 
     const cleanOtp = otp.trim();
-    if (cleanOtp.length !== 6) {
-      setError("Please enter the complete 6-digit verification code.");
+    if (cleanOtp.length < 4 || cleanOtp.length > 6) {
+      setError("Please enter the verification code.");
       return;
     }
 
@@ -70,7 +70,7 @@ function VerifyEmailForm() {
       <div>
         <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Verify your email</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Enter the 6-digit code we sent to your inbox.
+          Enter the verification code we sent to your inbox.
         </p>
       </div>
 
@@ -119,12 +119,12 @@ function VerifyEmailForm() {
           type="button"
           onClick={handleResend}
           disabled={resending || !!success}
-          className="inline-flex items-center gap-1.5 font-medium transition-colors hover:text-foreground disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md disabled:opacity-50"
         >
           <RotateCw className={`h-3.5 w-3.5 ${resending ? "animate-spin" : ""}`} />
           Resend code
         </button>
-        <Link href="/login" className="font-medium text-foreground hover:underline">
+        <Link href="/login" className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
           Back to sign in
         </Link>
       </div>

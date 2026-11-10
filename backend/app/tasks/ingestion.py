@@ -9,6 +9,7 @@ from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.db.session import async_session_factory
+from backend.app.models.audit import UsageEvent
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
@@ -19,6 +20,9 @@ from sqlalchemy import select
 
 _READY_STATES = {"completed", "ready"}
 _FAILED_STATES = {"failed", "error"}
+
+# Semaphore to bound concurrent background indexing tasks and prevent downstream pool exhaustion
+_INGESTION_SEMAPHORE = asyncio.Semaphore(10)
 
 
 async def _wait_for_core_indexing(
@@ -85,6 +89,11 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
     - Step 3: Cold Transfer moves the raw file to /mnt/gdrive vault (the permanent cold tier).
     - Step 4: Failsafe Deletion strictly ensures local temp file is deleted in a finally block.
     """
+    async with _INGESTION_SEMAPHORE:
+        await _process_document_ingestion_inner(document_id)
+
+
+async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
     initial_temp_path = None
     async with async_session_factory() as db:
         # Load document with knowledge source
@@ -140,8 +149,9 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             document.core_doc_id = core_doc_id
 
             # 5. Cold Transfer: Asynchronously move raw document to Cold Tier (/mnt/gdrive vault)
+            # Run in worker thread so sync disk I/O on FUSE mounts never blocks the asyncio event loop
             if os.path.exists(document.storage_path):
-                cold_path = storage_service.move_to_cold_storage(document.storage_path)
+                cold_path = await asyncio.to_thread(storage_service.move_to_cold_storage, document.storage_path)
                 document.storage_path = cold_path
 
             # 6. Wait for Core to finish indexing before reporting READY.
@@ -149,6 +159,22 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
             if core_status in _READY_STATES:
                 document.status = SourceProcessingStatus.READY.value
                 document.error_message = None
+
+                # Record auditable document_indexed UsageEvent for user billing
+                user_id = document.user_id or source.user_id
+                if user_id:
+                    db.add(
+                        UsageEvent(
+                            user_id=user_id,
+                            event_type="document_indexed",
+                            quantity=1,
+                            metadata_info={
+                                "document_id": str(document.id),
+                                "filename": document.filename,
+                                "file_size_bytes": document.file_size_bytes,
+                            },
+                        )
+                    )
             elif core_status in _FAILED_STATES or core_status == "timeout":
                 document.status = SourceProcessingStatus.FAILED.value
                 document.error_message = core_error or f"Core indexing ended in state '{core_status}'."

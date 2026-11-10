@@ -112,7 +112,7 @@ class BehavioralBatchIngestionRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     session_id: str = Field(..., min_length=8, max_length=128, description="Unique session token or UUID")
-    workspace_id: Optional[uuid.UUID] = Field(None, description="Active workspace context UUID")
+    user_id: Optional[uuid.UUID] = Field(None, description="Active user UUID")
     device_context: Optional[DeviceContextSchema] = Field(
         default_factory=DeviceContextSchema,
         description="Client device and browser properties",

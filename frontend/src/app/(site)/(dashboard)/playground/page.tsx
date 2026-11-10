@@ -137,8 +137,7 @@ function PlaygroundPage() {
   // was configured without sources simply has none, and no choice is offered.
   useEffect(() => {
     if (!selectedAssistant) return;
-    const allowed =
-      selectedAssistant.engine_mode === "search_only" && selectedAssistant.show_sources !== false;
+    const allowed = selectedAssistant.show_sources !== false;
     setSourcesOn(allowed && readSourcePreference(selectedAssistant.id, true));
   }, [selectedAssistant]);
 
@@ -416,7 +415,7 @@ function PlaygroundPage() {
               </div>
 
               <div className="flex shrink-0 items-center gap-1.5">
-                {isSearchMode && selectedAssistant.show_sources !== false && (
+                {selectedAssistant && selectedAssistant.show_sources !== false && (
                   <SourcesToggle
                     enabled={sourcesOn}
                     onChange={(enabled) => handleToggleSources(selectedAssistant.id, enabled)}
@@ -434,7 +433,7 @@ function PlaygroundPage() {
                     }}
                     aria-pressed={speakReplies}
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                      "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       speakReplies
                         ? "border-accent/40 bg-accent-soft text-accent"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -451,7 +450,7 @@ function PlaygroundPage() {
                   aria-pressed={showInspector}
                   aria-label={showInspector ? "Hide details" : "Show details"}
                   className={cn(
-                    "flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors",
+                    "flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     showInspector
                       ? "border-accent/40 bg-accent-soft text-accent"
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -491,7 +490,7 @@ function PlaygroundPage() {
                           key={prompt}
                           type="button"
                           onClick={() => handleSendMessage(prompt)}
-                          className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5 text-start text-[13px] text-foreground transition-colors hover:border-muted-foreground/30 hover:bg-card"
+                          className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3.5 py-2.5 text-start text-[13px] text-foreground transition-colors hover:border-muted-foreground/30 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <span>{prompt}</span>
                           <ArrowUp className="h-3.5 w-3.5 shrink-0 rotate-45 text-muted-foreground transition-colors group-hover:text-accent" />
@@ -549,9 +548,18 @@ function PlaygroundPage() {
                             {message.content}
                           </div>
 
-                          {/* An AI Assistant answers in prose and shows nothing else: no
-                              citations, no source controls, no toggle. Its evidence stays
-                              internal — only the assistant's own words are on screen. */}
+                          {sourcesOn && messageSources.length > 0 && (
+                            <div className="border-t border-border/60 px-3.5 py-3">
+                              <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                                Sources supporting this answer:
+                              </p>
+                              <SourceReferences
+                                sources={messageSources}
+                                labels={sourceLabels}
+                                className="border-0"
+                              />
+                            </div>
+                          )}
 
                           <div className="flex items-center justify-end gap-1 border-t border-border/60 px-3 py-1.5">
                             {voiceAvailable && (
@@ -562,7 +570,7 @@ function PlaygroundPage() {
                                     ? stopAudio()
                                     : speak(message.content, message.id)
                                 }
-                                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 aria-label={speakingId === message.id ? "Stop reading" : "Read aloud"}
                                 title={speakingId === message.id ? "Stop" : "Read aloud"}
                               >
@@ -576,7 +584,7 @@ function PlaygroundPage() {
                             <button
                               type="button"
                               onClick={() => handleCopy(message.content, message.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               aria-label="Copy answer"
                             >
                               {copiedKey === message.id ? (
@@ -626,7 +634,7 @@ function PlaygroundPage() {
                   <button
                     type="button"
                     onClick={voice.clearError}
-                    className="rounded p-0.5 hover:bg-warning/10"
+                    className="rounded p-0.5 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label="Dismiss voice error"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -661,7 +669,7 @@ function PlaygroundPage() {
                   <button
                     type="button"
                     onClick={voice.stop}
-                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label="End voice conversation"
                     title="End voice conversation"
                   >
@@ -722,7 +730,7 @@ function PlaygroundPage() {
                         : "Talk to the assistant — replies are spoken and you can interrupt"
                     }
                     className={cn(
-                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50",
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       voice.isActive
                         ? "border-signal bg-signal text-signal-foreground"
                         : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -741,7 +749,7 @@ function PlaygroundPage() {
                 <button
                   type="submit"
                   disabled={!inputQuery.trim() || chatting || voice.isActive}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-30"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-30"
                   aria-label="Send message"
                 >
                   <ArrowUp className="h-4 w-4" />
@@ -774,7 +782,7 @@ function PlaygroundPage() {
                 <button
                   type="button"
                   onClick={() => setShowInspector(false)}
-                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
                   aria-label="Close details"
                 >
                   <X className="h-4 w-4" />

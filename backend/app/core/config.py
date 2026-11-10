@@ -101,12 +101,13 @@ class Settings(BaseSettings):
     STORAGE_LOCAL_DIR: str = "/tmp/weirwise_uploads"
     STORAGE_COLD_DIR: str = "/mnt/gdrive/weirwise/storage/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB
-    ALLOWED_EXTENSIONS: list[str] = [".pdf", ".docx", ".txt", ".md"]
+    ALLOWED_EXTENSIONS: list[str] = [".pdf", ".docx", ".txt", ".md", ".csv"]
     ALLOWED_MIME_TYPES: list[str] = [
         "application/pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "text/plain",
         "text/markdown",
+        "text/csv",
     ]
 
     # Weirwise Core Integration Contract (Headless RAG Engine)
@@ -128,9 +129,20 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"])
 
-    # Staff Administration (Private System Provisioning)
+    # Staff Administration (Private System Provisioning & Allowlist)
     INITIAL_STAFF_ADMIN_EMAIL: str | None = None
     INITIAL_STAFF_ADMIN_PASSWORD: str | None = None
+    ADMIN_ALLOWLIST_EMAILS: list[str] = Field(
+        default_factory=lambda: ["staff@weirwise.com", "admin@weirwise.com", "ansarialireza@gmail.com"]
+    )
+
+    # Billing & Rampex Payment Gateway
+    RAMPEX_API_KEY: str | None = None
+    RAMPEX_WEBHOOK_SECRET: str | None = None
+    RAMPEX_API_BASE_URL: str = "https://api.rampex.io"
+    RAMPEX_ENABLED: bool = False
+    RAMPEX_WALLET_ADDRESS: str | None = None
+    BILLING_WEBHOOK_BASE_URL: str | None = None
 
     # RAG & Embedding Engine Default
     DEFAULT_EMBEDDING_MODEL: str = "jina-embeddings-v4"

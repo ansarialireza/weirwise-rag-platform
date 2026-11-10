@@ -1,22 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 export default function RegisterPage() {
-  const [fullName, setFullName] = useState("");
+  const { user: authUser, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { dict } = useI18n();
   const router = useRouter();
+
+  // If already authenticated, redirect to product immediately
+  useEffect(() => {
+    if (!authLoading && authUser) {
+      router.replace(authUser.is_superuser ? "/admin" : "/overview");
+    }
+  }, [authUser, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +38,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await api.register({ full_name: fullName.trim(), email: email.trim(), password });
+      await api.register({ email: email.trim(), password });
       router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
     } catch (err: any) {
       setError(err.message || "We couldn't create your account. Please check your details and try again.");
@@ -54,23 +62,13 @@ export default function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label={dict.auth.fullName}
-          type="text"
-          required
-          autoComplete="name"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          placeholder="Jane Doe"
-        />
-
-        <Input
           label={dict.auth.workEmail}
           type="email"
           required
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@company.com"
+          placeholder="you@example.com"
         />
 
         <Input
@@ -81,7 +79,7 @@ export default function RegisterPage() {
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Minimum 8 characters"
+          placeholder="Password"
           hint="At least 8 characters."
         />
 

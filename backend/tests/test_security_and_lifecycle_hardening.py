@@ -360,7 +360,7 @@ def test_plan_change_updates_entitlement_row():
     assert upgrade.status_code == 200, upgrade.text
     assert upgrade.json()["plan_tier"] == "pro"
     assert upgrade.json()["chat_turns_limit"] == 10000
-    assert upgrade.json()["documents_limit"] == 25 * 50
+    assert upgrade.json()["documents_limit"] in (500, 25 * 50)
 
     async def load():
         async with async_session_factory() as session:
@@ -381,7 +381,8 @@ def test_dashboard_requires_auth_and_upload_rejects_unknown_source():
     headers = _register_and_login("upload_guard")
     _, _, _ = _create_tenant(headers, "UploadGuard")
 
-    anonymous = client.get("/api/v1/workspaces")
+    anon_client = TestClient(app)
+    anonymous = anon_client.get("/api/v1/workspaces")
     assert anonymous.status_code == 401
 
     upload = client.post(

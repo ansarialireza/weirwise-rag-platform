@@ -26,44 +26,44 @@ export function SignalFlow({
     >
       <g stroke="hsl(var(--accent))" strokeWidth="1.25" strokeLinecap="round" opacity="0.5">
         <path
-          d={compact ? "M2 20 C 58 20, 66 48, 122 48" : "M4 34 C 128 34, 150 96, 296 96"}
+          d={compact ? "M20 20 C 65 20, 75 48, 110 48" : "M40 34 C 150 34, 180 100, 260 100"}
           className={animated ? "flow-line" : undefined}
         />
         <path
-          d={compact ? "M2 48 C 62 48, 66 48, 122 48" : "M4 100 C 132 100, 158 96, 296 96"}
+          d={compact ? "M20 48 C 65 48, 75 48, 110 48" : "M40 100 C 150 100, 180 100, 260 100"}
           className={animated ? "flow-line" : undefined}
           opacity="0.75"
         />
         <path
-          d={compact ? "M2 76 C 58 76, 66 48, 122 48" : "M4 166 C 128 166, 150 96, 296 96"}
+          d={compact ? "M20 76 C 65 76, 75 48, 110 48" : "M40 166 C 150 166, 180 100, 260 100"}
           className={animated ? "flow-line" : undefined}
         />
       </g>
 
       {/* Source nodes */}
       <g fill="hsl(var(--card))" stroke="hsl(var(--border))" strokeWidth="1">
-        <circle cx={compact ? 10 : 18} cy={compact ? 20 : 34} r={compact ? 5 : 7} />
-        <circle cx={compact ? 10 : 18} cy={compact ? 48 : 100} r={compact ? 5 : 7} />
-        <circle cx={compact ? 10 : 18} cy={compact ? 76 : 166} r={compact ? 5 : 7} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 20 : 34} r={compact ? 5 : 7} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 48 : 100} r={compact ? 5 : 7} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 76 : 166} r={compact ? 5 : 7} />
       </g>
       <g fill="hsl(var(--accent))">
-        <circle cx={compact ? 10 : 18} cy={compact ? 20 : 34} r={compact ? 2 : 2.5} />
-        <circle cx={compact ? 10 : 18} cy={compact ? 48 : 100} r={compact ? 2 : 2.5} />
-        <circle cx={compact ? 10 : 18} cy={compact ? 76 : 166} r={compact ? 2 : 2.5} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 20 : 34} r={compact ? 2 : 2.5} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 48 : 100} r={compact ? 2 : 2.5} />
+        <circle cx={compact ? 20 : 40} cy={compact ? 76 : 166} r={compact ? 2 : 2.5} />
       </g>
 
-      {/* The answer node */}
+      {/* The answer node (convergent center) */}
       <circle
-        cx={compact ? 128 : 308}
-        cy={compact ? 48 : 96}
+        cx={compact ? 110 : 260}
+        cy={compact ? 48 : 100}
         r={compact ? 13 : 20}
         fill="hsl(var(--signal) / 0.1)"
         stroke="hsl(var(--signal))"
         strokeWidth="1.25"
       />
       <circle
-        cx={compact ? 128 : 308}
-        cy={compact ? 48 : 96}
+        cx={compact ? 110 : 260}
+        cy={compact ? 48 : 100}
         r={compact ? 6 : 9}
         fill="hsl(var(--signal))"
         className={animated ? "animate-signal origin-center" : undefined}
@@ -73,7 +73,7 @@ export function SignalFlow({
       {/* Signal continues */}
       <g stroke="hsl(var(--signal))" strokeWidth="1.25" strokeLinecap="round" opacity="0.8">
         <path
-          d={compact ? "M144 48 H 214" : "M332 96 H 512"}
+          d={compact ? "M126 48 H 200" : "M284 100 H 480"}
           className={animated ? "flow-line" : undefined}
           strokeDasharray={compact ? "3 6" : "5 8"}
         />

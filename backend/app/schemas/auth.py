@@ -36,12 +36,21 @@ PasswordStr = Annotated[str, Field(min_length=12, max_length=128), AfterValidato
 class UserRegisterRequest(BaseModel):
     email: EmailStrType
     password: PasswordStr
-    full_name: str = Field(..., min_length=2, max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
 
 
 class UserLoginRequest(BaseModel):
     email: EmailStrType
     password: str = Field(..., min_length=1)
+
+
+class UserOtpLoginRequest(BaseModel):
+    email: EmailStrType
+    otp: str = Field(..., min_length=4, max_length=64)
+
+
+class SendOtpLoginRequest(BaseModel):
+    email: EmailStrType
 
 
 class TokenResponse(BaseModel):
@@ -67,7 +76,7 @@ class PasswordResetConfirmRequest(BaseModel):
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStrType
-    otp: str = Field(..., min_length=6, max_length=64)
+    otp: str = Field(..., min_length=4, max_length=64)
 
 
 class ResendVerificationRequest(BaseModel):
@@ -79,7 +88,7 @@ class UserResponse(BaseModel):
 
     id: uuid.UUID
     email: str
-    full_name: str
+    full_name: str | None = None
     is_active: bool
     is_verified: bool = False
     is_superuser: bool

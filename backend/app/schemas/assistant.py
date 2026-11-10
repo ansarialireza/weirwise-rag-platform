@@ -23,7 +23,7 @@ class AssistantCreateRequest(BaseModel):
     show_sources: bool = True
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(1024, ge=64, le=4096)
-    score_threshold: float = Field(0.7, ge=0.0, le=1.0)
+    score_threshold: float = Field(0.55, ge=0.0, le=1.0)
     top_k: int = Field(4, ge=1, le=20)
     language: str = Field("en", max_length=20)
     tone: str = Field("professional", max_length=50)
@@ -56,7 +56,6 @@ class AssistantResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    project_id: uuid.UUID
     core_assistant_id: uuid.UUID | None
     name: str
     description: str | None
@@ -256,7 +255,7 @@ class BusinessIntegrationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     provider: str
     display_name: str
     is_active: bool
@@ -276,7 +275,7 @@ class WebhookSubscriptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     target_url: str
     events: list[str]
     is_active: bool
@@ -293,7 +292,7 @@ class WebhookSubscriptionResponse(BaseModel):
 class WorkspacePlanEntitlementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     plan_tier: str
     max_assistants: int
     max_knowledge_sources: int
@@ -329,7 +328,7 @@ class WorkspaceBYOKResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     provider_name: str
     api_endpoint: str | None
     deployment_id: str | None
@@ -381,7 +380,7 @@ class ApiCredentialResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    workspace_id: uuid.UUID
+    user_id: uuid.UUID
     name: str
     key_prefix: str
     scopes: list[str]

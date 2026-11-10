@@ -48,7 +48,7 @@ export default function OfflinePage() {
           You&apos;re offline
         </h1>
         <p className="mx-auto mt-2 max-w-xs text-[13px] leading-relaxed text-muted-foreground">
-          Weirwise needs a connection to reach your workspace. Nothing has been lost — try again when
+          Weirwise needs a connection to reach your account. Nothing has been lost — try again when
           you&apos;re back online.
         </p>
 

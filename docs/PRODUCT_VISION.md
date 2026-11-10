@@ -13,6 +13,17 @@ Weirwise is not merely a chat interface, a vector database UI, or a thin wrapper
 
 This document distinguishes the current product milestone from the longer-term direction. Future ideas must not be presented as released capabilities.
 
+## 1.1 Customer account model
+
+The product direction is one customer account with one unified management space. Customers do not
+create, select, or switch between workspaces. Multiple stores, integrations, knowledge sources, and
+assistants, where supported, remain within that same account. This is product direction, not a claim
+that multi-store connections are implemented.
+
+In the current Platform implementation, an authenticated `User` is the account principal. There is
+no separate Account, Workspace, Project, or Membership data model. See
+[`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) for the implementation and compatibility caveats.
+
 ## 2. What Weirwise is today
 
 The current near-term scope is intentionally narrow:
@@ -62,7 +73,9 @@ Weirwise aims to bridge that gap with assistants that:
 
 ## 5. Long-term product direction
 
-Over time, Weirwise may evolve into a workspace where a business can create, publish, manage, and improve multiple AI assistants for different use cases. This is strategic direction, not a claim that every capability is available today.
+Over time, Weirwise may evolve into a unified account experience where a business can create,
+publish, manage, and improve multiple AI assistants for different use cases. This is strategic
+direction, not a claim that every capability is available today.
 
 ### Assistant lifecycle
 Enable businesses to create assistants for distinct purposes, configure behavior, connect approved knowledge, test them, and publish them to relevant channels.
@@ -80,7 +93,7 @@ Connect assistants to business systems and communication channels only when a re
 Help operators understand usage, costs, reliability, and knowledge gaps. Reports and alerts should explain why they matter and remain configurable rather than becoming noisy notifications.
 
 ### Copilot and assisted operations
-The internal assistant may eventually become context-aware and help users navigate or operate the platform. Any future action-taking capability must use authorized product APIs, enforce workspace permissions, and provide clear user control. Destructive or sensitive actions require stronger safeguards.
+The internal assistant may eventually become context-aware and help users navigate or operate the platform. Any future action-taking capability must use authorized product APIs, enforce the authenticated account's permissions, and provide clear user control. Destructive or sensitive actions require stronger safeguards.
 
 ## 6. Product principles
 

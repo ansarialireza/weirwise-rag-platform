@@ -1,5 +1,6 @@
 """Comprehensive Assistant Lifecycle, Conversations, Citations, Golden Evaluations, and Knowledge Gap Analytics."""
 
+import asyncio
 import json
 import time
 import uuid
@@ -7,9 +8,7 @@ from datetime import UTC, datetime
 
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.api.dependencies import (
-    WorkspaceContext,
     get_current_user,
-    require_workspace,
 )
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
@@ -27,8 +26,8 @@ from backend.app.models.assistant import (
     UnansweredQuery,
 )
 from backend.app.models.audit import ApiCredential
-from backend.app.models.auth import Membership, User, WorkspaceRole
-from backend.app.models.project import Document, KnowledgeSource, Project
+from backend.app.models.auth import User
+from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.assistant import (
     ApiCredentialCreateRequest,
     ApiCredentialResponse,
@@ -60,17 +59,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter(tags=["Assistants, Intelligence & Lifecycle"])
 
 
-async def verify_project_access(project_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Project:
-    stmt = (
-        select(Project)
-        .join(Membership, Membership.workspace_id == Project.workspace_id)
-        .where(Project.id == project_id, Membership.user_id == user_id)
-    )
+async def verify_assistant_access(assistant_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> Assistant:
+    stmt = select(Assistant).where(Assistant.id == assistant_id, Assistant.user_id == user_id)
     res = await db.execute(stmt)
-    proj = res.scalar_one_or_none()
-    if not proj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found or access denied.")
-    return proj
+    ast = res.scalar_one_or_none()
+    if not ast:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+    return ast
 
 
 async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str) -> list[CitationItem]:
@@ -87,21 +82,25 @@ async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str
     s_res = await db.execute(sources_stmt)
     linked_sources = s_res.scalars().all()
 
-    for ks in linked_sources:
-        if not ks.core_kb_id:
-            continue
+    # Concurrently search all linked Core knowledge bases to prevent sequential latency accumulation
+    active_sources = [ks for ks in linked_sources if ks.core_kb_id]
+    if not active_sources:
+        return []
+
+    effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
+
+    async def _query_single_source(ks: KnowledgeSource) -> list[CitationItem]:
         try:
-            # Never trust a per-assistant threshold below the platform safety floor.
-            effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
             search_data = await core_client.search(
                 kb_id=ks.core_kb_id,
                 query=query,
                 top_k=assistant.top_k,
                 score_threshold=effective_threshold,
             )
+            items = []
             for item in search_data.get("results", []):
                 metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
-                citations.append(
+                items.append(
                     CitationItem(
                         chunk_id=str(item.get("chunk_id")),
                         content=item.get("content", ""),
@@ -110,8 +109,14 @@ async def _retrieve_citations(db: AsyncSession, assistant: Assistant, query: str
                         document_name=metadata.get("document_name") or metadata.get("filename"),
                     )
                 )
+            return items
         except CoreApiException as e:
             logger.warning(f"Vector search failed: {e!s}")
+            return []
+
+    results_lists = await asyncio.gather(*[_query_single_source(ks) for ks in active_sources])
+    for res_list in results_lists:
+        citations.extend(res_list)
 
     citations.sort(key=lambda x: x.similarity_score, reverse=True)
     return citations[: assistant.top_k]
@@ -132,27 +137,20 @@ def _sse(event: dict) -> str:
 # --- Assistant Management & Creation Wizard ---
 
 
-@router.post("/projects/{project_id}/assistants", response_model=AssistantResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/assistants", response_model=AssistantResponse, status_code=status.HTTP_201_CREATED)
 async def create_assistant(
-    project_id: uuid.UUID,
     payload: AssistantCreateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Create a new Assistant in DRAFT state with business tone and fallback settings."""
-    project = await verify_project_access(project_id, current_user.id, db)
-
     # Entitlement check
-    count_stmt = (
-        select(func.count(Assistant.id))
-        .join(Project, Project.id == Assistant.project_id)
-        .where(Project.workspace_id == project.workspace_id)
-    )
+    count_stmt = select(func.count(Assistant.id)).where(Assistant.user_id == current_user.id)
     current_count = (await db.execute(count_stmt)).scalar() or 0
-    await metering_service.check_assistant_creation_limit(db, project.workspace_id, current_count)
+    await metering_service.check_assistant_creation_limit(db, current_user.id, current_count)
 
     assistant = Assistant(
-        project_id=project_id,
+        user_id=current_user.id,
         name=payload.name,
         description=payload.description,
         system_instructions=payload.system_instructions,
@@ -176,12 +174,12 @@ async def create_assistant(
     if payload.knowledge_source_ids:
         for sid in payload.knowledge_source_ids:
             ks_res = await db.execute(
-                select(KnowledgeSource).where(KnowledgeSource.id == sid, KnowledgeSource.project_id == project_id)
+                select(KnowledgeSource).where(KnowledgeSource.id == sid, KnowledgeSource.user_id == current_user.id)
             )
             if not ks_res.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="That knowledge selection isn't available in this workspace.",
+                    detail="That knowledge selection isn't available for your account.",
                 )
             link = AssistantKnowledgeSource(assistant_id=assistant.id, knowledge_source_id=sid)
             db.add(link)
@@ -195,26 +193,33 @@ async def create_assistant(
     return resp
 
 
-@router.get("/projects/{project_id}/assistants", response_model=list[AssistantResponse])
-async def list_project_assistants(
-    project_id: uuid.UUID,
+@router.get("/assistants", response_model=list[AssistantResponse])
+async def list_assistants(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[AssistantResponse]:
-    """List all assistants scoped to a project."""
-    await verify_project_access(project_id, current_user.id, db)
-
-    stmt = select(Assistant).where(Assistant.project_id == project_id).order_by(Assistant.created_at.desc())
+    """List all assistants owned directly by the authenticated user."""
+    stmt = select(Assistant).where(Assistant.user_id == current_user.id).order_by(Assistant.created_at.desc())
     res = await db.execute(stmt)
     assistants = res.scalars().all()
+
+    if not assistants:
+        return []
+
+    # Batch fetch all knowledge source links in a single query to eliminate N+1 overhead
+    a_ids = [a.id for a in assistants]
+    links_stmt = select(AssistantKnowledgeSource.assistant_id, AssistantKnowledgeSource.knowledge_source_id).where(
+        AssistantKnowledgeSource.assistant_id.in_(a_ids)
+    )
+    links_res = await db.execute(links_stmt)
+    ks_map: dict[uuid.UUID, list[uuid.UUID]] = {a_id: [] for a_id in a_ids}
+    for ast_id, ks_id in links_res.all():
+        ks_map[ast_id].append(ks_id)
 
     output = []
     for a in assistants:
         resp = AssistantResponse.model_validate(a)
-        links_res = await db.execute(
-            select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == a.id)
-        )
-        resp.knowledge_source_ids = list(links_res.scalars().all())
+        resp.knowledge_source_ids = ks_map.get(a.id, [])
         output.append(resp)
     return output
 
@@ -226,12 +231,7 @@ async def get_assistant(
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Retrieve assistant details, grounding settings, and linked sources."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     links_res = await db.execute(
         select(AssistantKnowledgeSource.knowledge_source_id).where(
@@ -251,12 +251,7 @@ async def update_assistant(
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Update assistant behavior, model parameters, or linked sources."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     for field, val in payload.model_dump(exclude_unset=True).items():
         if field == "knowledge_source_ids":
@@ -285,6 +280,73 @@ async def update_assistant(
     return resp
 
 
+@router.delete("/assistants/{assistant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_assistant(
+    assistant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete an assistant and associated deployments cleanly."""
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await db.delete(assistant)
+    await db.commit()
+
+
+@router.post(
+    "/assistants/{assistant_id}/duplicate",
+    response_model=AssistantResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_assistant(
+    assistant_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> AssistantResponse:
+    """Duplicate an existing assistant, preserving behavior, settings, and knowledge links."""
+    original = await verify_assistant_access(assistant_id, current_user.id, db)
+
+    # Metering check for new assistant creation
+    count_stmt = select(func.count(Assistant.id)).where(Assistant.user_id == current_user.id)
+    current_count = (await db.execute(count_stmt)).scalar() or 0
+    await metering_service.check_assistant_creation_limit(db, current_user.id, current_count)
+
+    new_assistant = Assistant(
+        user_id=current_user.id,
+        name=f"{original.name} (Copy)",
+        description=original.description,
+        system_instructions=original.system_instructions,
+        model=original.model,
+        engine_mode=original.engine_mode,
+        show_sources=original.show_sources,
+        temperature=original.temperature,
+        max_tokens=original.max_tokens,
+        score_threshold=original.score_threshold,
+        top_k=original.top_k,
+        language=original.language,
+        tone=original.tone,
+        fallback_message=original.fallback_message,
+        escalation_email=original.escalation_email,
+        status=AssistantStatus.DRAFT.value,
+    )
+    db.add(new_assistant)
+    await db.flush()
+
+    # Copy knowledge links
+    links_res = await db.execute(
+        select(AssistantKnowledgeSource.knowledge_source_id).where(AssistantKnowledgeSource.assistant_id == original.id)
+    )
+    source_ids = list(links_res.scalars().all())
+    for sid in source_ids:
+        db.add(AssistantKnowledgeSource(assistant_id=new_assistant.id, knowledge_source_id=sid))
+
+    await db.commit()
+    await db.refresh(new_assistant)
+
+    resp = AssistantResponse.model_validate(new_assistant)
+    resp.knowledge_source_ids = source_ids
+    return resp
+
+
 # --- Publishing Lifecycle ---
 
 
@@ -295,12 +357,7 @@ async def check_publish_readiness(
     db: AsyncSession = Depends(get_db_session),
 ) -> PublishValidationResponse:
     """Verify that an assistant has verified knowledge sources and is ready for public deployment."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     # Check linked sources and documents
     sources_stmt = (
@@ -340,12 +397,7 @@ async def publish_assistant(
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Publish assistant to live state and freeze immutable runtime configuration snapshot."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    project = await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     # Validate readiness
     readiness = await check_publish_readiness(assistant_id, current_user, db)
@@ -399,11 +451,11 @@ async def publish_assistant(
         db.add(deployment)
 
     # Outgoing Webhook: assistant.published
-    await webhook_dispatcher.dispatch_event(
+    await webhook_dispatcher.dispatch(
         db=db,
-        workspace_id=project.workspace_id,
+        user_id=current_user.id,
         event_type="assistant.published",
-        payload_data={"assistant_id": str(assistant.id), "name": assistant.name, "version": assistant.version},
+        payload={"assistant_id": str(assistant.id), "name": assistant.name, "version": assistant.version},
     )
 
     await db.commit()
@@ -418,12 +470,7 @@ async def unpublish_assistant(
     db: AsyncSession = Depends(get_db_session),
 ) -> AssistantResponse:
     """Take an assistant offline (unpublish) safely."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     assistant.status = AssistantStatus.UNPUBLISHED.value
     await db.commit()
@@ -443,12 +490,7 @@ async def list_assistant_conversations(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ConversationResponse]:
     """Retrieve actual customer and playground conversation history."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = (
         select(Conversation, func.count(Message.id).label("msg_count"))
@@ -480,9 +522,7 @@ async def get_conversation_messages(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
 
-    a_stmt = select(Assistant).where(Assistant.id == conv.assistant_id)
-    assistant = (await db.execute(a_stmt)).scalar_one()
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(conv.assistant_id, current_user.id, db)
 
     m_stmt = select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.asc())
     msgs = (await db.execute(m_stmt)).scalars().all()
@@ -499,12 +539,7 @@ async def get_knowledge_gap_analytics(
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeGapAnalyticsResponse:
     """Generate actionable analytics on where assistant fails to find reliable evidence."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     # 1. Unanswered Queries
     uq_stmt = (
@@ -554,12 +589,7 @@ async def create_evaluation_case(
     db: AsyncSession = Depends(get_db_session),
 ) -> EvaluationCaseResponse:
     """Add a verified test case to ensure assistant grounding does not regress."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     case = EvaluationCase(
         assistant_id=assistant.id,
@@ -581,12 +611,7 @@ async def list_evaluation_cases(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[EvaluationCaseResponse]:
     """List evaluation suite for assistant."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = (
         select(EvaluationCase)
@@ -609,9 +634,7 @@ async def run_single_evaluation(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evaluation case not found.")
 
-    a_stmt = select(Assistant).where(Assistant.id == case.assistant_id)
-    assistant = (await db.execute(a_stmt)).scalar_one()
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(case.assistant_id, current_user.id, db)
 
     updated_case = await evaluation_service.run_evaluation_case(db, case.id)
     return EvaluationCaseResponse.model_validate(updated_case)
@@ -630,19 +653,14 @@ async def studio_playground_chat(
     """Internal studio testing endpoint for assistant tuning and prompt evaluation."""
     start_time = time.perf_counter()
 
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
-    project = await verify_project_access(assistant.project_id, current_user.id, db)
-
-    # Quota check and usage metering share one accounting path with the public runtime.
-    await metering_service.check_and_increment_chat_turn(
+    # Quota check and usage metering directly for authenticated user
+    await metering_service.record_chat_turn(
         db=db,
-        workspace_id=project.workspace_id,
-        project_id=assistant.project_id,
+        user_id=current_user.id,
         assistant_id=assistant.id,
+        model_name=assistant.model,
     )
 
     # 1. Resolve or create conversation
@@ -715,7 +733,7 @@ async def studio_playground_chat(
             assistant=assistant,
             query=payload.message,
             passages=[c.content for c in citations],
-            workspace_id=project.workspace_id,
+            user_id=current_user.id,
             history=history,
         )
         assistant_reply = answer.content
@@ -761,17 +779,12 @@ async def studio_playground_chat_stream(
     and ``done`` (persisted message id, citations, latency, usage).
     """
     start_time = time.perf_counter()
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    project = await verify_project_access(assistant.project_id, current_user.id, db)
-    await metering_service.check_and_increment_chat_turn(
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
+    await metering_service.record_chat_turn(
         db=db,
-        workspace_id=project.workspace_id,
-        project_id=assistant.project_id,
+        user_id=current_user.id,
         assistant_id=assistant.id,
+        model_name=assistant.model,
     )
 
     conv = None
@@ -865,7 +878,7 @@ async def studio_playground_chat_stream(
                 assistant=assistant,
                 query=payload.message,
                 passages=[c.content for c in citations],
-                workspace_id=project.workspace_id,
+                user_id=current_user.id,
                 history=history,
             ):
                 if event.get("type") == "delta":
@@ -939,12 +952,7 @@ async def create_widget_deployment(
     db: AsyncSession = Depends(get_db_session),
 ) -> DeploymentResponse:
     """Create or update embeddable web widget deployment with visual styling and allowed domains."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    assistant = await verify_assistant_access(assistant_id, current_user.id, db)
 
     raw_pub, _ = generate_secure_token("wwp_pub_")
     deployment = Deployment(
@@ -969,12 +977,7 @@ async def list_assistant_deployments(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[DeploymentResponse]:
     """List deployments and widget public keys for assistant."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     stmt = select(Deployment).where(Deployment.assistant_id == assistant_id).order_by(Deployment.created_at.desc())
     res = await db.execute(stmt)
@@ -993,12 +996,7 @@ async def update_assistant_deployment(
     db: AsyncSession = Depends(get_db_session),
 ) -> DeploymentResponse:
     """Update a deployment's sharing rules without rotating its public key."""
-    a_res = await db.execute(select(Assistant).where(Assistant.id == assistant_id))
-    assistant = a_res.scalar_one_or_none()
-    if not assistant:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assistant not found.")
-
-    await verify_project_access(assistant.project_id, current_user.id, db)
+    await verify_assistant_access(assistant_id, current_user.id, db)
 
     dep_res = await db.execute(
         select(Deployment).where(
@@ -1060,14 +1058,13 @@ async def update_assistant_deployment(
 
 
 @router.post(
-    "/workspaces/{workspace_id}/api-credentials",
+    "/api-credentials",
     response_model=ApiCredentialResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_api_credential(
-    workspace_id: uuid.UUID,
     payload: ApiCredentialCreateRequest,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> ApiCredentialResponse:
     """Generate a revocable API key for external integrations. Raw key is returned strictly once."""
@@ -1075,7 +1072,7 @@ async def create_api_credential(
     prefix = raw_key[:12]
 
     cred = ApiCredential(
-        workspace_id=workspace_id,
+        user_id=current_user.id,
         name=payload.name,
         key_prefix=prefix,
         key_hash=key_hash,
@@ -1090,36 +1087,32 @@ async def create_api_credential(
     return resp
 
 
-@router.get("/workspaces/{workspace_id}/api-credentials", response_model=list[ApiCredentialResponse])
+@router.get("/api-credentials", response_model=list[ApiCredentialResponse])
 async def list_api_credentials(
-    workspace_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ApiCredentialResponse]:
-    """List active and revoked API keys. Raw keys are never returned again."""
+    """List active and revoked API keys for the authenticated user. Raw keys are never returned again."""
     stmt = (
-        select(ApiCredential)
-        .where(ApiCredential.workspace_id == workspace_id)
-        .order_by(ApiCredential.created_at.desc())
+        select(ApiCredential).where(ApiCredential.user_id == current_user.id).order_by(ApiCredential.created_at.desc())
     )
     res = await db.execute(stmt)
     return [ApiCredentialResponse.model_validate(cred) for cred in res.scalars().all()]
 
 
 @router.delete(
-    "/workspaces/{workspace_id}/api-credentials/{credential_id}",
+    "/api-credentials/{credential_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def revoke_api_credential(
-    workspace_id: uuid.UUID,
     credential_id: uuid.UUID,
-    context: WorkspaceContext = Depends(require_workspace(allowed_roles=[WorkspaceRole.OWNER, WorkspaceRole.ADMIN])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """Revoke an API key immediately. Revocation is idempotent."""
     stmt = select(ApiCredential).where(
         ApiCredential.id == credential_id,
-        ApiCredential.workspace_id == workspace_id,
+        ApiCredential.user_id == current_user.id,
     )
     credential = (await db.execute(stmt)).scalar_one_or_none()
     if not credential:

@@ -1,79 +1,53 @@
-"""Pydantic schemas for Workspace, Membership, and Project management."""
+from typing import Optional
 
-import uuid
-from datetime import datetime
-from typing import Any
-
-from backend.app.models.auth import WorkspaceRole
-from backend.app.schemas.auth import EmailStrType
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class WorkspaceCreateRequest(BaseModel):
-    name: str = Field(..., min_length=2, max_length=255)
-    slug: str | None = Field(None, min_length=2, max_length=100)
+class WorkspaceBase(BaseModel):
+    name: str = "Default Workspace"
+    slug: Optional[str] = "default"
 
 
-class WorkspaceUpdateRequest(BaseModel):
-    name: str | None = Field(None, min_length=2, max_length=255)
-    settings: dict[str, Any] | None = None
+class WorkspaceCreate(WorkspaceBase):
+    pass
 
 
-class WorkspaceResponse(BaseModel):
+class WorkspaceUpdate(BaseModel):
+    name: Optional[str] = None
+
+
+class WorkspaceResponse(WorkspaceBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    id: str
+    owner_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class WorkspaceMemberResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    workspace_id: str
+    user_id: str
+    email: Optional[str] = None
+    role: str = "owner"
+
+
+class ProjectBase(BaseModel):
     name: str
-    slug: str
-    plan_tier: str
-    subscription_tier_id: uuid.UUID | None = None
-    settings: dict[str, Any]
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    description: Optional[str] = None
 
 
-class MembershipResponse(BaseModel):
+class ProjectCreate(ProjectBase):
+    pass
+
+
+class ProjectResponse(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
-    workspace_id: uuid.UUID
-    user_id: uuid.UUID
-    role: WorkspaceRole
-    user_email: str | None = None
-    user_name: str | None = None
-    created_at: datetime
-
-
-class MemberInviteRequest(BaseModel):
-    email: EmailStrType
-    role: WorkspaceRole = WorkspaceRole.MEMBER
-
-
-class MemberRoleUpdateRequest(BaseModel):
-    role: WorkspaceRole
-
-
-class ProjectCreateRequest(BaseModel):
-    name: str = Field(..., min_length=2, max_length=255)
-    slug: str | None = Field(None, min_length=2, max_length=100)
-    description: str | None = None
-
-
-class ProjectUpdateRequest(BaseModel):
-    name: str | None = Field(None, min_length=2, max_length=255)
-    description: str | None = None
-    is_active: bool | None = None
-
-
-class ProjectResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    workspace_id: uuid.UUID
-    name: str
-    slug: str
-    description: str | None
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    id: str
+    workspace_id: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

@@ -10,8 +10,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
@@ -44,6 +44,23 @@ import backend.app.models  # noqa: E402,F401
 from backend.app.core.config import settings  # noqa: E402
 from backend.app.db.base import Base  # noqa: E402
 from backend.app.models.auth import AIRoutingStrategy, SubscriptionTier  # noqa: E402
+from backend.app.services.auth_rate_limiter import AuthRateLimiter  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter_before_each_test():
+    """Ensure in-memory and Redis rate limiting state is reset so test suites do not
+    interfere with each other when running hundreds of test cases in rapid succession.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(AuthRateLimiter.reset_all())
+        else:
+            loop.run_until_complete(AuthRateLimiter.reset_all())
+    except RuntimeError:
+        asyncio.run(AuthRateLimiter.reset_all())
+    yield
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -51,11 +68,11 @@ def intercept_testclient_for_auto_verification():
     """In test suites outside explicit test_auth.py, automatically verify users upon registration
     so existing workspace, assistant, and billing tests pass without modifications.
     """
-    orig_post = TestClient.post
+    orig_post = httpx.Client.post
 
     def patched_post(self, url, *args, **kwargs):
         res = orig_post(self, url, *args, **kwargs)
-        if url == "/api/v1/auth/register" and res.status_code == 201:
+        if str(url).endswith("/api/v1/auth/register") and res.status_code == 201:
             json_body = kwargs.get("json") or {}
             email = json_body.get("email")
             if email and not email.startswith("owner_") and not email.startswith("reset_"):
@@ -65,9 +82,9 @@ def intercept_testclient_for_auto_verification():
                     orig_post(self, "/api/v1/auth/verify-email", json={"email": email, "otp": otp})
         return res
 
-    TestClient.post = patched_post
+    httpx.Client.post = patched_post
     yield
-    TestClient.post = orig_post
+    httpx.Client.post = orig_post
 
 
 @pytest.fixture(scope="session", autouse=True)

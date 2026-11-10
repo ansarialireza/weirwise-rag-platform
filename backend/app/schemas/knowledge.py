@@ -20,6 +20,11 @@ class KnowledgeSourceUpdateRequest(BaseModel):
     settings: dict[str, Any] | None = None
 
 
+class PasteTextIngestRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1)
+
+
 class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,7 +45,6 @@ class KnowledgeSourceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    project_id: uuid.UUID
     core_kb_id: uuid.UUID | None
     name: str
     source_type: KnowledgeSourceType
@@ -56,3 +60,26 @@ class KnowledgeSourceResponse(BaseModel):
 class DocumentUploadBatchResponse(BaseModel):
     source_id: uuid.UUID
     uploaded_documents: list[DocumentResponse]
+
+
+class DirectSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000)
+    source_ids: list[uuid.UUID] | None = None
+    top_k: int = Field(default=5, ge=1, le=20)
+    score_threshold: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class SearchResultItem(BaseModel):
+    document_id: str | None = None
+    document_name: str | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    chunk_index: int | None = None
+    text: str
+    score: float
+
+
+class DirectSearchResponse(BaseModel):
+    query: str
+    total_results: int
+    results: list[SearchResultItem]

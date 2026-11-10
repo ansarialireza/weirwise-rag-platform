@@ -68,10 +68,12 @@ def create_application() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,
-        description="Weirwise Platform - Enterprise Multi-tenant AI Assistant & Knowledge Platform",
-        docs_url="/docs" if settings.DEBUG or settings.ENVIRONMENT == "development" else None,
-        redoc_url="/redoc" if settings.DEBUG or settings.ENVIRONMENT == "development" else None,
-        openapi_url="/openapi.json" if settings.DEBUG or settings.ENVIRONMENT == "development" else None,
+        description="Weirwise Platform - Multi-tenant, account-scoped AI Agent and Knowledge Platform",
+        docs_url="/docs" if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
+        redoc_url="/redoc" if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test")) else None,
+        openapi_url="/openapi.json"
+        if (settings.DEBUG or settings.ENVIRONMENT in ("development", "dev", "test"))
+        else None,
         lifespan=lifespan,
     )
 
@@ -102,12 +104,12 @@ def create_application() -> FastAPI:
     app.include_router(health_router)
     app.include_router(public_runtime_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
-    app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(knowledge_router, prefix="/api/v1")
     app.include_router(assistants_router, prefix="/api/v1")
     app.include_router(integrations_router, prefix="/api/v1")
     app.include_router(enterprise_router, prefix="/api/v1")
     app.include_router(billing_router, prefix="/api/v1")
+    app.include_router(workspaces_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(telemetry_router, prefix="/api/v1")
     app.include_router(voice_router, prefix="/api/v1")

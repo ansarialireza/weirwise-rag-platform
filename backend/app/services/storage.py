@@ -137,6 +137,47 @@ class TieredStorageService:
 
         return safe_name, hot_temp_path, total_size, content_hash
 
+    async def save_text_content(self, title: str, text_content: str) -> tuple[str, str, int, str]:
+        """Save direct text/markdown content to volatile local hot /tmp.
+        Returns: (sanitized_filename, hot_temp_path, total_size, content_hash)
+        """
+        raw_name = title.strip() if title and title.strip() else "pasted_note"
+        if not raw_name.endswith(".txt") and not raw_name.endswith(".md"):
+            raw_name = f"{raw_name}.txt"
+        safe_name = sanitize_filename(raw_name)
+
+        encoded_bytes = text_content.encode("utf-8")
+        total_size = len(encoded_bytes)
+
+        if total_size > settings.MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"Content exceeds maximum upload size of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB",
+            )
+
+        content_hash = hashlib.sha256(encoded_bytes).hexdigest()
+        file_storage_name = f"{content_hash}_{safe_name}"
+
+        os.makedirs(self.hot_dir, exist_ok=True)
+        hot_temp_path = os.path.join(self.hot_dir, file_storage_name)
+        part_path = f"{hot_temp_path}.{uuid.uuid4().hex[:8]}.part"
+
+        try:
+            with open(part_path, "wb") as out:
+                out.write(encoded_bytes)
+                out.flush()
+                os.fsync(out.fileno())
+            os.replace(part_path, hot_temp_path)
+        except BaseException:
+            try:
+                if os.path.exists(part_path):
+                    os.remove(part_path)
+            except OSError as cleanup_error:
+                logger.warning(f"Could not remove partial text upload {part_path}: {cleanup_error}")
+            raise
+
+        return safe_name, hot_temp_path, total_size, content_hash
+
     def move_to_cold_storage(self, hot_path: str) -> str:
         """Step 3 (Cold Transfer): Atomically move raw file from local /tmp to Cold Vault.
         Leaves ZERO footprint of raw files on the local SSD.

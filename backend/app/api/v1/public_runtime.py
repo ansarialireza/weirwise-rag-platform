@@ -1,5 +1,6 @@
 """Public Runtime API for embedded widgets, shareable playground links, and external clients."""
 
+import asyncio
 import time
 import uuid
 from datetime import UTC, datetime
@@ -22,7 +23,7 @@ from backend.app.models.assistant import (
     UnansweredQuery,
 )
 from backend.app.models.audit import ApiCredential
-from backend.app.models.project import Document, KnowledgeSource, Project
+from backend.app.models.project import Document, KnowledgeSource
 from backend.app.schemas.assistant import (
     AnswerFeedbackRequest,
     AnswerFeedbackResponse,
@@ -188,13 +189,10 @@ async def resolve_public_deployment(
             detail="This assistant isn't live yet.",
         )
 
-    # Server-to-server API keys bypass browser domain rules but stay workspace-scoped.
+    # Server-to-server API keys bypass browser domain rules but stay user-scoped.
     if x_api_key:
         credential = await _active_api_credential(x_api_key, db)
-        project_workspace = (
-            await db.execute(select(Project.workspace_id).where(Project.id == assistant.project_id))
-        ).scalar_one_or_none()
-        if project_workspace != credential.workspace_id:
+        if assistant.user_id != credential.user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This API key can't access this assistant.",
@@ -289,16 +287,12 @@ async def public_chat(
     # Reject scripted floods before spending quota, retrieval, or provider budget.
     await _guard_public_chat(request, assistant, deployment, credential)
 
-    # Get Workspace ID
-    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
-    ws_id = (await db.execute(p_stmt)).scalar_one()
-
-    # Enforce Usage Quota & Metering
-    await metering_service.check_and_increment_chat_turn(
+    # Enforce Usage Quota & Metering for assistant owner
+    await metering_service.record_chat_turn(
         db=db,
-        workspace_id=ws_id,
-        project_id=assistant.project_id,
+        user_id=assistant.user_id,
         assistant_id=assistant.id,
+        model_name=assistant.model,
     )
 
     # 1. Resolve or Create Conversation
@@ -352,38 +346,56 @@ async def public_chat(
     s_res = await db.execute(sources_stmt)
     linked_sources = s_res.scalars().all()
 
-    for ks in linked_sources:
-        if ks.core_kb_id:
-            try:
-                search_data = await core_client.search(
-                    kb_id=ks.core_kb_id,
-                    query=payload.message,
-                    top_k=assistant.top_k,
-                    score_threshold=assistant.score_threshold,
-                )
-                for item in search_data.get("results", []):
-                    # Find matching document for URL / metadata
-                    doc_id = uuid.UUID(str(item["document_id"])) if "document_id" in item else None
-                    doc_stmt = select(Document).where(Document.core_doc_id == doc_id)
-                    doc_rec = (await db.execute(doc_stmt)).scalar_one_or_none()
+    # Query Core vector indexes concurrently across all linked sources
+    active_sources = [ks for ks in linked_sources if ks.core_kb_id]
 
-                    source_url = doc_rec.doc_metadata.get("source_url") if doc_rec else None
-                    title = doc_rec.filename if doc_rec else "Knowledge Document"
+    async def _query_public_kb(ks: KnowledgeSource) -> list[dict]:
+        try:
+            search_data = await core_client.search(
+                kb_id=ks.core_kb_id,
+                query=payload.message,
+                top_k=assistant.top_k,
+                score_threshold=assistant.score_threshold,
+            )
+            return search_data.get("results", [])
+        except CoreApiException as e:
+            logger.warning(f"Vector search failed on Core KB {ks.core_kb_id}: {e!s}")
+            return []
 
-                    c_item = CitationItem(
-                        document_id=doc_rec.id if doc_rec else None,
-                        document_name=title,
-                        chunk_id=str(item.get("chunk_id")),
-                        source_url=source_url,
-                        title=title,
-                        content=item.get("content", ""),
-                        similarity_score=item.get("similarity_score", 0.0),
-                        rank=item.get("rank", 1),
-                    )
-                    citations.append(c_item)
-                    retrieved_contexts.append(item.get("content", ""))
-            except CoreApiException as e:
-                logger.warning(f"Vector search failed on Core KB {ks.core_kb_id}: {e!s}")
+    results_lists = await asyncio.gather(*[_query_public_kb(ks) for ks in active_sources])
+    all_raw_items = [item for sublist in results_lists for item in sublist]
+
+    # Batch lookup matching documents to eliminate N+1 DB queries
+    raw_doc_ids = [
+        uuid.UUID(str(item["document_id"])) for item in all_raw_items if "document_id" in item and item["document_id"]
+    ]
+    doc_map: dict[uuid.UUID, Document] = {}
+    if raw_doc_ids:
+        docs_stmt = select(Document).where(Document.core_doc_id.in_(raw_doc_ids))
+        docs_res = await db.execute(docs_stmt)
+        for d in docs_res.scalars():
+            if d.core_doc_id:
+                doc_map[d.core_doc_id] = d
+
+    for item in all_raw_items:
+        doc_id = uuid.UUID(str(item["document_id"])) if "document_id" in item and item["document_id"] else None
+        doc_rec = doc_map.get(doc_id) if doc_id else None
+
+        source_url = doc_rec.doc_metadata.get("source_url") if doc_rec else None
+        title = doc_rec.filename if doc_rec else "Knowledge Document"
+
+        c_item = CitationItem(
+            document_id=doc_rec.id if doc_rec else None,
+            document_name=title,
+            chunk_id=str(item.get("chunk_id")),
+            source_url=source_url,
+            title=title,
+            content=item.get("content", ""),
+            similarity_score=item.get("similarity_score", 0.0),
+            rank=item.get("rank", 1),
+        )
+        citations.append(c_item)
+        retrieved_contexts.append(item.get("content", ""))
 
     # Deduplicate and sort citations
     citations.sort(key=lambda x: x.similarity_score, reverse=True)
@@ -407,7 +419,7 @@ async def public_chat(
             assistant=assistant,
             query=payload.message,
             passages=[c.content for c in citations],
-            workspace_id=ws_id,
+            user_id=assistant.user_id,
         )
         assistant_reply = answer.content
     else:
@@ -423,7 +435,7 @@ async def public_chat(
         # Webhook dispatch: question.unanswered
         await webhook_dispatcher.dispatch_event(
             db=db,
-            workspace_id=ws_id,
+            user_id=assistant.user_id,
             event_type="question.unanswered",
             payload_data={"query": payload.message, "assistant_id": str(assistant.id)},
         )
@@ -543,14 +555,12 @@ async def request_human_handoff(
     # Dispatch handoff webhook
     a_stmt = select(Assistant).where(Assistant.id == conv.assistant_id)
     assistant = (await db.execute(a_stmt)).scalar_one()
-    p_stmt = select(Project.workspace_id).where(Project.id == assistant.project_id)
-    ws_id = (await db.execute(p_stmt)).scalar_one()
 
-    await webhook_dispatcher.dispatch_event(
+    await webhook_dispatcher.dispatch(
         db=db,
-        workspace_id=ws_id,
+        user_id=assistant.user_id,
         event_type="handoff.requested",
-        payload_data={
+        payload={
             "conversation_id": str(conv.id),
             "customer_email": payload.customer_email,
             "reason": payload.reason,
