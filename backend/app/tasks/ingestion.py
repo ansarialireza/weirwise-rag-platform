@@ -16,7 +16,7 @@ from backend.app.models.project import (
     SourceProcessingStatus,
 )
 from backend.app.services.storage import storage_service
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 _READY_STATES = {"completed", "ready"}
 _FAILED_STATES = {"failed", "error"}
@@ -82,7 +82,7 @@ async def _recalculate_source_status(db, source: KnowledgeSource) -> None:
     source.status = SourceProcessingStatus.READY.value
 
 
-async def process_document_ingestion(document_id: uuid.UUID) -> None:
+async def process_document_ingestion(document_id: uuid.UUID, owner_user_id: uuid.UUID) -> None:
     """Enterprise Tiered Storage & Zero-Blocking Async Ingestion Pipeline:
     - Step 1: Upload was spooled to volatile local /tmp (hot tier) and HTTP 202 returned instantly.
     - Step 2: Background worker reads local temp file, extracts/indexes vectors in local pgvector DB.
@@ -90,22 +90,32 @@ async def process_document_ingestion(document_id: uuid.UUID) -> None:
     - Step 4: Failsafe Deletion strictly ensures local temp file is deleted in a finally block.
     """
     async with _INGESTION_SEMAPHORE:
-        await _process_document_ingestion_inner(document_id)
+        await _process_document_ingestion_inner(document_id, owner_user_id)
 
 
-async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
+async def _process_document_ingestion_inner(document_id: uuid.UUID, owner_user_id: uuid.UUID) -> None:
     initial_temp_path = None
     async with async_session_factory() as db:
-        # Load document with knowledge source
-        doc_stmt = select(Document).where(Document.id == document_id)
+        doc_stmt = (
+            select(Document)
+            .join(KnowledgeSource, Document.knowledge_source_id == KnowledgeSource.id)
+            .where(
+                Document.id == document_id,
+                KnowledgeSource.user_id == owner_user_id,
+                or_(Document.user_id == owner_user_id, Document.user_id.is_(None)),
+            )
+        )
         res = await db.execute(doc_stmt)
         document = res.scalar_one_or_none()
 
         if not document:
-            logger.error(f"Ingestion job failed: document {document_id} not found.")
+            logger.error(f"Ingestion job rejected: document {document_id} is not owned by user {owner_user_id}.")
             return
 
-        ks_stmt = select(KnowledgeSource).where(KnowledgeSource.id == document.knowledge_source_id)
+        ks_stmt = select(KnowledgeSource).where(
+            KnowledgeSource.id == document.knowledge_source_id,
+            KnowledgeSource.user_id == owner_user_id,
+        )
         ks_res = await db.execute(ks_stmt)
         source = ks_res.scalar_one_or_none()
 
@@ -116,6 +126,7 @@ async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
         initial_temp_path = document.storage_path
 
         # Mark document as processing
+        document.user_id = owner_user_id
         document.status = SourceProcessingStatus.PROCESSING.value
         source.status = SourceProcessingStatus.PROCESSING.value
         await db.commit()
@@ -161,20 +172,18 @@ async def _process_document_ingestion_inner(document_id: uuid.UUID) -> None:
                 document.error_message = None
 
                 # Record auditable document_indexed UsageEvent for user billing
-                user_id = document.user_id or source.user_id
-                if user_id:
-                    db.add(
-                        UsageEvent(
-                            user_id=user_id,
-                            event_type="document_indexed",
-                            quantity=1,
-                            metadata_info={
-                                "document_id": str(document.id),
-                                "filename": document.filename,
-                                "file_size_bytes": document.file_size_bytes,
-                            },
-                        )
+                db.add(
+                    UsageEvent(
+                        user_id=owner_user_id,
+                        event_type="document_indexed",
+                        quantity=1,
+                        metadata_info={
+                            "document_id": str(document.id),
+                            "filename": document.filename,
+                            "file_size_bytes": document.file_size_bytes,
+                        },
                     )
+                )
             elif core_status in _FAILED_STATES or core_status == "timeout":
                 document.status = SourceProcessingStatus.FAILED.value
                 document.error_message = core_error or f"Core indexing ended in state '{core_status}'."

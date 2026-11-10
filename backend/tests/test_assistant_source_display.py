@@ -57,11 +57,11 @@ def _owner() -> tuple[dict[str, str], str]:
     return headers, project.json()["id"]
 
 
-def _ready_source(project_id: str) -> str:
+def _ready_source(user_id: str) -> str:
     """A knowledge source with one indexed document, so publishing is allowed."""
     with _sync_db() as session:
         source = KnowledgeSource(
-            project_id=uuid.UUID(project_id),
+            user_id=uuid.UUID(user_id),
             core_kb_id=uuid.uuid4(),
             name="Policy library",
             status="ready",
@@ -86,10 +86,10 @@ def _ready_source(project_id: str) -> str:
         return str(source.id)
 
 
-def _published(headers: dict[str, str], project_id: str, **config) -> str:
-    source_id = _ready_source(project_id)
+def _published(headers: dict[str, str], user_id: str, **config) -> str:
+    source_id = _ready_source(user_id)
     assistant = client.post(
-        f"/api/v1/projects/{project_id}/assistants",
+        f"/api/v1/projects/{user_id}/assistants",
         headers=headers,
         json={"name": config.pop("name", "Source Assistant"), "knowledge_source_ids": [source_id], **config},
     )

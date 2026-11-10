@@ -62,6 +62,18 @@ def test_workspace_compatibility_is_deprecated_and_not_persisted():
     legacy_tables = {"workspaces", "projects", "memberships"}
     assert legacy_tables.isdisjoint(Base.metadata.tables)
 
+    from backend.app.models import assistant, auth, project
+
+    assert not hasattr(auth, "Workspace")
+    assert not hasattr(project, "Workspace")
+    assert not hasattr(project, "Project")
+    assert not hasattr(assistant.Assistant, "project_id")
+    assert not hasattr(assistant.Assistant, "workspace_id")
+    assert not hasattr(assistant.BusinessIntegration, "project_id")
+    assert not hasattr(assistant.BusinessIntegration, "workspace_id")
+    assert not hasattr(assistant.WorkspacePlanEntitlement, "workspace_id")
+    assert not hasattr(assistant.WorkspaceBYOKCredential, "workspace_id")
+
     operations = app.openapi()["paths"]
     legacy_paths = {
         path: methods
@@ -212,6 +224,12 @@ def test_cross_user_isolation_and_idor_prevention():
     # User B attempts to delete User A's Source (Should be 404 or 403)
     b_src_del = client.delete(f"/api/v1/sources/{source_a_id}", headers=headers_b)
     assert b_src_del.status_code in (403, 404)
+    b_src_patch = client.patch(
+        f"/api/v1/sources/{source_a_id}",
+        headers=headers_b,
+        json={"name": "Unauthorized rename"},
+    )
+    assert b_src_patch.status_code in (403, 404)
 
     # User B list sources must NOT contain User A's source
     b_src_list = client.get("/api/v1/sources", headers=headers_b)
@@ -233,6 +251,143 @@ def test_cross_user_isolation_and_idor_prevention():
     # User B attempts to delete User A's API Credential
     b_cred_del = client.delete(f"/api/v1/api-credentials/{cred_a_id}", headers=headers_b)
     assert b_cred_del.status_code in (403, 404)
+
+
+def test_search_and_assistant_links_cannot_cross_account_boundaries(monkeypatch):
+    import asyncio
+
+    from backend.app.adapters.core_client import CoreApiClient
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.project import KnowledgeSource
+
+    _, headers_a = _create_verified_user(email_prefix="search_owner")
+    _, headers_b = _create_verified_user(email_prefix="search_other")
+    source_a = client.post(
+        "/api/v1/sources",
+        headers=headers_a,
+        json={"name": "Private A", "source_type": "file_upload"},
+    )
+    source_b = client.post(
+        "/api/v1/sources",
+        headers=headers_b,
+        json={"name": "Private B", "source_type": "file_upload"},
+    )
+    assert source_a.status_code == 201, source_a.text
+    assert source_b.status_code == 201, source_b.text
+    source_a_id = uuid.UUID(source_a.json()["id"])
+    source_b_id = uuid.UUID(source_b.json()["id"])
+    kb_a_id, kb_b_id = uuid.uuid4(), uuid.uuid4()
+
+    async def attach_core_knowledge_bases():
+        async with async_session_factory() as session:
+            owned_source = await session.get(KnowledgeSource, source_a_id)
+            other_source = await session.get(KnowledgeSource, source_b_id)
+            owned_source.core_kb_id = kb_a_id
+            other_source.core_kb_id = kb_b_id
+            await session.commit()
+
+    asyncio.run(attach_core_knowledge_bases())
+    searched_kb_ids = []
+
+    async def fake_search(self, kb_id, query, top_k=4, score_threshold=None):
+        searched_kb_ids.append(kb_id)
+        return {
+            "results": [
+                {
+                    "document_id": "private-document",
+                    "metadata": {"filename": "private.txt"},
+                    "content": "private customer information",
+                    "similarity_score": 0.99,
+                }
+            ]
+        }
+
+    monkeypatch.setattr(CoreApiClient, "search", fake_search)
+
+    owned_results = client.post(
+        "/api/v1/knowledge/search",
+        headers=headers_a,
+        json={"query": "private", "top_k": 5},
+    )
+    assert owned_results.status_code == 200, owned_results.text
+    assert [item["source_id"] for item in owned_results.json()["results"]] == [str(source_a_id)]
+    assert searched_kb_ids == [kb_a_id]
+
+    searched_kb_ids.clear()
+    foreign_only_results = client.post(
+        "/api/v1/knowledge/search",
+        headers=headers_a,
+        json={"query": "private", "source_ids": [str(source_b_id)], "top_k": 5},
+    )
+    assert foreign_only_results.status_code == 200, foreign_only_results.text
+    assert foreign_only_results.json()["results"] == []
+    assert searched_kb_ids == []
+
+    foreign_source_link = client.post(
+        "/api/v1/assistants",
+        headers=headers_a,
+        json={"name": "Cannot link foreign source", "knowledge_source_ids": [str(source_b_id)]},
+    )
+    assert foreign_source_link.status_code == 400
+
+
+def test_integrations_support_multiple_user_owned_connections(monkeypatch):
+    from backend.app.services.vault import CredentialVaultService
+
+    monkeypatch.setattr(CredentialVaultService, "encrypt_secret", staticmethod(lambda secret: "encrypted"))
+    monkeypatch.setattr(
+        CredentialVaultService,
+        "decrypt_secret",
+        staticmethod(lambda encrypted: '{"access_token":"test"}'),
+    )
+    _, owner_headers = _create_verified_user(email_prefix="integration_owner")
+    _, other_headers = _create_verified_user(email_prefix="integration_other")
+
+    def connect(shop_domain: str):
+        return client.post(
+            "/api/v1/integrations",
+            headers=owner_headers,
+            json={
+                "provider": "shopify",
+                "display_name": shop_domain,
+                "credentials": {"access_token": "test"},
+                "config": {"shop_domain": shop_domain},
+            },
+        )
+
+    first = connect("store-one.myshopify.com")
+    second = connect("https://store-two.myshopify.com/")
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    first_data, second_data = first.json(), second.json()
+    assert first_data["id"] != second_data["id"]
+    assert first_data["connection_key"] == "store-one.myshopify.com"
+    assert second_data["connection_key"] == "store-two.myshopify.com"
+
+    updated = connect("https://store-one.myshopify.com/")
+    assert updated.status_code == 201, updated.text
+    assert updated.json()["id"] == first_data["id"]
+
+    owner_integrations = client.get("/api/v1/integrations", headers=owner_headers)
+    other_integrations = client.get("/api/v1/integrations", headers=other_headers)
+    assert owner_integrations.status_code == 200
+    assert {item["id"] for item in owner_integrations.json()} == {
+        first_data["id"],
+        second_data["id"],
+    }
+    assert other_integrations.status_code == 200
+    assert other_integrations.json() == []
+
+    cross_account_sync = client.post(
+        f"/api/v1/integrations/{first_data['id']}/sync",
+        headers=other_headers,
+    )
+    cross_account_delete = client.delete(
+        f"/api/v1/integrations/{first_data['id']}",
+        headers=other_headers,
+    )
+    assert cross_account_sync.status_code == 404
+    assert cross_account_delete.status_code == 404
 
 
 def test_admin_panel_security():

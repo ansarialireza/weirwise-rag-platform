@@ -801,7 +801,6 @@ class IntelligentRoutingEngine:
         cost_usd: float = 0.0,
         latency_ms: int = 0,
         *,
-        workspace_id: Optional[str] = None,
         routing_id: Optional[str] = None,
         cost_source: str = "estimated",
         reserved_input_tokens: int = 0,
@@ -836,7 +835,7 @@ class IntelligentRoutingEngine:
         # Record audit ledger entry
         total_tokens = input_tokens + output_tokens
         ledger_entry = TokenCostLedger(
-            user_id=uuid.UUID(user_id) if user_id else (uuid.UUID(workspace_id) if workspace_id else None),
+            user_id=uuid.UUID(user_id) if user_id else None,
             credential_id=credential_id,
             provider_name=provider_name,
             model_name=model_name,
