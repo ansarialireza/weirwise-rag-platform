@@ -6,7 +6,11 @@ from typing import Any
 
 import resend
 from backend.app.core.config import settings
+from backend.app.db.session import async_session_factory
+from backend.app.models.admin import CredentialHealthStatus, ProviderAccount, ProviderCredential
+from backend.app.services.vault import decrypt_credential_secret
 from resend.exceptions import ResendError
+from sqlalchemy import select
 
 logger = logging.getLogger("weirwise.email")
 
@@ -16,11 +20,54 @@ class EmailService:
         if settings.RESEND_API_KEY:
             resend.api_key = settings.RESEND_API_KEY
 
-    def _send_sync_resend(self, params: dict[str, Any]) -> Any:
+    def _send_sync_resend(self, params: dict[str, Any], api_key: str | None = None) -> Any:
         """Execute synchronous Resend SDK email dispatch."""
-        if not resend.api_key:
-            resend.api_key = settings.RESEND_API_KEY
+        effective_key = api_key or settings.RESEND_API_KEY
+        if effective_key:
+            resend.api_key = effective_key
         return resend.Emails.send(params)
+
+    async def _resolve_resend_api_keys(self) -> list[tuple[str, Any]]:
+        """Resolve available Resend API keys from Admin Provider Accounts in the database.
+
+        Returns a list of tuples: (decrypted_token, credential_model_or_none).
+        Falls back to settings.RESEND_API_KEY if none are configured in the DB.
+        """
+        candidates: list[tuple[str, Any]] = []
+        try:
+            async with async_session_factory() as session:
+                provider_stmt = select(ProviderAccount).where(
+                    ProviderAccount.provider_name == "resend",
+                    ProviderAccount.is_enabled.is_(True),
+                )
+                res = await session.execute(provider_stmt)
+                provider = res.scalar_one_or_none()
+                if provider:
+                    creds_stmt = (
+                        select(ProviderCredential)
+                        .where(
+                            ProviderCredential.provider_id == provider.id,
+                            ProviderCredential.is_active.is_(True),
+                            ProviderCredential.health_status != CredentialHealthStatus.EXHAUSTED.value,
+                        )
+                        .order_by(ProviderCredential.priority.asc())
+                    )
+                    creds_res = await session.execute(creds_stmt)
+                    creds = list(creds_res.scalars().all())
+                    for c in creds:
+                        try:
+                            token = decrypt_credential_secret(c.encrypted_secret)
+                            if token:
+                                candidates.append((token, c.id))
+                        except Exception as dec_err:
+                            logger.error("Failed to decrypt Resend credential %s: %s", c.id, dec_err)
+        except Exception as db_err:
+            logger.warning("Could not query DB for Resend credentials: %s", db_err)
+
+        if not candidates and settings.RESEND_API_KEY:
+            candidates.append((settings.RESEND_API_KEY, None))
+
+        return candidates
 
     async def send_email(
         self,
@@ -39,21 +86,27 @@ class EmailService:
             print(text_content.strip())
             print("=" * 70 + "\n", flush=True)
 
-        # Dispatch via Resend API when the optional SDK is available.
-        if settings.RESEND_API_KEY:
-            params: dict[str, Any] = {
-                # Resend Sandbox Requirement: Sender must strictly be onboarding@resend.dev until domain is verified
-                "from": "onboarding@resend.dev",
-                "to": to_email,
-                "subject": subject,
-                "text": text_content,
-            }
-            if html_content:
-                params["html"] = html_content
+        keys = await self._resolve_resend_api_keys()
+        if not keys:
+            logger.warning("No Resend API key configured in database or environment. Email dispatch skipped.")
+            return None
 
+        params: dict[str, Any] = {
+            # Resend Sandbox Requirement: Sender must strictly be onboarding@resend.dev until domain is verified
+            "from": "onboarding@resend.dev",
+            "to": to_email,
+            "subject": subject,
+            "text": text_content,
+        }
+        if html_content:
+            params["html"] = html_content
+
+        loop = asyncio.get_running_loop()
+        last_error = None
+
+        for api_key, cred_id in keys:
             try:
-                loop = asyncio.get_running_loop()
-                response = await loop.run_in_executor(None, self._send_sync_resend, params)
+                response = await loop.run_in_executor(None, self._send_sync_resend, params, api_key)
                 email_id = response.get("id") if isinstance(response, dict) else getattr(response, "id", None)
                 logger.info(
                     "Resend API email dispatched successfully: to=%s, subject=%s, id=%s",
@@ -71,23 +124,21 @@ class EmailService:
                     resend_err,
                 )
                 print(f"[RESEND API ERROR] ResendError for {to_email}: {resend_err}", flush=True)
-                # In sandbox mode, non-whitelisted recipients trigger ResendError (e.g. 403 Forbidden).
-                # In dev environment, log warning and allow flow to proceed without crashing FastAPI.
-                if settings.ENVIRONMENT not in ("development", "dev", "test"):
-                    raise
-                return None
+                last_error = resend_err
+                continue
             except TimeoutError as timeout_err:
                 logger.error("Resend API network timeout sending to %s: %s", to_email, timeout_err)
                 print(f"[RESEND TIMEOUT ERROR] Network timeout for {to_email}: {timeout_err}", flush=True)
-                if settings.ENVIRONMENT not in ("development", "dev", "test"):
-                    raise
-                return None
+                last_error = timeout_err
+                continue
             except Exception as exc:
                 logger.error("Unexpected error during Resend email dispatch to %s: %s", to_email, exc)
                 print(f"[RESEND UNEXPECTED ERROR] Failed dispatch to {to_email}: {exc}", flush=True)
-                if settings.ENVIRONMENT not in ("development", "dev", "test"):
-                    raise
-                return None
+                last_error = exc
+                continue
+
+        if last_error and settings.ENVIRONMENT not in ("development", "dev", "test"):
+            raise last_error
 
         return None
 
