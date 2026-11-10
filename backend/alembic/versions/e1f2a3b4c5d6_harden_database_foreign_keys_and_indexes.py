@@ -156,13 +156,45 @@ def upgrade() -> None:
     # -------------------------------------------------------------------------
     # 3. Add missing performance indexes on foreign keys
     # -------------------------------------------------------------------------
-    op.execute("CREATE INDEX IF NOT EXISTS ix_knowledge_sources_project_id ON knowledge_sources (project_id);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_knowledge_sources_user_id ON knowledge_sources (user_id);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_assistants_project_id ON assistants (project_id);")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_assistants_user_id ON assistants (user_id);")
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS ix_admin_control_settings_updated_by ON admin_control_settings (updated_by);"
-    )
+    op.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'knowledge_sources' AND column_name = 'project_id'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_knowledge_sources_project_id ON knowledge_sources (project_id);
+            END IF;
+
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'knowledge_sources' AND column_name = 'user_id'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_knowledge_sources_user_id ON knowledge_sources (user_id);
+            END IF;
+
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'assistants' AND column_name = 'project_id'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_assistants_project_id ON assistants (project_id);
+            END IF;
+
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'assistants' AND column_name = 'user_id'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_assistants_user_id ON assistants (user_id);
+            END IF;
+
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'admin_control_settings' AND column_name = 'updated_by'
+            ) THEN
+                CREATE INDEX IF NOT EXISTS ix_admin_control_settings_updated_by ON admin_control_settings (updated_by);
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
