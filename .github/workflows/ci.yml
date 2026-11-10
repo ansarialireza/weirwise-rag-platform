@@ -60,7 +60,6 @@ jobs:
         working-directory: backend
     env:
       REDIS_URL: redis://127.0.0.1:6379/0
-      DATABASE_URL: sqlite+aiosqlite:///./test_platform.db
       SECRET_KEY: ci-test-secret-key-not-for-production-use
       ENVIRONMENT: test
       WEIRWISE_CORE_API_KEY: ci-test-key
@@ -92,7 +91,18 @@ jobs:
       - name: Run Mypy Type Check
         run: mypy app
 
+      - name: Validate Alembic Revision Graph
+        working-directory: .
+        run: |
+          heads="$(alembic -c backend/alembic.ini heads)"
+          printf '%s\n' "$heads"
+          head_count="$(printf '%s\n' "$heads" | grep -c '(head)' || true)"
+          test "$head_count" -eq 1
+          python -c 'import ast, pathlib; [ast.parse(path.read_text(encoding="utf-8"), filename=str(path)) for path in pathlib.Path("backend/alembic/versions").glob("*.py")]'
+
       - name: Run Pytest Suite
+        env:
+          COVERAGE_FILE: /tmp/weirwise-platform.coverage
         run: pytest -v --tb=short --cov=app --cov-report=term-missing tests
 
   frontend-ci:
@@ -128,6 +138,9 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Run Frontend Unit Tests
+        run: npm test
 
       - name: Run Type Check
         run: npm run type-check
