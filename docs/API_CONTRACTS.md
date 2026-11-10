@@ -60,7 +60,15 @@ for compatibility, but:
   plan have been reviewed.
 - OpenAPI deprecation is a compatibility signal, not proof that all external clients have migrated.
 
-## 4. Request, response, and error conventions
+## 4. Integration connection identity
+
+Integration requests may supply `connection_key`. If omitted, the account/provider uses the
+`default` connection identity; Shopify requests may derive it from `config.shop_domain` or
+`config.shop_url`. The key identifies a connection within the authenticated user's account and is
+not authorization evidence. Connection records support multiple stores, but sync currently returns
+not implemented for provider content import.
+
+## 5. Request, response, and error conventions
 
 - Define request and response models in `backend/app/schemas/`; route handlers should not expose
   SQLAlchemy models as an accidental public contract.
@@ -74,7 +82,7 @@ for compatibility, but:
 - Keep internal service interfaces narrow and typed. Adapters translate external API errors into
   Platform-owned exceptions; callers should not depend on another repository's internal classes.
 
-## 5. Compatibility and tests
+## 6. Compatibility and tests
 
 Changes to paths, authentication modes, scopes, payload fields, defaults, status codes, error shapes,
 stream events, or Core REST usage are compatibility-sensitive. Before changing one:

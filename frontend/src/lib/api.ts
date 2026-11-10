@@ -1028,7 +1028,7 @@ export interface AdminCredential {
 export interface AdminRoutingEvent {
   id: string;
   routing_id: string;
-  workspace_id: string | null;
+  user_id: string | null;
   provider_name: string;
   model_name: string | null;
   credential_id: string | null;

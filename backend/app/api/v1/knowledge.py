@@ -35,7 +35,7 @@ from backend.app.tasks.ingestion import process_document_ingestion
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Knowledge Sources, Crawler & Ingestion"])
@@ -83,6 +83,27 @@ async def verify_source_ownership(
             detail="Knowledge source not found or access denied.",
         )
     return source
+
+
+async def verify_document_ownership(
+    document_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: AsyncSession,
+) -> tuple[Document, KnowledgeSource]:
+    """Resolve a document only through a source owned by the authenticated user."""
+    stmt = (
+        select(Document, KnowledgeSource)
+        .join(KnowledgeSource, Document.knowledge_source_id == KnowledgeSource.id)
+        .where(
+            Document.id == document_id,
+            KnowledgeSource.user_id == user_id,
+            or_(Document.user_id == user_id, Document.user_id.is_(None)),
+        )
+    )
+    row = (await db.execute(stmt)).one_or_none()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    return row[0], row[1]
 
 
 # --- Sitemap & Web Crawler Discovery Endpoints ---
@@ -162,7 +183,7 @@ async def ingest_selected_pages(
         )
         db.add(doc)
         await db.flush()
-        background_tasks.add_task(process_document_ingestion, doc.id)
+        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
 
     # Webhook dispatch: knowledge.sync.completed
     await webhook_dispatcher.dispatch(
@@ -225,7 +246,7 @@ async def create_knowledge_source(
         db.add(doc)
         await db.commit()
         await db.refresh(doc)
-        background_tasks.add_task(process_document_ingestion, doc.id)
+        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
 
     await db.commit()
     await db.refresh(source)
@@ -324,7 +345,7 @@ async def upload_documents(
 
     for doc in uploaded_records:
         await db.refresh(doc)
-        background_tasks.add_task(process_document_ingestion, doc.id)
+        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
 
     return DocumentUploadBatchResponse(
         source_id=source.id,
@@ -373,7 +394,7 @@ async def ingest_pasted_text(
     await db.commit()
     await db.refresh(doc)
 
-    background_tasks.add_task(process_document_ingestion, doc.id)
+    background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
     return DocumentResponse.model_validate(doc)
 
 
@@ -390,7 +411,10 @@ async def list_source_documents(
 
     stmt = (
         select(Document)
-        .where(Document.knowledge_source_id == source_id, Document.user_id == current_user.id)
+        .where(
+            Document.knowledge_source_id == source_id,
+            or_(Document.user_id == current_user.id, Document.user_id.is_(None)),
+        )
         .order_by(Document.created_at.desc())
         .limit(limit)
         .offset(offset)
@@ -406,14 +430,7 @@ async def delete_document(
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Delete a document and trigger vector chunk purge."""
-    doc_res = await db.execute(
-        select(Document).where(
-            Document.id == document_id, (Document.user_id == current_user.id) | (Document.user_id.is_(None))
-        )
-    )
-    doc = doc_res.scalar_one_or_none()
-    if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    doc, _ = await verify_document_ownership(document_id, current_user.id, db)
 
     if doc.core_doc_id:
         try:
@@ -439,16 +456,7 @@ async def retry_document_ingestion(
     db: AsyncSession = Depends(get_db_session),
 ) -> DocumentResponse:
     """Re-run ingestion for a document that previously failed processing."""
-    doc_res = await db.execute(
-        select(Document).where(
-            Document.id == document_id, (Document.user_id == current_user.id) | (Document.user_id.is_(None))
-        )
-    )
-    doc = doc_res.scalar_one_or_none()
-    if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-
-    source = await verify_source_ownership(doc.knowledge_source_id, current_user.id, db)
+    doc, source = await verify_document_ownership(document_id, current_user.id, db)
 
     if doc.status != SourceProcessingStatus.FAILED.value:
         raise HTTPException(
@@ -463,7 +471,7 @@ async def retry_document_ingestion(
     await db.commit()
     await db.refresh(doc)
 
-    background_tasks.add_task(process_document_ingestion, doc.id)
+    background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
     return DocumentResponse.model_validate(doc)
 
 
@@ -506,14 +514,7 @@ async def download_document_stream(
     Stream document from cold tier (15TB Google Drive mount) using chunked async streaming.
     Never loads massive files entirely into RAM.
     """
-    doc_res = await db.execute(
-        select(Document).where(
-            Document.id == document_id, (Document.user_id == current_user.id) | (Document.user_id.is_(None))
-        )
-    )
-    doc = doc_res.scalar_one_or_none()
-    if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    doc, _ = await verify_document_ownership(document_id, current_user.id, db)
 
     try:
         stream_gen = storage_service.stream_file_chunks(doc.storage_path)

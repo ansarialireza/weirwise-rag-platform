@@ -22,7 +22,6 @@ export interface TranslationDictionary {
     gotIt: string;
     account: string;
     user: string;
-    workspace: string;
     administration: string;
     admin: string;
     quickSearch: string;

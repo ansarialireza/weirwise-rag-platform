@@ -285,23 +285,125 @@ def test_retry_requires_failed_document(monkeypatch):
 
     asyncio.run(seed())
 
-    queued: list[uuid.UUID] = []
+    queued: list[tuple[uuid.UUID, uuid.UUID]] = []
 
-    async def fake_ingestion(document_id):
-        queued.append(document_id)
+    async def fake_ingestion(document_id, owner_user_id):
+        queued.append((document_id, owner_user_id))
 
     monkeypatch.setattr("backend.app.api.v1.knowledge.process_document_ingestion", fake_ingestion)
 
     retried = client.post(f"/api/v1/documents/{failed_id}/retry", headers=headers)
     assert retried.status_code == 200, retried.text
     assert retried.json()["status"] == "pending"
-    assert queued == [failed_id]
+    assert len(queued) == 1
+    assert queued[0][0] == failed_id
+    assert isinstance(queued[0][1], uuid.UUID)
 
     refused = client.post(f"/api/v1/documents/{ready_id}/retry", headers=headers)
     assert refused.status_code == 400, refused.text
 
     missing = client.post(f"/api/v1/documents/{uuid.uuid4()}/retry", headers=headers)
     assert missing.status_code == 404, missing.text
+
+
+def test_legacy_document_download_uses_parent_source_ownership(tmp_path: Path):
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.project import Document, KnowledgeSource
+
+    owner_headers = _register_and_login("legacy_document_owner")
+    other_headers = _register_and_login("legacy_document_other")
+    source_response = client.post(
+        "/api/v1/sources",
+        headers=owner_headers,
+        json={"name": "Legacy document source", "source_type": "file_upload"},
+    )
+    assert source_response.status_code == 201, source_response.text
+    source_id = uuid.UUID(source_response.json()["id"])
+    document_id = uuid.uuid4()
+    storage_path = tmp_path / "legacy-document.txt"
+    storage_path.write_text("owner-only data", encoding="utf-8")
+
+    async def seed():
+        async with async_session_factory() as session:
+            source = await session.get(KnowledgeSource, source_id)
+            session.add(
+                Document(
+                    id=document_id,
+                    knowledge_source_id=source.id,
+                    core_doc_id=uuid.uuid4(),
+                    filename="legacy-document.txt",
+                    mime_type="text/plain",
+                    file_size_bytes=15,
+                    content_hash="d" * 64,
+                    storage_path=str(storage_path),
+                    status="ready",
+                    doc_metadata={},
+                )
+            )
+            await session.commit()
+
+    asyncio.run(seed())
+
+    owner_download = client.get(f"/api/v1/documents/{document_id}/download", headers=owner_headers)
+    other_download = client.get(f"/api/v1/documents/{document_id}/download", headers=other_headers)
+    assert owner_download.status_code == 200
+    assert owner_download.content == b"owner-only data"
+    assert other_download.status_code == 404
+
+
+def test_ingestion_job_rejects_wrong_owner(tmp_path: Path):
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.project import Document, KnowledgeSource
+    from backend.app.tasks.ingestion import process_document_ingestion
+
+    headers = _register_and_login("ingestion_owner")
+    source_response = client.post(
+        "/api/v1/sources",
+        headers=headers,
+        json={"name": "Owned source", "source_type": "file_upload"},
+    )
+    assert source_response.status_code == 201, source_response.text
+    source_id = uuid.UUID(source_response.json()["id"])
+    document_id = uuid.uuid4()
+    storage_path = tmp_path / "not-read.txt"
+    storage_path.write_text("test", encoding="utf-8")
+
+    async def seed_and_get_owner():
+        async with async_session_factory() as session:
+            source = await session.get(KnowledgeSource, source_id)
+            session.add(
+                Document(
+                    id=document_id,
+                    knowledge_source_id=source.id,
+                    core_doc_id=uuid.uuid4(),
+                    filename="not-read.txt",
+                    mime_type="text/plain",
+                    file_size_bytes=4,
+                    content_hash="c" * 64,
+                    storage_path=str(storage_path),
+                    status="pending",
+                    doc_metadata={},
+                )
+            )
+            await session.commit()
+            return source.user_id
+
+    asyncio.run(seed_and_get_owner())
+    asyncio.run(process_document_ingestion(document_id, uuid.uuid4()))
+
+    async def load_document():
+        async with async_session_factory() as session:
+            return await session.get(Document, document_id)
+
+    document = asyncio.run(load_document())
+    assert document is not None
+    assert document.status == "pending"
+    assert document.user_id is None
+    assert storage_path.exists()
 
 
 @pytest.mark.asyncio
@@ -311,7 +413,7 @@ async def test_grounded_answer_falls_back_without_provider():
     from backend.app.services.llm import LLMService
 
     assistant = Assistant(
-        project_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
         name="Support Assistant",
         system_instructions="Be helpful.",
         model="Auto",
@@ -328,7 +430,6 @@ async def test_grounded_answer_falls_back_without_provider():
             assistant=assistant,
             query="What is the return policy?",
             passages=["Returns are accepted within 30 days.", "Shipping takes five days."],
-            workspace_id=uuid.uuid4(),
         )
         assert answer.used_llm is False
         assert answer.content == "Returns are accepted within 30 days."
@@ -338,7 +439,6 @@ async def test_grounded_answer_falls_back_without_provider():
             assistant=assistant,
             query="Anything?",
             passages=[],
-            workspace_id=uuid.uuid4(),
         )
         assert empty.content == "I could not find that answer."
 
@@ -365,7 +465,7 @@ def test_plan_change_updates_entitlement_row():
     async def load():
         async with async_session_factory() as session:
             stmt = WorkspacePlanEntitlement.__table__.select().where(
-                WorkspacePlanEntitlement.workspace_id == uuid.UUID(workspace_id)
+                WorkspacePlanEntitlement.user_id == uuid.UUID(workspace_id)
             )
             return (await session.execute(stmt)).fetchone()
 

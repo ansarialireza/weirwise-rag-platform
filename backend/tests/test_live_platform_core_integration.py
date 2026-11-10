@@ -181,6 +181,11 @@ async def test_live_platform_to_core_jina_integration():
 
         login_res = platform_client.post("/api/v1/auth/login", json={"email": email, "password": password})
         assert login_res.status_code == 200
+        from backend.app.db.session import async_session_factory
+        from backend.app.models.auth import User
+
+        async with async_session_factory() as platform_db:
+            owner_user_id = (await platform_db.execute(select(User.id).where(User.email == email))).scalar_one()
         token = login_res.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
@@ -226,7 +231,7 @@ async def test_live_platform_to_core_jina_integration():
         platform_doc_id = uploaded_doc["id"]
 
         # 7. Execute document ingestion task directly (real Core API call from Platform)
-        await ing_mod.process_document_ingestion(uuid.UUID(platform_doc_id))
+        await ing_mod.process_document_ingestion(uuid.UUID(platform_doc_id), owner_user_id)
 
         # 8. Verify Document status in Platform DB and Core ID linkage
         from backend.app.db.session import async_session_factory

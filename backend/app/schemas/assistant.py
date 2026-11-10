@@ -249,6 +249,12 @@ class BusinessIntegrationCreateRequest(BaseModel):
     display_name: str = Field(..., min_length=2, max_length=255)
     credentials: dict[str, Any] = Field(..., description="API tokens, secrets, or OAuth credentials")
     config: dict[str, Any] = Field(default_factory=dict)
+    connection_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="Stable provider connection identity; for Shopify, defaults to the configured shop domain.",
+    )
 
 
 class BusinessIntegrationResponse(BaseModel):
@@ -257,6 +263,7 @@ class BusinessIntegrationResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
     provider: str
+    connection_key: str
     display_name: str
     is_active: bool
     config: dict[str, Any]

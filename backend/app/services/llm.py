@@ -566,12 +566,9 @@ class LLMService:
         passages: list[str],
         user_id: uuid.UUID | None = None,
         history: list[dict[str, str]] | None = None,
-        workspace_id: uuid.UUID | None = None,
     ) -> GroundedAnswer:
-        if user_id is None and workspace_id is not None:
-            user_id = workspace_id
         if user_id is None:
-            user_id = getattr(assistant, "user_id", None) or uuid.uuid4()
+            user_id = getattr(assistant, "user_id", None)
         started = time.perf_counter()
         if not passages:
             return GroundedAnswer(content=assistant.fallback_message, latency_ms=0)
@@ -602,7 +599,7 @@ class LLMService:
                     db,
                     provider_name,
                     model_name=model,
-                    user_id=str(user_id),
+                    user_id=str(user_id) if user_id else None,
                     exclude_ids=excluded,
                     attempt_number=attempt,
                     is_failover=attempt > 1,

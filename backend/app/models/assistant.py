@@ -15,7 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship, synonym
+from sqlalchemy.orm import relationship
 
 
 class AssistantStatus(str, enum.Enum):
@@ -31,7 +31,6 @@ class Assistant(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    project_id = synonym("user_id")
     # Mapping to Weirwise Core Assistant UUID if 1:1 mapped
     core_assistant_id = Column(GUID, nullable=True, index=True)
     name = Column(String(255), nullable=False)
@@ -248,7 +247,7 @@ class BusinessIntegration(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    project_id = synonym("user_id")
+    connection_key = Column(String(255), nullable=False, default="default", server_default="default")
     provider = Column(String(50), nullable=False, index=True)  # shopify, zendesk, gorgias, google_drive, notion
     display_name = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -260,7 +259,7 @@ class BusinessIntegration(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
 
-    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_integration_provider"),)
+    __table_args__ = (UniqueConstraint("user_id", "provider", "connection_key", name="uq_user_integration_connection"),)
 
 
 class WebhookSubscription(Base):
@@ -270,7 +269,6 @@ class WebhookSubscription(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    project_id = synonym("user_id")
     target_url = Column(String(1024), nullable=False)
     secret_key = Column(String(128), nullable=False)
     events = Column(CompatibleJSON, default=list, nullable=False)
@@ -310,7 +308,6 @@ class WorkspacePlanEntitlement(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
-    workspace_id = synonym("user_id")
     plan_tier = Column(String(50), default="free", nullable=False)
     max_assistants = Column(Integer, default=1, nullable=False)
     max_knowledge_sources = Column(Integer, default=3, nullable=False)
@@ -336,7 +333,6 @@ class WorkspaceBYOKCredential(Base):
 
     id = Column(GUID, primary_key=True, default=uuid.uuid4)
     user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    project_id = synonym("user_id")
     provider_name = Column(String(50), nullable=False)  # openai, anthropic, azure_openai
     api_endpoint = Column(String(512), nullable=True)
     deployment_id = Column(String(255), nullable=True)

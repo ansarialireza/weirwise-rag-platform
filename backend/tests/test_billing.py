@@ -260,7 +260,7 @@ def test_document_indexing_increments_workspace_usage_events():
             m_up.return_value = {"document": {"id": str(uuid.uuid4()), "status": "completed"}}
             m_wait.return_value = ("completed", None)
 
-            await process_document_ingestion(doc_id)
+            await process_document_ingestion(doc_id, user_id)
 
         async with async_session_factory() as db:
             usage = await subscription_service.get_user_usage(user_id, db)

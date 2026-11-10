@@ -20,7 +20,8 @@ access Core's database. Core's REST contract is documented in Core's `CONTRACT.m
   used.
 - `backend/app/services/routing_engine.py` selects from administrator-managed provider accounts and
   encrypted credentials according to current account, credential health, limits, and routing
-  controls. The routing state and event records are Platform-owned.
+  controls. The routing state and event records are Platform-owned and keyed to the authenticated
+  user rather than a workspace fallback.
 - Provider-specific HTTP behavior belongs behind the LLM service, not in route handlers or frontend
   code. Do not put credentials in prompts, browser bundles, API responses, logs, or test fixtures.
 - Provider support in code does not establish that a provider is enabled, provisioned, or available
@@ -34,12 +35,12 @@ access Core's database. Core's REST contract is documented in Core's `CONTRACT.m
 The generic integration sync function currently returns `not_implemented` for automatic content
 import. This is not a Shopify catalog connector or a recurring synchronization system.
 
-The persisted integration uniqueness rule is one row per `(user_id, provider)` and the service
-updates that row when the same provider is connected again. This does not support multiple stores
-for one provider. A future Shopify/multi-store implementation should model a distinct connection
-within the customer's account, define provider-specific identity and authorization, and migrate
-without treating stores as workspaces. Do not loosen the uniqueness constraint until the connection
-contract and migration/backfill behavior are designed.
+Connections are scoped to the authenticated user and unique by
+`(user_id, provider, connection_key)`. Older clients without a key use `default`; Shopify can derive
+the key from its configured shop domain. Reconnecting the same key updates that connection, while
+different keys permit multiple stores under one customer account. This is connection persistence
+only: Shopify OAuth, catalog import, recurring/incremental synchronization, retries, and automatic
+store analysis remain unimplemented.
 
 When adding an integration:
 

@@ -587,7 +587,7 @@ async def test_usage_and_cost_accounting_is_accurate():
         await IntelligentRoutingEngine.record_success(
             session,
             credential_id=str(credential.id),
-            workspace_id=str(uuid.uuid4()),
+            user_id=str(uuid.uuid4()),
             provider_name=provider.provider_name,
             model_name="gpt-4o-mini",
             input_tokens=80,

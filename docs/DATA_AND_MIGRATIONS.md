@@ -59,6 +59,10 @@ development. Before any future schema evolution, verify the target database revi
 restore procedure, row counts/ownership mapping, and forward/rollback plan. No database or migration
 was run for this account-model alignment.
 
-`BusinessIntegration` currently has one row per user/provider. Supporting multiple stores for one
-provider will require a separately designed connection key, uniqueness change, data migration, and
-compatibility plan. This work does not change the schema.
+Revision `f8a9b0c1d2e3` adds `BusinessIntegration.connection_key`, backfills existing rows to
+`default`, and changes uniqueness from `(user_id, provider)` to
+`(user_id, provider, connection_key)`. This lets one customer persist multiple connections for a
+provider while preserving old clients' default identity. Its downgrade explicitly refuses to
+collapse data if multiple connections for a user/provider exist. The migration was not run as part
+of this change; deployment must verify the database revision and use the normal reviewed migration
+process before application code requiring the column is released.
