@@ -6,9 +6,9 @@ from typing import Any
 
 import resend
 from backend.app.core.config import settings
-from backend.app.core.security import decrypt_credential_secret
 from backend.app.db.session import async_session_factory
 from backend.app.models.admin import CredentialHealthStatus, ProviderAccount, ProviderCredential
+from backend.app.services.vault import decrypt_credential_secret
 from resend.exceptions import ResendError
 from sqlalchemy import select
 
