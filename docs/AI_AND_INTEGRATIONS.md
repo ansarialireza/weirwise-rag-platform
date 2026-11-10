@@ -34,6 +34,13 @@ access Core's database. Core's REST contract is documented in Core's `CONTRACT.m
 The generic integration sync function currently returns `not_implemented` for automatic content
 import. This is not a Shopify catalog connector or a recurring synchronization system.
 
+The persisted integration uniqueness rule is one row per `(user_id, provider)` and the service
+updates that row when the same provider is connected again. This does not support multiple stores
+for one provider. A future Shopify/multi-store implementation should model a distinct connection
+within the customer's account, define provider-specific identity and authorization, and migrate
+without treating stores as workspaces. Do not loosen the uniqueness constraint until the connection
+contract and migration/backfill behavior are designed.
+
 When adding an integration:
 
 1. Keep provider-specific authorization, token refresh, data mapping, pagination, retries, and

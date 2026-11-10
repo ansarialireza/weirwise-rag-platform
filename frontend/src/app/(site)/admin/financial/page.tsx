@@ -215,7 +215,7 @@ export default function AdminFinancialCenter() {
               <div className="text-2xl font-bold font-mono text-foreground mt-1">
                 {analytics?.active_subscriptions ?? 0}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Workspace commercial tenants</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Customer accounts</p>
             </div>
 
             <div className="rounded-xl border border-border bg-card p-4 shadow-xs">

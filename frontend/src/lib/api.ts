@@ -1,12 +1,10 @@
 import {
   User,
-  Workspace,
-  WorkspaceBillingStatus,
+  AccountBillingStatus,
   BillingPlanInfo,
   CheckoutResult,
   CheckoutStatusInfo,
   InvoiceItem,
-  Project,
   KnowledgeSource,
   DocumentItem,
   Assistant,
@@ -19,9 +17,6 @@ import {
   KnowledgeGapAnalytics,
 } from "@/types";
 import { friendlyErrorMessage } from "@/lib/errors";
-
-const WORKSPACE_STORAGE_KEY = "wwp_workspace_id";
-const PROJECT_STORAGE_KEY = "wwp_project_id";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
@@ -42,65 +37,19 @@ class ApiClient {
   private token: string | null = null;
   private isRefreshing: boolean = false;
   private refreshPromise: Promise<string | null> | null = null;
-  private workspaceId: string | null = null;
-  private projectId: string | null = null;
-  private tenancyPromise: Promise<{ workspaceId: string; projectId: string }> | null = null;
-  private tenancyVerified = false;
 
   constructor() {
     if (typeof window !== "undefined") {
       // Access tokens stay in memory only. Persistent auth is delivered through
       // HttpOnly cookies set by the API, which scripts cannot read.
       localStorage.removeItem("wwp_token");
-      this.workspaceId = localStorage.getItem(WORKSPACE_STORAGE_KEY);
-      this.projectId = localStorage.getItem(PROJECT_STORAGE_KEY);
+      localStorage.removeItem("wwp_workspace_id");
+      localStorage.removeItem("wwp_project_id");
     }
   }
 
   setToken(token: string | null) {
     this.token = token;
-    if (!token && typeof window !== "undefined") {
-      this.clearTenancy();
-    }
-  }
-
-  private clearTenancy() {
-    this.workspaceId = null;
-    this.projectId = null;
-    this.tenancyPromise = null;
-    this.tenancyVerified = false;
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
-      localStorage.removeItem(PROJECT_STORAGE_KEY);
-    }
-  }
-
-  /**
-   * Resolve the workspace/project the dashboard operates in.
-   * The backend requires project-scoped routes, so the active context is
-   * discovered once per session (and created on first login).
-   */
-  async getTenancy(): Promise<{ workspaceId: string; projectId: string }> {
-    return { workspaceId: "default", projectId: "default" };
-  }
-
-  getWorkspaceId(): string | null {
-    return this.workspaceId;
-  }
-
-  setWorkspaceId(workspaceId: string): void {
-    this.workspaceId = workspaceId;
-    this.projectId = null;
-    this.tenancyVerified = false;
-    this.tenancyPromise = null;
-    if (typeof window !== "undefined") {
-      localStorage.setItem(WORKSPACE_STORAGE_KEY, workspaceId);
-      localStorage.removeItem(PROJECT_STORAGE_KEY);
-    }
-  }
-
-  getProjectId(): string | null {
-    return this.projectId;
   }
 
   getToken(): string | null {
@@ -275,61 +224,39 @@ class ApiClient {
     return this.request<User>("/auth/me");
   }
 
-  // Workspace & Project Endpoints
-  async getWorkspaces(): Promise<Workspace[]> {
-    return this.request<Workspace[]>("/workspaces");
-  }
-
-  async createWorkspace(name: string): Promise<Workspace> {
-    return this.request<Workspace>("/workspaces", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
-  }
-
-  async updateWorkspace(workspaceId: string, data: { name?: string; settings?: Record<string, any> }): Promise<Workspace> {
-    return this.request<Workspace>(`/workspaces/${workspaceId}`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getUserBilling(): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>("/billing");
-  }
-
-  async getWorkspaceBilling(workspaceId?: string): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>("/billing");
+  async getAccountBilling(): Promise<AccountBillingStatus> {
+    return this.request<AccountBillingStatus>("/billing");
   }
 
   async getPublicPlans(): Promise<BillingPlanInfo[]> {
     return this.request<BillingPlanInfo[]>("/plans");
   }
 
-  async initiateCheckout(
-    workspaceId: string | null,
-    data: { plan_code: string; billing_cycle?: string; customer_email?: string }
-  ): Promise<CheckoutResult> {
+  async initiateCheckout(data: {
+    plan_code: string;
+    billing_cycle?: string;
+    customer_email?: string;
+  }): Promise<CheckoutResult> {
     return this.request<CheckoutResult>("/billing/checkout", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async getCheckoutStatus(workspaceId: string | null, orderId: string): Promise<CheckoutStatusInfo> {
+  async getCheckoutStatus(orderId: string): Promise<CheckoutStatusInfo> {
     return this.request<CheckoutStatusInfo>(`/billing/orders/${orderId}/status`);
   }
 
-  async getWorkspaceInvoices(workspaceId?: string): Promise<InvoiceItem[]> {
+  async getInvoices(): Promise<InvoiceItem[]> {
     return this.request<InvoiceItem[]>("/billing/invoices");
   }
 
-  async downloadInvoice(workspaceId: string | null, invoiceNumber: string): Promise<any> {
+  async downloadInvoice(invoiceNumber: string): Promise<any> {
     return this.request<any>(`/billing/invoices/${invoiceNumber}/download`);
   }
 
-  async changeWorkspacePlan(workspaceId: string | null, targetTier: string): Promise<WorkspaceBillingStatus> {
-    return this.request<WorkspaceBillingStatus>("/billing/change-plan", {
+  async changePlan(targetTier: string): Promise<AccountBillingStatus> {
+    return this.request<AccountBillingStatus>("/billing/change-plan", {
       method: "POST",
       body: JSON.stringify({ target_tier: targetTier }),
     });
@@ -390,10 +317,6 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({}),
     });
-  }
-
-  async getProjects(workspaceId: string): Promise<Project[]> {
-    return this.request<Project[]>(`/workspaces/${workspaceId}/projects`);
   }
 
   // Knowledge Sources Endpoints (Direct User Owned)

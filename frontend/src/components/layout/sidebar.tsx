@@ -26,7 +26,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { PreferenceControls } from "@/components/ui/preference-controls";
 import { WeirwiseMark } from "@/components/ui/weirwise-mark";
 import { InstallAppButton } from "@/components/ui/install-app-button";
-import { WorkspaceBillingStatus } from "@/types";
+import { AccountBillingStatus } from "@/types";
 
 interface SidebarProps {
   onItemClick?: () => void;
@@ -47,13 +47,13 @@ export function Sidebar({
   const { user, logout } = useAuth();
   const { dict } = useI18n();
 
-  const [billing, setBilling] = useState<WorkspaceBillingStatus | null>(null);
+  const [billing, setBilling] = useState<AccountBillingStatus | null>(null);
 
   // Load billing overview directly for user
   useEffect(() => {
     let active = true;
     api
-      .getUserBilling()
+      .getAccountBilling()
       .then((b) => {
         if (active) setBilling(b);
       })

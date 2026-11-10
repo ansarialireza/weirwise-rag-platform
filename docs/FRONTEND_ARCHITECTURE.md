@@ -25,10 +25,10 @@ The browser application uses Next.js 15 App Router, React, TypeScript, and Tailw
   Add user-visible strings to the localization dictionaries rather than hard-coding them in pages.
 - Keep embed/public runtime behavior separate from authenticated dashboard behavior.
 
-## Tenancy terminology caveat
+## Account context and compatibility
 
-Some frontend types, browser storage keys, and API helpers retain `workspace` or `project` names for
-compatibility. The backend has no persisted `workspaces` principal or `memberships` table; the
-`workspace_id` synonyms and workspace-named auxiliary records map to individual `user_id` values.
-`getTenancy()` currently returns `"default"` identifiers. Do not infer backend authorization or
-shared-workspace support from these frontend labels.
+The dashboard operates in the single account resolved by the authenticated user. It has no workspace
+switcher or account-selected tenant ID; ownership remains a backend decision. Some old client types,
+storage keys, telemetry symbols, and billing helper names retain workspace terminology for
+compatibility. The workspace/project API compatibility layer is deprecated and must not be used to
+build new UI. Do not infer backend authorization or shared-account support from legacy names.

@@ -19,3 +19,8 @@ The current identity is built on the **official Weirwise mark** (`frontend/publi
 - Derived asset build: `scripts/brand/build-official-mark.mjs`.
 
 Where a historical report conflicts with the current codebase, the codebase and the brand repository take precedence.
+
+The root [`WORKSPACE_REMOVAL_REPORT.md`](../WORKSPACE_REMOVAL_REPORT.md) is a point-in-time report,
+not a complete current API inventory. A deprecated workspace/project compatibility router remains
+mounted. Use [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md) and [`API_CONTRACTS.md`](API_CONTRACTS.md) for
+current behavior.

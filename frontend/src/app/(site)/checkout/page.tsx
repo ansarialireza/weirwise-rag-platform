@@ -58,7 +58,7 @@ function CheckoutContent() {
 
     async function loadStatus() {
       try {
-        const data = await api.getCheckoutStatus(null, orderId!);
+        const data = await api.getCheckoutStatus(orderId!);
         if (active) {
           setStatusInfo(data);
           setError(null);

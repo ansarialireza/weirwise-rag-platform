@@ -8,10 +8,13 @@ Preserve tenant isolation, authentication and authorization checks, secure sessi
 
 Consult `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/DEVELOPMENT.md`, `docs/ARCHITECTURE.md`, `docs/API_CONTRACTS.md`, `docs/DOMAIN_MODEL.md`, `docs/DATA_AND_MIGRATIONS.md`, `docs/AI_AND_INTEGRATIONS.md`, `docs/FRONTEND_ARCHITECTURE.md`, `docs/TESTING.md`, and `docs/adr/001-architecture-boundaries-and-core-decoupling.md`, plus backend `pyproject.toml`, frontend `package.json`, and `.github/workflows/ci.yml`. These local instructions and docs are sufficient to work in Platform without access to Brand. When documents conflict, inspect current code and active accepted ADRs; do not treat roadmap material or aspirational ADR decisions as implemented behavior.
 
-The current persisted Platform domain is user-scoped; there is no `workspaces` principal table or
-`memberships` table. Workspace-named auxiliary rows are keyed by user, not shared workspaces. Do
-not assume database row-level security or multi-user workspace authorization from legacy API/UI
-terminology.
+The product model is one customer account and one unified management space. In the current
+implementation, the authenticated `User` is the account principal; do not introduce a separate
+`Account`, workspace, project, or membership entity without a concrete requirement and an approved
+design. Customer-owned Platform records are authorized from the authenticated user. There is no
+persisted `workspaces`, `projects`, or `memberships` table and no database row-level security.
+Workspace-named auxiliary rows and legacy routes are compatibility artifacts, not product
+capabilities. Do not trust browser-selected identifiers for ownership.
 The Platform's own Core REST adapter is the only service boundary to Core. For product scope,
 distinguish the current internal Weirwise assistant from the future self-serve business platform.
 

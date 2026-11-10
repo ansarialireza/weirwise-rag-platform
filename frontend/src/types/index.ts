@@ -9,17 +9,7 @@ export interface User {
   updated_at: string;
 }
 
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  plan_tier: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkspaceBillingStatus {
+export interface AccountBillingStatus {
   user_id?: string;
   plan_code?: string;
   plan_tier?: string;
@@ -110,17 +100,6 @@ export interface InvoiceItem {
   paid_at?: string;
   line_items: Array<{ description: string; amount: number; currency: string }>;
   created_at: string;
-}
-
-export interface Project {
-  id: string;
-  user_id?: string;
-  name: string;
-  slug: string;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export type KnowledgeSourceType = "file_upload" | "website_crawl";
@@ -293,4 +272,3 @@ export interface KnowledgeGapAnalytics {
   negative_feedback_count: number;
   satisfaction_rate_pct: number;
 }
-

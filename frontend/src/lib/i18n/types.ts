@@ -33,7 +33,7 @@ export interface TranslationDictionary {
     systemTheme: string;
     language: string;
     howItWorks: string;
-    openWorkspace: string;
+    openDashboard: string;
     mainNavigation: string;
     closeNavigation: string;
     openNavigation: string;
@@ -48,8 +48,6 @@ export interface TranslationDictionary {
     copyText: string;
     copied: string;
     settings: string;
-    createWorkspace: string;
-    switchWorkspace: string;
     usage: string;
     upgrade: string;
     collapseSidebar: string;

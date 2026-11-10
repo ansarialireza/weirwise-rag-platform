@@ -5,6 +5,13 @@
 
 ## Authentication and authorization
 
+- The current account principal is the authenticated `User`. The account ID comes from trusted
+  authentication, not a workspace/account ID selected by the browser.
+- The current Core adapter uses a service-configured Core API key. Core authenticates the Platform
+  service tenant, not each Platform user. Before using a Core knowledge-base or document ID,
+  Platform must authorize the corresponding Platform record against the authenticated account.
+  Never expose the Core service key to a customer or browser.
+
 - Dashboard dependencies accept a signed Bearer access token or the `access_token` cookie and
   resolve an active `User`.
 - Passwords use PBKDF2-HMAC-SHA256 with a per-password random salt. Refresh/reset/verification
@@ -15,6 +22,9 @@
   Workspace principal/Membership relation or database row-level security; workspace-named
   auxiliary records are user-keyed. Do not describe Platform authorization as workspace RBAC or
   PostgreSQL RLS.
+- The legacy workspace/project compatibility router derives synthetic IDs from the authenticated
+  user and marks its operations deprecated in OpenAPI. Continue enforcing account ownership at the
+  Platform boundary; the router is not a persisted tenant or membership system.
 
 ## Credential handling
 

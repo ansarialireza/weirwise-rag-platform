@@ -21,7 +21,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { locales, getSpec, type Locale } from "@/lib/i18n";
-import { WorkspaceBillingStatus } from "@/types";
+import { AccountBillingStatus } from "@/types";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -49,7 +49,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
 
-  const [billing, setBilling] = useState<WorkspaceBillingStatus | null>(null);
+  const [billing, setBilling] = useState<AccountBillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -58,7 +58,7 @@ export default function SettingsPage() {
   useEffect(() => {
     let active = true;
     api
-      .getUserBilling()
+      .getAccountBilling()
       .then((b) => {
         if (active) setBilling(b);
       })

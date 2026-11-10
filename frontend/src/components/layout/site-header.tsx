@@ -94,7 +94,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                   href="/overview"
                   className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
-                  {dict.common.openWorkspace}
+                  {dict.common.openDashboard}
                 </Link>
               ) : (
                 <>
@@ -162,7 +162,7 @@ export function SiteHeader({ className }: SiteHeaderProps) {
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex h-11 w-full items-center justify-center rounded-xl bg-primary text-sm font-medium text-primary-foreground"
                   >
-                    {dict.common.openWorkspace}
+                    {dict.common.openDashboard}
                   </Link>
                 ) : (
                   <>

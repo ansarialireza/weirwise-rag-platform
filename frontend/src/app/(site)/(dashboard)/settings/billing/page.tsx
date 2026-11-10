@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { InvoiceItem, WorkspaceBillingStatus } from "@/types";
+import { AccountBillingStatus, InvoiceItem } from "@/types";
 import { PageHeader } from "@/components/ui/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export default function BillingSettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [billing, setBilling] = useState<WorkspaceBillingStatus | null>(null);
+  const [billing, setBilling] = useState<AccountBillingStatus | null>(null);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,8 +36,8 @@ export default function BillingSettingsPage() {
     async function loadBilling() {
       try {
         const [b, inv] = await Promise.all([
-          api.getUserBilling().catch(() => null),
-          api.getWorkspaceInvoices().catch(() => []),
+          api.getAccountBilling().catch(() => null),
+          api.getInvoices().catch(() => []),
         ]);
         if (active) {
           setBilling(b);
@@ -59,7 +59,7 @@ export default function BillingSettingsPage() {
 
   const handleDownloadInvoice = async (invoiceNumber: string) => {
     try {
-      const res = await api.downloadInvoice(null, invoiceNumber);
+      const res = await api.downloadInvoice(invoiceNumber);
       const blob = new Blob([JSON.stringify(res, null, 2)], {
         type: "application/json",
       });

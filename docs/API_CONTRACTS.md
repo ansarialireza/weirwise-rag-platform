@@ -16,7 +16,7 @@ The application mounts these route groups under `/api/v1` unless noted:
 | `public_runtime.py` | Published assistant configuration/chat and public feedback/handoff flows under `/public`. |
 | `integrations.py` | Business integration credential/configuration operations. |
 | `voice.py` | Voice status and authenticated speech relay operations. |
-| `billing.py`, `enterprise.py`, `workspaces.py`, `admin.py`, `telemetry.py` | Billing, enterprise, compatibility, staff administration, and telemetry routes. |
+| `billing.py`, `enterprise.py`, `workspaces.py`, `admin.py`, `telemetry.py` | User/account-scoped billing and enterprise routes, deprecated workspace/project compatibility shims, staff administration, and telemetry. |
 | `health.py` | Health routes mounted at the application root. |
 
 Important public runtime paths include:
@@ -42,7 +42,25 @@ module and generated OpenAPI schema before relying on an endpoint or documenting
   authentication. Platform calls Core through `backend/app/adapters/core_client.py`; it does not
   pass Platform dashboard credentials through to Core.
 
-## 3. Request, response, and error conventions
+## 3. Legacy workspace/project compatibility surface
+
+The router in `backend/app/api/v1/workspaces.py` remains mounted for compatibility with older
+clients. Its operations are marked deprecated in OpenAPI. They synthesize one account context from
+the authenticated user's ID and do not create persisted Workspace, Project, or Membership records.
+Every supplied workspace/project path ID must match that authenticated user's ID; mismatches return
+not found. The accepted account model and rationale are recorded in
+[`ADR 004`](adr/004-single-account-model.md). The legacy response schemas and route behavior remain
+for compatibility, but:
+
+- New frontend and API clients must use direct user-owned resources such as `/sources`,
+  `/assistants`, `/billing`, and `/api-credentials`.
+- Do not add workspace creation, selection, switching, membership, or workspace-administration
+  behavior.
+- Do not remove or change the legacy responses until actual consumers and a compatibility/deprecation
+  plan have been reviewed.
+- OpenAPI deprecation is a compatibility signal, not proof that all external clients have migrated.
+
+## 4. Request, response, and error conventions
 
 - Define request and response models in `backend/app/schemas/`; route handlers should not expose
   SQLAlchemy models as an accidental public contract.
@@ -56,7 +74,7 @@ module and generated OpenAPI schema before relying on an endpoint or documenting
 - Keep internal service interfaces narrow and typed. Adapters translate external API errors into
   Platform-owned exceptions; callers should not depend on another repository's internal classes.
 
-## 4. Compatibility and tests
+## 5. Compatibility and tests
 
 Changes to paths, authentication modes, scopes, payload fields, defaults, status codes, error shapes,
 stream events, or Core REST usage are compatibility-sensitive. Before changing one:

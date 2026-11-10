@@ -20,6 +20,7 @@ Tests:
 
 import uuid
 
+from backend.app.db.base import Base
 from backend.app.main import app
 from fastapi.testclient import TestClient
 
@@ -55,6 +56,40 @@ def _create_verified_user(email: str = None, email_prefix: str = "user"):
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     return email, headers
+
+
+def test_workspace_compatibility_is_deprecated_and_not_persisted():
+    legacy_tables = {"workspaces", "projects", "memberships"}
+    assert legacy_tables.isdisjoint(Base.metadata.tables)
+
+    operations = app.openapi()["paths"]
+    legacy_paths = {
+        path: methods
+        for path, methods in operations.items()
+        if path.startswith(("/api/v1/workspaces", "/api/v1/projects"))
+    }
+    assert legacy_paths
+    assert all(
+        operation.get("deprecated") is True for methods in legacy_paths.values() for operation in methods.values()
+    )
+
+
+def test_legacy_workspace_and_project_ids_are_derived_from_authenticated_user():
+    _, owner_headers = _create_verified_user(email_prefix="workspace_owner")
+    _, other_headers = _create_verified_user(email_prefix="workspace_other")
+
+    workspace = client.get("/api/v1/workspaces", headers=owner_headers).json()[0]
+    assert workspace["id"] == workspace["owner_id"]
+
+    projects = client.get(
+        f"/api/v1/workspaces/{workspace['id']}/projects",
+        headers=owner_headers,
+    )
+    assert projects.status_code == 200
+    project_id = projects.json()[0]["id"]
+
+    assert client.get(f"/api/v1/workspaces/{workspace['id']}", headers=other_headers).status_code == 404
+    assert client.get(f"/api/v1/projects/{project_id}", headers=other_headers).status_code == 404
 
 
 def test_registration_requires_only_email_and_password():

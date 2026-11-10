@@ -110,7 +110,7 @@ class BehavioralEvent(Base):
     category = Column(String(32), nullable=False, index=True)  # navigation, feature, action, workflow, friction, error
     event_name = Column(String(64), nullable=False, index=True)  # e.g. "workflow.funnel.started"
     component_id = Column(String(128), nullable=True)  # semantic UI target ID
-    route = Column(String(255), nullable=False)  # path e.g. "/workspaces/assistants"
+    route = Column(String(255), nullable=False)  # path e.g. "/assistants"
     referrer_route = Column(String(255), nullable=True)
     duration_ms = Column(Integer, nullable=True)  # Dwell or action duration
     properties = Column(CompatibleJSON, default=dict, nullable=False)  # Bounded, validated payload

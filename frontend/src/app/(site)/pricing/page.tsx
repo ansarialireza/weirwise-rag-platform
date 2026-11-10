@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { useI18n } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { BillingPlanInfo, WorkspaceBillingStatus } from "@/types";
+import { AccountBillingStatus, BillingPlanInfo } from "@/types";
 import { ArrowRight, Check, FileText, Globe2, Info, Lock, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export default function PricingPage() {
   const p = dict.pricing;
 
   const [plans, setPlans] = useState<BillingPlanInfo[]>([]);
-  const [billing, setBilling] = useState<WorkspaceBillingStatus | null>(null);
+  const [billing, setBilling] = useState<AccountBillingStatus | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(true);
   const [purchasingPlan, setPurchasingPlan] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export default function PricingPage() {
 
         if (user) {
           try {
-            const b = await api.getUserBilling();
+            const b = await api.getAccountBilling();
             if (active) setBilling(b);
           } catch {
             // billing optional
@@ -65,7 +65,7 @@ export default function PricingPage() {
     if (plan.monthly_price === 0) {
       try {
         setPurchasingPlan(plan.code);
-        await api.changeWorkspacePlan(null, plan.code);
+        await api.changePlan(plan.code);
         router.push("/settings/billing");
       } catch (err) {
         console.error("Plan change failed:", err);
@@ -78,7 +78,7 @@ export default function PricingPage() {
     // Paid plan: initiate checkout
     try {
       setPurchasingPlan(plan.code);
-      const res = await api.initiateCheckout(null, {
+      const res = await api.initiateCheckout({
         plan_code: plan.code,
         billing_cycle: billingCycle,
       });

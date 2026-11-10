@@ -46,13 +46,21 @@ flowchart LR
 
 ## 3. Ownership and service boundaries
 
-- Platform records are primarily owned by `User` identifiers. There is no persisted `workspaces`
-  principal table or `memberships` table. Some auxiliary tables retain `workspace_*` names; the
-  entitlement model's `workspace_id` and the BYOK model's `project_id` are synonyms for `user_id`.
-  These records do not establish a multi-user workspace.
-  Some API/UI names and compatibility shims also use `workspace`/`project` terminology.
+- The customer-account boundary is the authenticated Platform `User`; there is no separate
+  `Account` model. Customer-owned resources are scoped by that user. The schema has no persisted
+  `workspaces`, `projects`, or `memberships` table and no database row-level security.
+- Some auxiliary model/table names and legacy API/client symbols still say `workspace` or
+  `project`; these are user-keyed compatibility artifacts, not customer-selectable spaces. See
+  [`API_CONTRACTS.md`](API_CONTRACTS.md) and [`FRONTEND_ARCHITECTURE.md`](FRONTEND_ARCHITECTURE.md).
+- Platform uses one configured Core API key through its service adapter; Core therefore sees the
+  Platform service's Core tenant, not an individual Platform user identity. Platform must verify
+  ownership of every user-owned source/assistant before using stored Core IDs. Core does not
+  provide account management for Platform.
 - Platform owns identity, assistant configuration, conversations, deployments, source/document
   metadata, billing/usage records, and provider-routing administration.
+- Customer account isolation currently depends on authenticated-user resource ownership checks in
+  Platform routes and services. A separate account membership or shared-account authorization
+  layer is not implemented.
 - Core owns its own API-key tenants, knowledge bases, uploaded indexing copies, chunks, vectors, and
   retrieval. Platform stores Core IDs as references and synchronizes through HTTP.
 - The database and file stores remain separate. Core's document indexing is not a Platform database

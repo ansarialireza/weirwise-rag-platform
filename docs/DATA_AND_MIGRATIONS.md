@@ -44,3 +44,21 @@ alembic upgrade head
 Never run these against an unspecified, shared, or production database. Keep local database files
 and test data outside the repository. Do not deploy or run migrations as part of a documentation
 change.
+
+## Account ownership and historical workspace migration
+
+The current SQLAlchemy model uses authenticated `User` ownership; there is no Account, Workspace,
+Project, or Membership table. Migration `ebe95bc87fd0` backfills legacy ownership into `user_id`
+and drops the former workspace/project/membership tables. Its downgrade is a no-op, so the migration
+history does not provide a rollback that restores those tables or their data. The revision is in
+the current Alembic chain, but this documentation check did not inspect any live database's
+`alembic_version` or customer records.
+
+Never replay this ownership migration against a shared or production database as part of routine
+development. Before any future schema evolution, verify the target database revision, backup and
+restore procedure, row counts/ownership mapping, and forward/rollback plan. No database or migration
+was run for this account-model alignment.
+
+`BusinessIntegration` currently has one row per user/provider. Supporting multiple stores for one
+provider will require a separately designed connection key, uniqueness change, data migration, and
+compatibility plan. This work does not change the schema.

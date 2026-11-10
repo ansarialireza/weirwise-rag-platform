@@ -26,7 +26,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(tags=["workspaces-compat"])
+router = APIRouter(tags=["workspaces-compat"], deprecated=True)
 
 
 def _user_ws_id(user_id: Any) -> str:
