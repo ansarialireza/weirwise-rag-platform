@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,13 +15,15 @@ import {
   Shield,
   CreditCard,
   AlertTriangle,
+  RefreshCw,
+  Store,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n/context";
 import { useTheme, type Theme } from "@/lib/theme-context";
 import { locales, getSpec, type Locale } from "@/lib/i18n";
-import { AccountBillingStatus } from "@/types";
+import { AccountBillingStatus, BusinessIntegration } from "@/types";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -42,6 +44,10 @@ function getInitials(user: { full_name?: string | null; email?: string | null } 
   return "U";
 }
 
+function isRealShopifyIntegration(integration: BusinessIntegration): boolean {
+  return integration.provider === "shopify" && integration.is_active && integration.config.mock_provider !== true;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
@@ -54,6 +60,16 @@ export default function SettingsPage() {
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [shopDomain, setShopDomain] = useState("");
+  const [shopifyStores, setShopifyStores] = useState<BusinessIntegration[]>([]);
+  const [shopifyLoading, setShopifyLoading] = useState(true);
+  const [shopifyLoadFailed, setShopifyLoadFailed] = useState(false);
+  const [shopifyConnecting, setShopifyConnecting] = useState(false);
+  const [shopifySyncingId, setShopifySyncingId] = useState<string | null>(null);
+  const [shopifyDisconnectingId, setShopifyDisconnectingId] = useState<string | null>(null);
+  const hasActiveShopifySync = shopifyStores.some((store) =>
+    ["queued", "syncing"].includes(store.sync_status)
+  );
 
   useEffect(() => {
     let active = true;
@@ -73,6 +89,140 @@ export default function SettingsPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const url = new URL(window.location.href);
+    const callbackStatus = url.searchParams.get("shopify_status");
+    const callbackShop = url.searchParams.get("shop");
+    if (callbackStatus) {
+      url.searchParams.delete("shopify_status");
+      url.searchParams.delete("shop");
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    api
+      .getIntegrations()
+      .then((integrations) => {
+        if (active) {
+          const stores = integrations.filter(isRealShopifyIntegration);
+          setShopifyStores(stores);
+          if (callbackStatus === "connected") {
+            const isConnected = callbackShop
+              ? stores.some((store) => {
+                  const domain =
+                    typeof store.config.shop_domain === "string"
+                      ? store.config.shop_domain
+                      : store.connection_key;
+                  return domain === callbackShop;
+                })
+              : false;
+            toast({
+              message: isConnected
+                ? dict.shopify.callbackConnected
+                : dict.shopify.callbackFailed,
+              type: isConnected ? "success" : "error",
+            });
+          } else if (callbackStatus === "cancelled") {
+            toast({ message: dict.shopify.callbackCancelled, type: "error" });
+          } else if (callbackStatus) {
+            toast({ message: dict.shopify.callbackFailed, type: "error" });
+          }
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setShopifyLoadFailed(true);
+          if (callbackStatus) {
+            toast({ message: dict.shopify.callbackFailed, type: "error" });
+          }
+        }
+      })
+      .finally(() => {
+        if (active) setShopifyLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dict.shopify, toast]);
+
+  useEffect(() => {
+    if (!hasActiveShopifySync) return;
+    const interval = setInterval(() => {
+      api
+        .getIntegrations()
+        .then((integrations) => {
+          setShopifyStores(integrations.filter(isRealShopifyIntegration));
+        })
+        .catch(() => {
+          // A later poll can recover from a temporary refresh error.
+        });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [hasActiveShopifySync]);
+
+  const handleShopifyConnect = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setShopifyConnecting(true);
+    setShopifyLoadFailed(false);
+    try {
+      const { authorization_url } = await api.startShopifyOAuth(shopDomain.trim());
+      const destination = new URL(authorization_url);
+      if (
+        destination.protocol !== "https:" ||
+        !destination.hostname.endsWith(".myshopify.com") ||
+        destination.pathname !== "/admin/oauth/authorize"
+      ) {
+        throw new Error(dict.shopify.callbackFailed);
+      }
+      window.location.assign(destination.toString());
+    } catch (error) {
+      toast({
+        message: error instanceof Error ? error.message : dict.shopify.callbackFailed,
+        type: "error",
+      });
+      setShopifyConnecting(false);
+    }
+  };
+
+  const handleShopifySync = async (integrationId: string) => {
+    setShopifySyncingId(integrationId);
+    try {
+      const { status } = await api.syncIntegration(integrationId);
+      setShopifyStores((current) =>
+        current.map((store) =>
+          store.id === integrationId ? { ...store, sync_status: status, last_error: null } : store
+        )
+      );
+      const integrations = await api.getIntegrations();
+      setShopifyStores(integrations.filter(isRealShopifyIntegration));
+    } catch (error) {
+      toast({
+        message: error instanceof Error ? error.message : dict.shopify.syncFailed,
+        type: "error",
+      });
+    } finally {
+      setShopifySyncingId(null);
+    }
+  };
+
+  const handleShopifyDisconnect = async (integrationId: string) => {
+    if (!window.confirm(dict.shopify.disconnectConfirm)) return;
+    setShopifyDisconnectingId(integrationId);
+    try {
+      await api.disconnectIntegration(integrationId);
+      setShopifyStores((current) => current.filter((store) => store.id !== integrationId));
+      toast({ message: dict.shopify.disconnected, type: "success" });
+    } catch (error) {
+      toast({
+        message: error instanceof Error ? error.message : dict.shopify.disconnectFailed,
+        type: "error",
+      });
+    } finally {
+      setShopifyDisconnectingId(null);
+    }
+  };
 
   const initials = getInitials(user);
   const planName = (billing?.plan_name || billing?.plan_tier || "Free Trial").toUpperCase();
@@ -177,6 +327,142 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+      </section>
+
+      <section
+        aria-labelledby="shopify-settings-title"
+        className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-5"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-foreground">
+            <Store className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="shopify-settings-title" className="text-sm font-semibold text-foreground">
+              {dict.shopify.title}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {dict.shopify.description}
+            </p>
+          </div>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          {dict.shopify.disconnectNotice}
+        </p>
+
+        <form onSubmit={handleShopifyConnect} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <label htmlFor="shopify-domain" className="mb-1.5 block text-xs font-medium text-foreground">
+              {dict.shopify.shopDomain}
+            </label>
+            <input
+              id="shopify-domain"
+              type="text"
+              dir="ltr"
+              inputMode="url"
+              autoComplete="url"
+              spellCheck={false}
+              value={shopDomain}
+              onChange={(event) => setShopDomain(event.target.value)}
+              placeholder={dict.shopify.shopDomainPlaceholder}
+              className="h-10 w-full rounded-lg border border-border bg-input px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={shopifyConnecting || !shopDomain.trim()}
+            aria-busy={shopifyConnecting}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-accent px-4 text-xs font-semibold text-accent-foreground transition-colors hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Store className="h-3.5 w-3.5" aria-hidden="true" />
+            {shopifyConnecting ? dict.shopify.connecting : dict.shopify.connect}
+          </button>
+        </form>
+
+        {shopifyLoadFailed && (
+          <p role="alert" className="mt-3 text-xs text-destructive">
+            {dict.shopify.loadError}
+          </p>
+        )}
+
+        {!shopifyLoading && !shopifyLoadFailed && (
+          <div className="mt-4 border-t border-border/60 pt-3">
+            {shopifyStores.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{dict.shopify.noStores}</p>
+            ) : (
+              <ul className="space-y-3">
+                {shopifyStores.map((store) => {
+                  const domain =
+                    typeof store.config.shop_domain === "string" ? store.config.shop_domain : store.connection_key;
+                  const productCount =
+                    typeof store.config.product_count === "number" ? store.config.product_count : null;
+                  const isSyncing =
+                    ["queued", "syncing"].includes(store.sync_status) || shopifySyncingId === store.id;
+                  const isDisconnecting = shopifyDisconnectingId === store.id;
+                  return (
+                    <li key={store.id} className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate text-sm font-medium text-foreground" dir="ltr">
+                          {domain}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
+                          {dict.shopify.connected}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {dict.shopify.importNotReady}
+                      </p>
+                      {store.sync_status === "completed" && productCount !== null && (
+                        <p className="mt-2 text-xs font-medium text-foreground">
+                          {productCount.toLocaleString(locale)} {dict.shopify.productsSynced}
+                          {store.last_synced_at && (
+                            <span className="ms-2 font-normal text-muted-foreground">
+                              {new Date(store.last_synced_at).toLocaleString(locale)}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {store.sync_status === "failed" && (
+                        <p role="alert" className="mt-2 text-xs text-destructive">
+                          {store.last_error || dict.shopify.syncFailed}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isSyncing || isDisconnecting}
+                          aria-busy={isSyncing || isDisconnecting}
+                          onClick={() => handleShopifySync(store.id)}
+                          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} aria-hidden="true" />
+                          {isSyncing ? dict.shopify.syncingProducts : dict.shopify.syncProducts}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSyncing || isDisconnecting}
+                          aria-busy={isDisconnecting}
+                          onClick={() => handleShopifyDisconnect(store.id)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {isDisconnecting ? dict.shopify.disconnecting : dict.shopify.disconnect}
+                        </button>
+                        {typeof store.config.catalog_source_id === "string" && (
+                          <Link
+                            href="/sources"
+                            className="inline-flex min-h-9 items-center rounded-lg px-3 text-xs font-medium text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {dict.shopify.viewKnowledge}
+                          </Link>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
       </section>
 
       {/* 2. Appearance: Segmented Control */}

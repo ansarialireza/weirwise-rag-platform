@@ -5,6 +5,7 @@ frozen when the assistant ships, is advertised on the public config, and — the
 that actually matters — decides whether original text crosses the wire at all.
 """
 
+import asyncio
 import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -213,6 +214,113 @@ def test_ai_assistant_never_returns_sources_even_when_configured_to(monkeypatch)
     assert body["sources"] == []
     assert body["content"] == "Written answer."
     assert llm_calls == ["What is the refund window?"]
+
+
+def test_public_chat_applies_minimum_grounding_threshold(monkeypatch):
+    from backend.app.api.v1 import public_runtime
+
+    observed_thresholds = []
+    llm_calls = []
+
+    async def _search(self, *, score_threshold, **_kwargs):
+        observed_thresholds.append(score_threshold)
+        return {
+            "results": [
+                {
+                    "chunk_id": "weak-hit",
+                    "document_id": str(uuid.uuid4()),
+                    "content": "Possibly relevant but weak.",
+                    "similarity_score": 0.4,
+                    "rank": 1,
+                }
+            ]
+        }
+
+    async def _generate(**kwargs):
+        llm_calls.append(kwargs)
+        return SimpleNamespace(content="Unverified answer.")
+
+    monkeypatch.setattr(public_runtime.CoreApiClient, "search", _search)
+    monkeypatch.setattr(public_runtime.llm_service, "generate_grounded_answer", _generate)
+    headers, project_id = _owner()
+    assistant_id = _published(
+        headers,
+        project_id,
+        engine_mode="ai_answer",
+        score_threshold=0.1,
+        fallback_message="I don't have enough verified information.",
+    )
+
+    response = client.post(
+        f"/api/v1/public/assistants/{assistant_id}/chat",
+        json={"message": "Is this relevant?"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["content"] == "I don't have enough verified information."
+    assert response.json()["is_grounded"] is False
+    assert llm_calls == []
+    assert observed_thresholds == [public_runtime.settings.MIN_GROUNDING_SIMILARITY]
+
+
+def test_public_chat_includes_recent_visitor_history(monkeypatch):
+    from backend.app.api.v1 import public_runtime
+
+    captured_history = []
+
+    async def _search(self, **_kwargs):
+        return {
+            "results": [
+                {
+                    "chunk_id": "chunk-1",
+                    "document_id": str(uuid.uuid4()),
+                    "content": PASSAGE,
+                    "similarity_score": 0.93,
+                    "rank": 1,
+                }
+            ]
+        }
+
+    async def _generate(**kwargs):
+        captured_history.append(kwargs["history"])
+        return SimpleNamespace(content="Written answer.")
+
+    monkeypatch.setattr(public_runtime.CoreApiClient, "search", _search)
+    monkeypatch.setattr(public_runtime.llm_service, "generate_grounded_answer", _generate)
+    headers, project_id = _owner()
+    assistant_id = _published(headers, project_id, engine_mode="ai_answer")
+
+    first = client.post(
+        f"/api/v1/public/assistants/{assistant_id}/chat",
+        json={"message": "Do you offer refunds?"},
+    )
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.assistant import Conversation
+
+    async def read_visitor_session():
+        async with async_session_factory() as session:
+            conversation = await session.get(Conversation, uuid.UUID(first_body["conversation_id"]))
+            return conversation.user_id, conversation.session_token
+
+    stored_user_id, stored_session_token = asyncio.run(read_visitor_session())
+    assert stored_user_id is None
+    assert stored_session_token == first_body["session_token"]
+
+    second = client.post(
+        f"/api/v1/public/assistants/{assistant_id}/chat",
+        headers={"X-Session-Token": first_body["session_token"]},
+        json={"message": "How long do I have?", "conversation_id": first_body["conversation_id"]},
+    )
+    assert second.status_code == 200, second.text
+    assert captured_history == [
+        [],
+        [
+            {"role": "user", "content": "Do you offer refunds?"},
+            {"role": "assistant", "content": "Written answer."},
+        ],
+    ]
 
 
 def test_assistants_published_before_the_setting_keep_answering(monkeypatch):

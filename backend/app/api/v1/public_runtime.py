@@ -1,6 +1,7 @@
 """Public Runtime API for embedded widgets, shareable playground links, and external clients."""
 
 import asyncio
+import math
 import time
 import uuid
 from datetime import UTC, datetime
@@ -118,6 +119,31 @@ def origin_is_allowed(request_origin: str | None, allowed_domains: list[str] | N
 
 def _session_token(request: Request, body_token: str | None = None) -> str | None:
     return body_token or request.headers.get("X-Session-Token")
+
+
+def _require_public_conversation_access(conv: Conversation, request: Request) -> None:
+    token = _session_token(request)
+    if conv.user_id is not None or not conv.session_token or token != conv.session_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your conversation expired. Please refresh and try again.",
+        )
+
+
+def _meets_grounding_threshold(item: dict, threshold: float) -> bool:
+    try:
+        score = float(item.get("similarity_score", 0.0))
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(score) and score >= threshold
+
+
+async def _public_conversation_history(db: AsyncSession, conversation_id: uuid.UUID) -> list[dict[str, str]]:
+    stmt = (
+        select(Message).where(Message.conversation_id == conversation_id).order_by(Message.created_at.desc()).limit(6)
+    )
+    messages = (await db.execute(stmt)).scalars().all()
+    return [{"role": message.role, "content": message.content} for message in reversed(messages)]
 
 
 def _published_behaviour(assistant: Assistant) -> tuple[str, bool]:
@@ -287,14 +313,6 @@ async def public_chat(
     # Reject scripted floods before spending quota, retrieval, or provider budget.
     await _guard_public_chat(request, assistant, deployment, credential)
 
-    # Enforce Usage Quota & Metering for assistant owner
-    await metering_service.record_chat_turn(
-        db=db,
-        user_id=assistant.user_id,
-        assistant_id=assistant.id,
-        model_name=assistant.model,
-    )
-
     # 1. Resolve or Create Conversation
     incoming_token = _session_token(request, payload.session_token)
     conv = None
@@ -304,11 +322,16 @@ async def public_chat(
             Conversation.assistant_id == assistant.id,
         )
         conv = (await db.execute(conv_stmt)).scalar_one_or_none()
-        if conv and conv.session_token and incoming_token != conv.session_token:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Your conversation expired. Please refresh and try again.",
-            )
+        if conv:
+            _require_public_conversation_access(conv, request)
+
+    # Enforce usage only after confirming the caller owns the visitor session.
+    await metering_service.record_chat_turn(
+        db=db,
+        user_id=assistant.user_id,
+        assistant_id=assistant.id,
+        model_name=assistant.model,
+    )
 
     session_token = incoming_token
     if not conv:
@@ -322,6 +345,8 @@ async def public_chat(
         await db.flush()
     else:
         session_token = conv.session_token or session_token
+
+    history = await _public_conversation_history(db, conv.id)
 
     # 2. Record User Message
     user_msg = Message(
@@ -348,6 +373,7 @@ async def public_chat(
 
     # Query Core vector indexes concurrently across all linked sources
     active_sources = [ks for ks in linked_sources if ks.core_kb_id]
+    effective_threshold = max(float(assistant.score_threshold or 0.0), settings.MIN_GROUNDING_SIMILARITY)
 
     async def _query_public_kb(ks: KnowledgeSource) -> list[dict]:
         try:
@@ -355,9 +381,14 @@ async def public_chat(
                 kb_id=ks.core_kb_id,
                 query=payload.message,
                 top_k=assistant.top_k,
-                score_threshold=assistant.score_threshold,
+                score_threshold=effective_threshold,
             )
-            return search_data.get("results", [])
+            results = search_data.get("results", [])
+            return [
+                item
+                for item in results
+                if isinstance(item, dict) and _meets_grounding_threshold(item, effective_threshold)
+            ]
         except CoreApiException as e:
             logger.warning(f"Vector search failed on Core KB {ks.core_kb_id}: {e!s}")
             return []
@@ -420,6 +451,7 @@ async def public_chat(
             query=payload.message,
             passages=[c.content for c in citations],
             user_id=assistant.user_id,
+            history=history,
         )
         assistant_reply = answer.content
     else:
@@ -490,11 +522,7 @@ async def submit_answer_feedback(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
 
-    if conv.session_token and _session_token(request) != conv.session_token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your conversation expired. Please refresh and try again.",
-        )
+    _require_public_conversation_access(conv, request)
 
     # Check existing feedback
     fb_stmt = select(AnswerFeedback).where(AnswerFeedback.message_id == message_id)
@@ -533,11 +561,7 @@ async def request_human_handoff(
     if not conv:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found.")
 
-    if conv.session_token and _session_token(request) != conv.session_token:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your conversation expired. Please refresh and try again.",
-        )
+    _require_public_conversation_access(conv, request)
 
     conv.is_escalated = True
     conv.escalation_reason = payload.reason

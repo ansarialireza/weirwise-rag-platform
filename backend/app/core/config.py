@@ -1,6 +1,7 @@
 """Centralized application settings with strict validation."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -97,7 +98,7 @@ class Settings(BaseSettings):
     DATABASE_ECHO: bool = False
 
     # Object Storage & Tiered Storage Architecture
-    STORAGE_BACKEND: str = "local"  # "local" or "s3"
+    STORAGE_BACKEND: Literal["local"] = "local"
     STORAGE_LOCAL_DIR: str = "/tmp/weirwise_uploads"
     STORAGE_COLD_DIR: str = "/mnt/gdrive/weirwise/storage/documents"
     MAX_UPLOAD_SIZE_BYTES: int = 50 * 1024 * 1024  # 50 MB

@@ -11,6 +11,7 @@
 import io
 import uuid
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from backend.app.main import app
@@ -162,6 +163,60 @@ def test_public_session_token_is_required_for_feedback_and_handoff():
         json={"reason": "Need a human"},
     )
     assert handoff_ok.status_code == 200, handoff_ok.text
+
+
+def test_public_runtime_cannot_access_authenticated_conversations(monkeypatch):
+    from backend.app.api.v1 import public_runtime
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.assistant import Conversation, Message
+
+    record_chat_turn = AsyncMock()
+    monkeypatch.setattr(public_runtime.metering_service, "record_chat_turn", record_chat_turn)
+    headers = _register_and_login("widget_private_conversation")
+    _, _, assistant_id = _create_tenant(headers, "WidgetPrivateConversation")
+    import asyncio
+
+    asyncio.run(_publish_assistant(assistant_id))
+    user_id = client.get("/api/v1/auth/me", headers=headers).json()["id"]
+
+    async def create_private_conversation():
+        async with async_session_factory() as session:
+            conversation = Conversation(
+                assistant_id=uuid.UUID(assistant_id),
+                user_id=uuid.UUID(user_id),
+                title="Private playground conversation",
+            )
+            session.add(conversation)
+            await session.flush()
+            message = Message(
+                conversation_id=conversation.id,
+                role="assistant",
+                content="Private draft answer",
+            )
+            session.add(message)
+            await session.commit()
+            return str(conversation.id), str(message.id)
+
+    conversation_id, message_id = asyncio.run(create_private_conversation())
+
+    chat = client.post(
+        f"/api/v1/public/assistants/{assistant_id}/chat",
+        json={"message": "Continue this conversation", "conversation_id": conversation_id},
+    )
+    assert chat.status_code == 403, chat.text
+    record_chat_turn.assert_not_awaited()
+
+    feedback = client.post(
+        f"/api/v1/public/messages/{message_id}/feedback",
+        json={"rating": "positive"},
+    )
+    assert feedback.status_code == 403, feedback.text
+
+    handoff = client.post(
+        f"/api/v1/public/conversations/{conversation_id}/handoff",
+        json={"reason": "Need a human"},
+    )
+    assert handoff.status_code == 403, handoff.text
 
 
 def test_deleting_source_purges_core_and_documents(tmp_path: Path, monkeypatch):

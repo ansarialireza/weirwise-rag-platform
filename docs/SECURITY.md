@@ -18,6 +18,8 @@
   tokens and Platform API keys are stored as SHA-256 hashes.
 - Platform API credentials are user-owned and scope-checked. Public runtime separately supports
   published share access, widget deployment keys, and user-issued API credentials.
+- Anonymous widget chat, feedback, and handoff requests require the matching visitor session token;
+  authenticated dashboard conversations are not eligible for public-runtime access.
 - Protected resource queries must include server-side ownership predicates. There is no persisted
   Workspace principal/Membership relation or database row-level security; workspace-named
   auxiliary records are user-keyed. Do not describe Platform authorization as workspace RBAC or
@@ -41,7 +43,8 @@
 ## Uploads, crawling, and public runtime
 
 - Upload handling applies configured extension and size limits and stores files outside the
-  frontend bundle. Keep upload paths non-executable and preserve cleanup behavior.
+  frontend bundle. The local hot-storage reaper checks database references before removing old
+  files; keep upload paths non-executable and preserve cleanup behavior.
 - Crawler entry points call the Platform URL-safety checks. Re-check the current scraper
   implementation before making claims about DNS rebinding, redirect, or egress guarantees.
 - Widget-key requests validate the deployment and allowed hostname. Public configuration/chat
