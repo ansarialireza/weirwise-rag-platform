@@ -22,7 +22,7 @@ from backend.app.schemas.workspace import (
     WorkspaceUpdate,
 )
 from backend.app.services.billing_engine import billing_engine
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -201,7 +201,6 @@ async def delete_project(
 async def legacy_create_source(
     project_id: str,
     data: KnowledgeSourceCreateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
@@ -212,7 +211,6 @@ async def legacy_create_source(
 
     return await create_knowledge_source(
         payload=data,
-        background_tasks=background_tasks,
         current_user=current_user,
         db=db,
     )

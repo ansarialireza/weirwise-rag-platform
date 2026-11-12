@@ -23,11 +23,16 @@ from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging, logger
 from backend.app.core.security_headers import SecurityHeadersMiddleware
 from backend.app.db.base import Base
-from backend.app.db.session import engine
+from backend.app.db.session import async_session_factory, engine
+from backend.app.models.project import Document
 from backend.app.services.llm import close_provider_clients
 from backend.app.services.storage import storage_service
+from backend.app.tasks.google_drive_demo import google_drive_demo_sync_worker
+from backend.app.tasks.ingestion import document_ingestion_worker
+from backend.app.tasks.shopify_catalog import shopify_catalog_sync_worker
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 configure_logging()
 
@@ -40,7 +45,14 @@ async def _ephemeral_storage_reaper_loop():
     while True:
         try:
             await asyncio.sleep(3600)  # Run every hour
-            reaped = storage_service.reap_orphaned_temp_files(max_age_seconds=3600)
+            async with async_session_factory() as db:
+                result = await db.execute(select(Document.storage_path))
+                referenced_paths = set(result.scalars().all())
+            reaped = await asyncio.to_thread(
+                storage_service.reap_orphaned_temp_files,
+                referenced_paths=referenced_paths,
+                max_age_seconds=3600,
+            )
             if reaped > 0:
                 logger.info(f"Storage Reaper purged {reaped} orphaned files from hot tier /tmp.")
         except asyncio.CancelledError:
@@ -51,14 +63,29 @@ async def _ephemeral_storage_reaper_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Lifespan event handler initializing database tables, resources, and storage reaper."""
+    """Initialize database tables and manage application background workers and clients."""
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     reaper_task = asyncio.create_task(_ephemeral_storage_reaper_loop())
+    shopify_sync_task = asyncio.create_task(shopify_catalog_sync_worker())
+    ingestion_task = asyncio.create_task(document_ingestion_worker())
+    drive_demo_task = (
+        asyncio.create_task(google_drive_demo_sync_worker()) if settings.DEMO_INTEGRATIONS_ENABLED else None
+    )
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
-    reaper_task.cancel()
+    tasks = (reaper_task, shopify_sync_task, ingestion_task, drive_demo_task)
+    for task in tasks:
+        if task is not None:
+            task.cancel()
+    for task in tasks:
+        if task is None:
+            continue
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
     await close_core_clients()
     await close_provider_clients()
     await engine.dispose()

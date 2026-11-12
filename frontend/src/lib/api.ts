@@ -15,6 +15,10 @@ import {
   ConversationItem,
   ConversationMessage,
   KnowledgeGapAnalytics,
+  BusinessIntegration,
+  MockDriveItem,
+  MockIntegrationCapabilities,
+  MockIntegrationOAuthResult,
 } from "@/types";
 import { friendlyErrorMessage } from "@/lib/errors";
 
@@ -222,6 +226,65 @@ class ApiClient {
 
   async getMe(): Promise<User> {
     return this.request<User>("/auth/me");
+  }
+
+  async getIntegrations(): Promise<BusinessIntegration[]> {
+    return this.request<BusinessIntegration[]>("/integrations");
+  }
+
+  async getMockIntegrationCapabilities(): Promise<MockIntegrationCapabilities> {
+    return this.request<MockIntegrationCapabilities>("/integrations/mock/capabilities");
+  }
+
+  async startDemoIntegrationOAuth(
+    provider: "shopify" | "google_drive",
+  ): Promise<{ authorization_url: string }> {
+    return this.request<{ authorization_url: string }>(`/integrations/mock/${provider}/oauth/start`, {
+      method: "POST",
+    });
+  }
+
+  async completeDemoIntegrationOAuth(
+    provider: "shopify" | "google_drive",
+    state: string,
+    approved: boolean,
+  ): Promise<MockIntegrationOAuthResult> {
+    return this.request<MockIntegrationOAuthResult>(`/integrations/mock/${provider}/oauth/callback`, {
+      method: "POST",
+      body: JSON.stringify({ state, approved }),
+    });
+  }
+
+  async getMockDriveItems(integrationId: string, parentId?: string | null): Promise<MockDriveItem[]> {
+    const query = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : "";
+    const response = await this.request<{ parent_id: string | null; items: MockDriveItem[] }>(
+      `/integrations/${integrationId}/google-drive/items${query}`,
+    );
+    return response.items;
+  }
+
+  async startShopifyOAuth(shopDomain: string): Promise<{ authorization_url: string }> {
+    return this.request<{ authorization_url: string }>("/integrations/shopify/oauth/start", {
+      method: "POST",
+      body: JSON.stringify({ shop_domain: shopDomain }),
+    });
+  }
+
+  async syncIntegration(
+    integrationId: string,
+    fileIds?: string[],
+  ): Promise<{ integration_id: string; status: string }> {
+    return this.request<{ integration_id: string; status: string }>(
+      `/integrations/${integrationId}/sync`,
+      {
+        method: "POST",
+        ...(fileIds ? { body: JSON.stringify({ file_ids: fileIds }) } : {}),
+      },
+    );
+  }
+
+  async disconnectIntegration(integrationId: string): Promise<void> {
+    return this.request<void>(`/integrations/${integrationId}`, { method: "DELETE" });
   }
 
   async getAccountBilling(): Promise<AccountBillingStatus> {

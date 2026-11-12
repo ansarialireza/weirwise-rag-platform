@@ -115,6 +115,19 @@ class Settings(BaseSettings):
     WEIRWISE_CORE_API_KEY: str = ""
     WEIRWISE_CORE_TIMEOUT_SECONDS: float = 30.0
 
+    # Shopify OAuth credentials are server-side only.
+    SHOPIFY_API_KEY: str | None = None
+    SHOPIFY_API_SECRET: str | None = None
+    SHOPIFY_REDIRECT_URI: str | None = None
+    SHOPIFY_FRONTEND_RETURN_URL: str | None = None
+    SHOPIFY_SCOPES: str = "read_products"
+    SHOPIFY_OAUTH_STATE_TTL_SECONDS: int = 600
+    SHOPIFY_API_VERSION: str = "2026-10"
+    SHOPIFY_MAX_PRODUCTS: int = 10000
+    DEMO_INTEGRATIONS_ENABLED: bool = False
+    DEMO_INTEGRATIONS_FRONTEND_URL: str = "http://localhost:3000"
+    DEMO_INTEGRATION_STATE_TTL_SECONDS: int = 300
+
     # Voice (Deepgram) — key stays server-side behind the authenticated relay
     DEEPGRAM_API_KEY: str | None = None
     DEEPGRAM_STT_MODEL: str = "nova-3"
@@ -155,6 +168,16 @@ class Settings(BaseSettings):
                     "SECRET_KEY must be a strong value (32+ characters) outside development; "
                     "tokens signed with the public default would be forgeable"
                 )
+            if self.DEMO_INTEGRATIONS_ENABLED:
+                raise ValueError("Demo integrations must remain disabled outside development.")
+        if self.DEMO_INTEGRATIONS_ENABLED:
+            frontend = self.DEMO_INTEGRATIONS_FRONTEND_URL.rstrip("/")
+            frontend_origin = frontend.split("/", maxsplit=3)
+            origin = "/".join(frontend_origin[:3])
+            if origin not in self.ALLOWED_ORIGINS:
+                raise ValueError("The demo integration frontend URL must use an allowed origin.")
+            if self.DEMO_INTEGRATION_STATE_TTL_SECONDS <= 0:
+                raise ValueError("Demo integration OAuth state lifetime must be positive.")
         return self
 
 

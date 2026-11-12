@@ -2,9 +2,9 @@
 
 Engineering Principles:
 - Hot Tier (/tmp volatile local SSD): Temporary ingestion spool. Fast, zero-blocking.
-- Cold Tier (/mnt/gdrive vault): Source of truth for raw user documents.
+- Cold Tier: Intended persistent location for raw user documents; unavailable cold storage falls back to the hot path.
 - Async Ingestion: Spool to /tmp -> Compute/Embed -> Move to cold tier -> Failsafe deletion of /tmp.
-- Ephemeral Local GC Reaper: Purges orphaned files older than max_age_seconds (default 1 hour).
+- Ephemeral Local GC Reaper: Purges unreferenced files older than max_age_seconds (default 1 hour).
 - Streamed Network Retrieval: Chunked async streaming using aiofiles with StreamingResponse.
 """
 
@@ -179,9 +179,8 @@ class TieredStorageService:
         return safe_name, hot_temp_path, total_size, content_hash
 
     def move_to_cold_storage(self, hot_path: str) -> str:
-        """Step 3 (Cold Transfer): Atomically move raw file from local /tmp to Cold Vault.
-        Leaves ZERO footprint of raw files on the local SSD.
-        Falls back to keeping file in hot storage if cold vault directory is not writable (e.g. CI runner).
+        """Move a raw file from hot storage to the configured cold path.
+        Retain it in hot storage if the cold path is unavailable.
         """
         if not os.path.exists(hot_path):
             raise FileNotFoundError(f"Source file not found at hot path: {hot_path}")
@@ -252,20 +251,23 @@ class TieredStorageService:
 
         return deleted
 
-    def reap_orphaned_temp_files(self, max_age_seconds: int = 3600) -> int:
+    def reap_orphaned_temp_files(self, referenced_paths: set[str], max_age_seconds: int = 3600) -> int:
         """Step 3 Ephemeral Garbage Collection Reaper:
-        Scans local hot /tmp directory and forcefully deletes any orphaned
-        temporary files older than max_age_seconds (default 1 hour).
+        Scans local hot storage and deletes only unreferenced files older than
+        max_age_seconds (default 1 hour).
         """
         if not os.path.exists(self.hot_dir):
             return 0
 
         now = time.time()
+        referenced = {os.path.normcase(os.path.abspath(path)) for path in referenced_paths}
         reaped_count = 0
         try:
             for entry in os.scandir(self.hot_dir):
                 if entry.is_file():
                     try:
+                        if os.path.normcase(os.path.abspath(entry.path)) in referenced:
+                            continue
                         mtime = entry.stat().st_mtime
                         if (now - mtime) > max_age_seconds:
                             os.remove(entry.path)

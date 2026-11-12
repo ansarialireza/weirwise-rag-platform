@@ -8,12 +8,13 @@ import uuid
 from backend.app.adapters.core_client import CoreApiClient, CoreApiException
 from backend.app.api.dependencies import get_current_user
 from backend.app.db.session import get_db_session
-from backend.app.models.assistant import AssistantKnowledgeSource
+from backend.app.models.assistant import AssistantKnowledgeSource, BusinessIntegration
 from backend.app.models.auth import User
 from backend.app.models.project import (
     Document,
     KnowledgeSource,
     KnowledgeSourceType,
+    ProcessingJob,
     SourceProcessingStatus,
 )
 from backend.app.schemas.knowledge import (
@@ -31,11 +32,11 @@ from backend.app.services.scraper import crawler_engine, is_ssrf_safe_url
 from backend.app.services.storage import storage_service
 from backend.app.services.subscription import subscription_service
 from backend.app.services.webhooks import webhook_dispatcher
-from backend.app.tasks.ingestion import process_document_ingestion
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from backend.app.tasks.ingestion import enqueue_document_ingestion
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["Knowledge Sources, Crawler & Ingestion"])
@@ -106,6 +107,78 @@ async def verify_document_ownership(
     return row[0], row[1]
 
 
+async def _cancel_pending_ingestion_jobs(db: AsyncSession, document_ids: list[uuid.UUID]) -> None:
+    if not document_ids:
+        return
+
+    result = await db.execute(
+        select(ProcessingJob)
+        .where(
+            ProcessingJob.document_id.in_(document_ids),
+            ProcessingJob.status.in_(("pending", "processing")),
+        )
+        .with_for_update()
+    )
+    jobs = result.scalars().all()
+    if any(job.status == "processing" for job in jobs):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This knowledge is still being processed. Try deleting it again after processing finishes.",
+        )
+
+    for job in jobs:
+        cancelled_id = await db.scalar(
+            update(ProcessingJob)
+            .where(
+                ProcessingJob.id == job.id,
+                ProcessingJob.status == "pending",
+            )
+            .values(status="cancelled")
+            .returning(ProcessingJob.id)
+        )
+        if cancelled_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This knowledge started processing. Try deleting it again after processing finishes.",
+            )
+
+
+async def _ensure_catalog_integration_idle(db: AsyncSession, source: KnowledgeSource, user_id: uuid.UUID) -> None:
+    provider_by_source_type = {
+        KnowledgeSourceType.SHOPIFY_CATALOG.value: "shopify",
+        KnowledgeSourceType.GOOGLE_DRIVE.value: "google_drive",
+    }
+    provider = provider_by_source_type.get(source.source_type)
+    if provider is None:
+        return
+
+    integration_id_value = (source.settings or {}).get("integration_id")
+    if not integration_id_value:
+        return
+    try:
+        integration_id = uuid.UUID(str(integration_id_value))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The integration sync status could not be verified for safe deletion.",
+        ) from exc
+
+    integration = await db.scalar(
+        select(BusinessIntegration)
+        .where(
+            BusinessIntegration.id == integration_id,
+            BusinessIntegration.user_id == user_id,
+            BusinessIntegration.provider == provider,
+        )
+        .with_for_update()
+    )
+    if integration and integration.sync_status in {"queued", "syncing"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Wait for the {provider.replace('_', ' ')} sync to finish before deleting this knowledge.",
+        )
+
+
 # --- Sitemap & Web Crawler Discovery Endpoints ---
 
 
@@ -140,7 +213,6 @@ async def discover_website_pages(
 )
 async def ingest_selected_pages(
     payload: IngestDiscoveredPagesRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeSourceResponse:
@@ -183,7 +255,7 @@ async def ingest_selected_pages(
         )
         db.add(doc)
         await db.flush()
-        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
+        await enqueue_document_ingestion(db, doc.id)
 
     # Webhook dispatch: knowledge.sync.completed
     await webhook_dispatcher.dispatch(
@@ -208,11 +280,18 @@ async def ingest_selected_pages(
 )
 async def create_knowledge_source(
     payload: KnowledgeSourceCreateRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> KnowledgeSourceResponse:
     """Create a new KnowledgeSource owned directly by the authenticated user."""
+    if payload.source_type in {
+        KnowledgeSourceType.SHOPIFY_CATALOG,
+        KnowledgeSourceType.GOOGLE_DRIVE,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Commerce and Drive sources are created by syncing a connected integration.",
+        )
     source = KnowledgeSource(
         user_id=current_user.id,
         name=payload.name,
@@ -244,9 +323,8 @@ async def create_knowledge_source(
             doc_metadata={"source_url": payload.target_url},
         )
         db.add(doc)
-        await db.commit()
-        await db.refresh(doc)
-        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
+        await db.flush()
+        await enqueue_document_ingestion(db, doc.id)
 
     await db.commit()
     await db.refresh(source)
@@ -305,7 +383,6 @@ async def list_knowledge_sources(
 )
 async def upload_documents(
     source_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
@@ -341,11 +418,14 @@ async def upload_documents(
         db.add(doc)
         uploaded_records.append(doc)
 
+    await db.flush()
+    for doc in uploaded_records:
+        await enqueue_document_ingestion(db, doc.id)
+
     await db.commit()
 
     for doc in uploaded_records:
         await db.refresh(doc)
-        background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
 
     return DocumentUploadBatchResponse(
         source_id=source.id,
@@ -361,7 +441,6 @@ async def upload_documents(
 async def ingest_pasted_text(
     source_id: uuid.UUID,
     payload: PasteTextIngestRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> DocumentResponse:
@@ -391,10 +470,11 @@ async def ingest_pasted_text(
         status=SourceProcessingStatus.PENDING.value,
     )
     db.add(doc)
+    await db.flush()
+    await enqueue_document_ingestion(db, doc.id)
     await db.commit()
     await db.refresh(doc)
 
-    background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
     return DocumentResponse.model_validate(doc)
 
 
@@ -430,7 +510,14 @@ async def delete_document(
     db: AsyncSession = Depends(get_db_session),
 ) -> None:
     """Delete a document and trigger vector chunk purge."""
-    doc, _ = await verify_document_ownership(document_id, current_user.id, db)
+    doc, source = await verify_document_ownership(document_id, current_user.id, db)
+    await _ensure_catalog_integration_idle(db, source, current_user.id)
+    if doc.status == SourceProcessingStatus.PROCESSING.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This file is still being processed. Try deleting it again after processing finishes.",
+        )
+    await _cancel_pending_ingestion_jobs(db, [doc.id])
 
     if doc.core_doc_id:
         try:
@@ -442,16 +529,15 @@ async def delete_document(
                 detail="We couldn't delete that file just now. Please try again.",
             ) from e
 
-    storage_service.delete_file(doc.storage_path)
-
+    storage_path = doc.storage_path
     await db.delete(doc)
     await db.commit()
+    storage_service.delete_file(storage_path)
 
 
 @router.post("/documents/{document_id}/retry", response_model=DocumentResponse)
 async def retry_document_ingestion(
     document_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> DocumentResponse:
@@ -464,14 +550,29 @@ async def retry_document_ingestion(
             detail="Only documents that failed processing can be retried.",
         )
 
+    claimed_document_id = await db.scalar(
+        update(Document)
+        .where(
+            Document.id == doc.id,
+            Document.status == SourceProcessingStatus.FAILED.value,
+        )
+        .values(status=SourceProcessingStatus.PENDING.value, error_message=None)
+        .returning(Document.id)
+    )
+    if claimed_document_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This document is already queued for retry.",
+        )
+
     doc.status = SourceProcessingStatus.PENDING.value
     doc.error_message = None
     source.status = SourceProcessingStatus.PENDING.value
     source.error_message = None
+    await enqueue_document_ingestion(db, doc.id)
     await db.commit()
     await db.refresh(doc)
 
-    background_tasks.add_task(process_document_ingestion, doc.id, current_user.id)
     return DocumentResponse.model_validate(doc)
 
 
@@ -483,6 +584,16 @@ async def delete_knowledge_source(
 ) -> None:
     """Delete a knowledge source, its documents, physical files, and Core vectors."""
     source = await verify_source_ownership(source_id, current_user.id, db)
+    await _ensure_catalog_integration_idle(db, source, current_user.id)
+
+    docs_res = await db.execute(select(Document).where(Document.knowledge_source_id == source.id))
+    documents = docs_res.scalars().all()
+    if any(doc.status == SourceProcessingStatus.PROCESSING.value for doc in documents):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This source is still being processed. Try deleting it again after processing finishes.",
+        )
+    await _cancel_pending_ingestion_jobs(db, [doc.id for doc in documents])
 
     if source.core_kb_id:
         try:
@@ -494,14 +605,13 @@ async def delete_knowledge_source(
                 detail="We couldn't delete that collection just now. Please try again.",
             ) from e
 
-    docs_res = await db.execute(select(Document).where(Document.knowledge_source_id == source.id))
-    for doc in docs_res.scalars().all():
-        storage_service.delete_file(doc.storage_path)
-
+    storage_paths = [doc.storage_path for doc in documents]
     await db.execute(delete(Document).where(Document.knowledge_source_id == source.id))
     await db.execute(delete(AssistantKnowledgeSource).where(AssistantKnowledgeSource.knowledge_source_id == source.id))
     await db.delete(source)
     await db.commit()
+    for storage_path in storage_paths:
+        storage_service.delete_file(storage_path)
 
 
 @router.get("/documents/{document_id}/download")

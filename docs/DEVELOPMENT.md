@@ -40,10 +40,12 @@ applying the repository's Alembic revisions; see [`DATA_AND_MIGRATIONS.md`](DATA
 
 ## Background processing
 
-Knowledge ingestion is dispatched using FastAPI `BackgroundTasks` in the API process and forwards
-document indexing to Core over HTTP. A separate Redis Streams behavioral-intelligence daemon is
-implemented in `backend/app/services/behavioral_worker_daemon.py`. Celery is declared as a backend
-dependency, but the inspected ingestion path is not wired to Celery.
+Knowledge ingestion requests are persisted as `ProcessingJob` rows in the same database transaction
+as their documents. The API lifespan runs a database-backed worker that claims jobs, heartbeats active
+work, and recovers interrupted jobs after restarts; indexing is forwarded to Core over HTTP. Terminal
+failures can be retried from the document API. A separate Redis Streams behavioral-intelligence daemon
+is implemented in `backend/app/services/behavioral_worker_daemon.py`. Celery is declared as a backend
+dependency, but document ingestion is not wired to Celery or an external broker.
 
 ## Validation
 

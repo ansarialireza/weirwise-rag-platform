@@ -9,6 +9,38 @@ export interface User {
   updated_at: string;
 }
 
+export interface BusinessIntegration {
+  id: string;
+  provider: string;
+  connection_key: string;
+  display_name: string;
+  is_active: boolean;
+  config: Record<string, unknown>;
+  last_synced_at: string | null;
+  sync_status: string;
+  last_error: string | null;
+  created_at: string;
+}
+
+export interface MockIntegrationCapabilities {
+  enabled: boolean;
+  providers: Array<"shopify" | "google_drive">;
+}
+
+export interface MockIntegrationOAuthResult {
+  status: "connected" | "cancelled";
+  integration_id: string | null;
+}
+
+export interface MockDriveItem {
+  id: string;
+  name: string;
+  type: "folder" | "file";
+  parent_id: string | null;
+  modified_at: string | null;
+  mime_type: string;
+}
+
 export interface AccountBillingStatus {
   user_id?: string;
   plan_code?: string;
@@ -102,7 +134,7 @@ export interface InvoiceItem {
   created_at: string;
 }
 
-export type KnowledgeSourceType = "file_upload" | "website_crawl";
+export type KnowledgeSourceType = "file_upload" | "website_crawl" | "shopify_catalog" | "google_drive";
 export type SourceProcessingStatus = "pending" | "processing" | "ready" | "failed" | "deleting";
 
 export interface KnowledgeSource {

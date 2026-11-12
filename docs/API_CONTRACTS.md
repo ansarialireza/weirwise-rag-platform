@@ -65,8 +65,32 @@ for compatibility, but:
 Integration requests may supply `connection_key`. If omitted, the account/provider uses the
 `default` connection identity; Shopify requests may derive it from `config.shop_domain` or
 `config.shop_url`. The key identifies a connection within the authenticated user's account and is
-not authorization evidence. Connection records support multiple stores, but sync currently returns
-not implemented for provider content import.
+not authorization evidence. Connection records support multiple stores.
+
+Shopify OAuth starts at authenticated `POST /integrations/shopify/oauth/start` with
+`shop_domain`; the response contains an authorization URL. Shopify returns to
+`GET /integrations/shopify/oauth/callback`, which validates the signed state, HMAC, timestamp, and
+shop before persisting encrypted credentials and redirecting to the configured frontend settings
+URL. The callback never returns credentials. Authenticated `POST /integrations/{id}/sync` queues a
+manual Shopify catalog snapshot and returns `202 Accepted` with `status: "queued"`; other providers
+still return `not_implemented` for content import. The integration's `sync_status`, `last_error`,
+and `last_synced_at` fields report the task result.
+Authenticated `DELETE /integrations/{id}` returns `409 Conflict` while a Shopify sync is queued or
+running; otherwise it removes the local integration and imported catalog data. It does not revoke
+the app grant in Shopify; merchants must uninstall the app in Shopify Admin to do so.
+
+Local/test-only demo flows are gated by `DEMO_INTEGRATIONS_ENABLED` (default `false`, rejected in
+production/staging). Authenticated `GET /integrations/mock/capabilities` reports whether the
+synthetic demo providers are available. `POST /integrations/mock/{provider}/oauth/start` and
+`/oauth/callback` use a short-lived, signed, user/provider-bound state. They never contact an
+external provider. The callback stores demo-only connection data and the UI labels it simulated.
+
+For a demo Google Drive connection, authenticated
+`GET /integrations/{id}/google-drive/items?parent_id=...` browses the fixed fixture tree.
+`POST /integrations/{id}/sync` accepts `{"file_ids": [...]}`; IDs must belong to the fixture
+allowlist, and an empty list removes all previously imported demo files. The worker queues each
+selected file through the normal document-ingestion pipeline. Real Google Drive OAuth/import
+remains unimplemented; do not treat demo records or data as real external connections.
 
 ## 5. Request, response, and error conventions
 

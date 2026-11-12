@@ -244,11 +244,208 @@ def test_deleting_source_purges_core_and_documents(tmp_path: Path, monkeypatch):
     assert docs == []
 
 
-def test_retry_requires_failed_document(monkeypatch):
+def test_document_delete_cancels_queued_jobs_but_rejects_active_jobs(tmp_path: Path):
     import asyncio
 
     from backend.app.db.session import async_session_factory
-    from backend.app.models.project import Document
+    from backend.app.models.project import Document, ProcessingJob
+    from sqlalchemy import select
+
+    headers = _register_and_login("document_delete_queue")
+    _, project_id, _ = _create_tenant(headers, "DocumentDeleteQueue")
+    source = client.post(
+        f"/api/v1/projects/{project_id}/sources",
+        headers=headers,
+        json={"name": "Queued deletion", "source_type": "file_upload"},
+    )
+    assert source.status_code == 201, source.text
+    source_id = uuid.UUID(source.json()["id"])
+
+    pending_id, processing_id = uuid.uuid4(), uuid.uuid4()
+    pending_path = tmp_path / "queued.txt"
+    processing_path = tmp_path / "processing.txt"
+    pending_path.write_text("queued", encoding="utf-8")
+    processing_path.write_text("processing", encoding="utf-8")
+
+    async def seed():
+        async with async_session_factory() as session:
+            for document_id, path, document_status, job_status in (
+                (pending_id, pending_path, "pending", "pending"),
+                (processing_id, processing_path, "processing", "processing"),
+            ):
+                document = Document(
+                    id=document_id,
+                    knowledge_source_id=source_id,
+                    filename=path.name,
+                    mime_type="text/plain",
+                    file_size_bytes=1,
+                    content_hash=str(document_id),
+                    storage_path=str(path),
+                    status=document_status,
+                )
+                session.add(document)
+                session.add(
+                    ProcessingJob(
+                        document_id=document_id,
+                        status=job_status,
+                        attempts=1 if job_status == "processing" else 0,
+                        max_attempts=3,
+                    )
+                )
+            await session.commit()
+
+    asyncio.run(seed())
+
+    deleted = client.delete(f"/api/v1/documents/{pending_id}", headers=headers)
+    assert deleted.status_code == 204, deleted.text
+    assert not pending_path.exists()
+
+    rejected = client.delete(f"/api/v1/documents/{processing_id}", headers=headers)
+    assert rejected.status_code == 409, rejected.text
+    assert processing_path.exists()
+    rejected_source = client.delete(f"/api/v1/sources/{source_id}", headers=headers)
+    assert rejected_source.status_code == 409, rejected_source.text
+
+    async def verify_processing_job_remains():
+        async with async_session_factory() as session:
+            document = await session.get(Document, processing_id)
+            job = await session.scalar(select(ProcessingJob).where(ProcessingJob.document_id == processing_id))
+            return document, job
+
+    document, job = asyncio.run(verify_processing_job_remains())
+    assert document is not None and document.status == "processing"
+    assert job is not None and job.status == "processing"
+
+
+def test_shopify_disconnect_removes_catalog_and_local_credentials(tmp_path: Path, monkeypatch):
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.assistant import BusinessIntegration
+    from backend.app.models.project import Document, KnowledgeSource, KnowledgeSourceType
+
+    headers = _register_and_login("shopify_disconnect")
+    user_response = client.get("/api/v1/auth/me", headers=headers)
+    assert user_response.status_code == 200, user_response.text
+    user_id = uuid.UUID(user_response.json()["id"])
+
+    integration_id, source_id, core_kb_id, document_id = (uuid.uuid4() for _ in range(4))
+    stored_file = tmp_path / "shopify-catalog.txt"
+    stored_file.write_text("product catalog", encoding="utf-8")
+
+    async def seed():
+        async with async_session_factory() as session:
+            session.add(
+                BusinessIntegration(
+                    id=integration_id,
+                    user_id=user_id,
+                    connection_key="shop.myshopify.com",
+                    provider="shopify",
+                    display_name="shop.myshopify.com",
+                    encrypted_credentials="encrypted-test-value",
+                    config={"catalog_source_id": str(source_id)},
+                    sync_status="completed",
+                )
+            )
+            source = KnowledgeSource(
+                id=source_id,
+                user_id=user_id,
+                core_kb_id=core_kb_id,
+                name="Shopify products",
+                source_type=KnowledgeSourceType.SHOPIFY_CATALOG.value,
+                status="ready",
+                settings={"integration_id": str(integration_id)},
+            )
+            session.add(source)
+            session.add(
+                Document(
+                    id=document_id,
+                    user_id=user_id,
+                    knowledge_source_id=source_id,
+                    core_doc_id=document_id,
+                    filename=stored_file.name,
+                    mime_type="text/plain",
+                    file_size_bytes=15,
+                    content_hash="catalog-hash",
+                    storage_path=str(stored_file),
+                    status="ready",
+                )
+            )
+            await session.commit()
+
+    asyncio.run(seed())
+    deleted_kbs = []
+
+    class FakeCoreClient:
+        async def delete_knowledge_base(self, target_id):
+            deleted_kbs.append(target_id)
+
+    monkeypatch.setattr("backend.app.api.v1.integrations.CoreApiClient", FakeCoreClient)
+    response = client.delete(f"/api/v1/integrations/{integration_id}", headers=headers)
+
+    assert response.status_code == 204, response.text
+    assert deleted_kbs == [core_kb_id]
+    assert not stored_file.exists()
+
+    async def verify_removed():
+        async with async_session_factory() as session:
+            return (
+                await session.get(BusinessIntegration, integration_id),
+                await session.get(KnowledgeSource, source_id),
+                await session.get(Document, document_id),
+            )
+
+    integration, source, document = asyncio.run(verify_removed())
+    assert integration is None and source is None and document is None
+
+
+def test_shopify_disconnect_rejects_active_sync():
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.assistant import BusinessIntegration
+
+    headers = _register_and_login("shopify_disconnect_syncing")
+    user_response = client.get("/api/v1/auth/me", headers=headers)
+    assert user_response.status_code == 200, user_response.text
+    user_id = uuid.UUID(user_response.json()["id"])
+    integration_id = uuid.uuid4()
+
+    async def seed():
+        async with async_session_factory() as session:
+            session.add(
+                BusinessIntegration(
+                    id=integration_id,
+                    user_id=user_id,
+                    connection_key="busy.myshopify.com",
+                    provider="shopify",
+                    display_name="busy.myshopify.com",
+                    encrypted_credentials="encrypted-test-value",
+                    config={},
+                    sync_status="syncing",
+                )
+            )
+            await session.commit()
+
+    asyncio.run(seed())
+
+    response = client.delete(f"/api/v1/integrations/{integration_id}", headers=headers)
+    assert response.status_code == 409, response.text
+
+    async def verify_integration_remains():
+        async with async_session_factory() as session:
+            return await session.get(BusinessIntegration, integration_id)
+
+    integration = asyncio.run(verify_integration_remains())
+    assert integration is not None and integration.sync_status == "syncing"
+
+
+def test_retry_requires_failed_document():
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.project import Document, ProcessingJob
+    from sqlalchemy import select
 
     headers = _register_and_login("doc_retry")
     _, project_id, _ = _create_tenant(headers, "DocRetry")
@@ -285,19 +482,19 @@ def test_retry_requires_failed_document(monkeypatch):
 
     asyncio.run(seed())
 
-    queued: list[tuple[uuid.UUID, uuid.UUID]] = []
-
-    async def fake_ingestion(document_id, owner_user_id):
-        queued.append((document_id, owner_user_id))
-
-    monkeypatch.setattr("backend.app.api.v1.knowledge.process_document_ingestion", fake_ingestion)
-
     retried = client.post(f"/api/v1/documents/{failed_id}/retry", headers=headers)
     assert retried.status_code == 200, retried.text
     assert retried.json()["status"] == "pending"
-    assert len(queued) == 1
-    assert queued[0][0] == failed_id
-    assert isinstance(queued[0][1], uuid.UUID)
+
+    async def queued_jobs():
+        async with async_session_factory() as session:
+            result = await session.execute(select(ProcessingJob).where(ProcessingJob.document_id == failed_id))
+            return result.scalars().all()
+
+    jobs = asyncio.run(queued_jobs())
+    assert len(jobs) == 1
+    assert jobs[0].status == "pending"
+    assert jobs[0].attempts == 0
 
     refused = client.post(f"/api/v1/documents/{ready_id}/retry", headers=headers)
     assert refused.status_code == 400, refused.text

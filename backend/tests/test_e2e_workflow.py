@@ -10,14 +10,19 @@
 9. Cross-workspace negative isolation verification
 """
 
+import asyncio
 import io
 import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from backend.app.adapters.core_client import CoreApiClient
+from backend.app.db.session import async_session_factory
 from backend.app.main import app
+from backend.app.models.project import Document, ProcessingJob
+from backend.app.tasks.ingestion import _run_ingestion_job
 from fastapi.testclient import TestClient
+from sqlalchemy import select, text
 
 client = TestClient(app)
 
@@ -127,6 +132,31 @@ def test_complete_product_workflow(mock_core_client):
     assert docs_resp.status_code == 200
     assert len(docs_resp.json()) == 1
 
+    async def process_persisted_job():
+        async with async_session_factory() as session:
+            document = await session.get(Document, uuid.UUID(upload_data["uploaded_documents"][0]["id"]))
+            assert document is not None
+            result = await session.execute(select(ProcessingJob).where(ProcessingJob.document_id == document.id))
+            job = result.scalar_one()
+            owner_user_id = document.user_id
+            job.status = "processing"
+            job.attempts = 1
+            await session.commit()
+        assert owner_user_id is not None
+        await _run_ingestion_job(job.id, document.id, owner_user_id)
+        return job.id
+
+    job_id = asyncio.run(process_persisted_job())
+
+    async def read_processed_job():
+        async with async_session_factory() as session:
+            return await session.get(ProcessingJob, job_id)
+
+    processed_job = asyncio.run(read_processed_job())
+    assert processed_job is not None
+    assert processed_job.status == "completed"
+    assert processed_job.attempts == 1
+
     # 5. Create Assistant & Associate KnowledgeSource
     ast_resp = client.post(
         f"/api/v1/projects/{project_id}/assistants",
@@ -156,11 +186,6 @@ def test_complete_product_workflow(mock_core_client):
     assert published_ast["version"] == 2
 
     # Manually configure source core_kb_id for chat retrieval testing
-    import asyncio
-
-    from backend.app.db.session import async_session_factory
-    from sqlalchemy import text
-
     async def update_source():
         async with async_session_factory() as session:
             await session.execute(

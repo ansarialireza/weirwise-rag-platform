@@ -32,8 +32,18 @@ import { AlertDialog } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useWorkflow, useTelemetry } from "@/lib/telemetry";
 import { useI18n } from "@/lib/i18n/context";
+import { DemoIntegrationHub } from "@/components/integrations/demo-integration-hub";
 
 const ACCEPTED_EXTENSIONS = [".txt", ".pdf", ".md", ".csv"];
+
+function sourceTypeLabel(source: KnowledgeSource): string {
+  if (source.source_type === "file_upload") return "Files";
+  if (source.source_type === "website_crawl") return "Website";
+  if (source.source_type === "shopify_catalog") {
+    return source.settings.mock_provider === true ? "Shopify catalog · Demo" : "Shopify catalog";
+  }
+  return source.settings.mock_provider === true ? "Google Drive · Demo" : "Google Drive";
+}
 
 function describeProcessingError(raw?: string | null): string {
   const text = (raw || "").toLowerCase();
@@ -136,6 +146,16 @@ export default function SourcesKnowledgePage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const handleSourceImported = useCallback(async (sourceId: string) => {
+    const list = await api.getSources();
+    const importedSource = list.find((source) => source.id === sourceId);
+    if (!importedSource) {
+      throw new Error("The imported knowledge collection is not available yet.");
+    }
+    setSources(list);
+    setSelectedSource(importedSource);
   }, []);
 
   useEffect(() => {
@@ -416,6 +436,8 @@ export default function SourcesKnowledgePage() {
         }
       />
 
+      <DemoIntegrationHub onSourceImported={handleSourceImported} />
+
       {pageError && <Alert type="destructive" title="Something went wrong" message={pageError} />}
 
       {!hasSources ? (
@@ -474,7 +496,7 @@ export default function SourcesKnowledgePage() {
                         </span>
                         <span aria-hidden="true">·</span>
                         <span>
-                          {source.source_type === "file_upload" ? "Files" : "Website"}
+                          {sourceTypeLabel(source)}
                         </span>
                       </span>
                     </span>
@@ -514,7 +536,7 @@ export default function SourcesKnowledgePage() {
                         />
                       </div>
                       <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span>{selectedSource.source_type === "file_upload" ? "Files" : "Website"}</span>
+                        <span>{sourceTypeLabel(selectedSource)}</span>
                         {selectedSource.target_url && (
                           <>
                             <span aria-hidden="true">·</span>

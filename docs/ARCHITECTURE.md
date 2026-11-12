@@ -35,13 +35,13 @@ flowchart LR
 
 | Area | Location | Responsibility and boundary |
 |---|---|---|
-| Application lifecycle | `backend/app/main.py` | Registers API routers and middleware, initializes SQLAlchemy metadata, runs the local-storage reaper, and closes provider/Core clients. It does not own feature workflows. |
+| Application lifecycle | `backend/app/main.py` | Registers API routers and middleware, initializes SQLAlchemy metadata, runs the database-reference-aware local-storage reaper plus Shopify and document-ingestion workers, and closes provider/Core clients. It does not own feature workflows. |
 | HTTP API | `backend/app/api/v1/` | Authentication, knowledge, assistants, public runtime, billing, integrations, enterprise, admin, telemetry, health, and voice routes. Request/response schemas live in `backend/app/schemas/`. |
 | Authentication and shared infrastructure | `backend/app/api/`, `backend/app/core/`, `backend/app/db/` | JWT/cookie resolution, settings, logging, security headers, SQLAlchemy engine/session, and declarative model base. |
 | Domain persistence | `backend/app/models/` | User-owned accounts, knowledge sources/documents, assistants/conversations/deployments, credentials, usage, billing, and admin/routing records. The actual ownership model is summarized in [`DOMAIN_MODEL.md`](DOMAIN_MODEL.md). |
 | Core boundary | `backend/app/adapters/core_client.py` | HTTP client for Core health, knowledge bases, document upload/status/deletion, search, and chat. It owns transport/error translation, not Core persistence or retrieval implementation. |
 | Application services | `backend/app/services/` | Provider selection and calls, credential vault, metering, billing, storage, crawling, evaluation, webhooks, rate limiting, retention, and behavioral-event processing. |
-| Document ingestion | `backend/app/tasks/ingestion.py` | FastAPI background-task workflow that stores Platform metadata/files, calls Core REST endpoints, polls Core indexing status, and updates Platform document/source state. |
+| Document ingestion | `backend/app/tasks/ingestion.py` | Database-backed `ProcessingJob` worker stores Platform metadata/files, calls Core REST endpoints, polls Core indexing status, and updates Platform document/source state. Shopify catalog sync has a separate database-backed integration queue and application worker with stale-job recovery. |
 | Browser application | `frontend/src/app/`, `frontend/src/components/`, `frontend/src/lib/` | Next.js App Router pages, UI components, API client, auth/theme/locale contexts, and telemetry. See [`FRONTEND_ARCHITECTURE.md`](FRONTEND_ARCHITECTURE.md). |
 
 ## 3. Ownership and service boundaries
@@ -74,11 +74,16 @@ flowchart LR
   extractive answer from retrieved passages.
 - Provider-pool routing and credential-vault code exists. Its presence does not establish a service
   plan, provider availability, or production configuration.
-- Platform can save integration credentials, but the inspected generic integration sync path reports
-  `not_implemented`; do not describe Shopify catalog import/sync as implemented.
-- Document ingestion is dispatched with FastAPI `BackgroundTasks` in the request process. A separate
-  Redis Streams behavioral-intelligence worker is present. Celery is a declared dependency, but no
-  Celery application/task wiring for document ingestion was found.
+- Shopify OAuth and manual active-product catalog snapshots are implemented in Platform code; sync
+  jobs persist as integration queue states and recover stale work. This is not a general external
+  job broker and does not provide automatic retries for terminal failures, recurring updates,
+  Shopify webhooks, or uninstall revocation. Generic sync for other providers still reports
+  `not_implemented`.
+- General document ingestion is persisted in `ProcessingJob` rows in the same transaction as
+  document creation. The API lifespan runs a database-backed worker with atomic claims, heartbeats,
+  and stale-job recovery up to the configured attempt limit. Terminal failures require a manual
+  retry. This is an in-process worker backed by the Platform database, not an external broker.
+  A separate Redis Streams behavioral-intelligence worker is present; Celery remains unwired.
 - The app lifespan calls `Base.metadata.create_all`. Alembic files also exist. See
   [`DATA_AND_MIGRATIONS.md`](DATA_AND_MIGRATIONS.md) for this migration/startup distinction.
 - `STORAGE_BACKEND` currently has a local implementation; no S3 adapter was found in the inspected

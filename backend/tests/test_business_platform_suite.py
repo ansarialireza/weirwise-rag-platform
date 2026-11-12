@@ -290,14 +290,13 @@ def test_business_integrations_and_webhooks(auth_context):
     assert len(get_res) == 1
     assert "access_token" not in str(get_res)
 
-    # 2. Trigger Integration Sync — no provider import adapter exists yet, so the API
-    # must report that honestly instead of returning fabricated item counts.
+    # 2. Shopify sync is queued for the database-backed catalog worker.
     sync_resp = client.post(f"/api/v1/workspaces/{ws_id}/integrations/{integration_id}/sync", headers=headers)
-    assert sync_resp.status_code == 501
-    assert "not available" in sync_resp.json()["detail"]
+    assert sync_resp.status_code == 200
+    assert sync_resp.json()["status"] == "queued"
 
     listed = client.get(f"/api/v1/workspaces/{ws_id}/integrations", headers=headers).json()
-    assert listed[0]["sync_status"] == "unsupported"
+    assert listed[0]["sync_status"] == "queued"
 
     # 3. Create Webhook Subscription (SSRF Protection)
     unsafe_sub = client.post(

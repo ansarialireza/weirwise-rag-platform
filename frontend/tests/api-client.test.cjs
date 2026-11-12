@@ -51,7 +51,7 @@ test.beforeEach(() => {
     requests.push({ url: String(input), options });
     const next = responses.shift();
     assert.ok(next, `Unexpected request to ${String(input)}`);
-    return jsonResponse(next.body, next.status);
+    return next.status === 204 ? new Response(null, { status: 204 }) : jsonResponse(next.body, next.status);
   };
 });
 
@@ -93,6 +93,107 @@ test("registration, verification, login, and session lookup use the expected API
   assert.deepEqual(JSON.parse(requests[1].options.body), {
     email: "owner@example.test",
     otp: "1234",
+  });
+});
+
+test("Shopify integration listing and OAuth start use the authenticated API contracts", async () => {
+  responses.push(
+    {
+      body: [
+        {
+          id: "integration-1",
+          provider: "shopify",
+          connection_key: "sample.myshopify.com",
+          display_name: "sample.myshopify.com",
+          is_active: true,
+          config: { shop_domain: "sample.myshopify.com" },
+          last_synced_at: null,
+          sync_status: "idle",
+          last_error: null,
+          created_at: "2025-01-01T00:00:00Z",
+        },
+      ],
+    },
+    { body: { authorization_url: "https://sample.myshopify.com/admin/oauth/authorize" } },
+    { status: 202, body: { integration_id: "integration-1", status: "queued" } },
+    { status: 204 },
+  );
+  api.setToken("access-test");
+
+  const integrations = await api.getIntegrations();
+  const authorization = await api.startShopifyOAuth("sample.myshopify.com");
+  const sync = await api.syncIntegration("integration-1");
+  await api.disconnectIntegration("integration-1");
+
+  assert.equal(integrations[0].provider, "shopify");
+  assert.equal(authorization.authorization_url, "https://sample.myshopify.com/admin/oauth/authorize");
+  assert.equal(sync.status, "queued");
+  assert.deepEqual(
+    requests.map(({ url, options }) => [url, options.method || "GET"]),
+    [
+      ["/api/v1/integrations", "GET"],
+      ["/api/v1/integrations/shopify/oauth/start", "POST"],
+      ["/api/v1/integrations/integration-1/sync", "POST"],
+      ["/api/v1/integrations/integration-1", "DELETE"],
+    ],
+  );
+  assert.equal(requests[0].options.headers.Authorization, "Bearer access-test");
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    shop_domain: "sample.myshopify.com",
+  });
+});
+
+test("demo provider authorization and Drive file selection use simulated integration contracts", async () => {
+  responses.push(
+    { body: { enabled: true, providers: ["shopify", "google_drive"] } },
+    { body: { authorization_url: "http://localhost:3000/demo-integrations/authorize?provider=google_drive&state=signed" } },
+    { body: { status: "connected", integration_id: "demo-drive-1" } },
+    {
+      body: {
+        parent_id: null,
+        items: [
+          {
+            id: "demo-drive-file-support",
+            name: "Support playbook.md",
+            type: "file",
+            parent_id: null,
+            modified_at: "2026-10-11T11:20:00Z",
+            mime_type: "text/markdown",
+          },
+        ],
+      },
+    },
+    { status: 202, body: { integration_id: "demo-drive-1", status: "queued" } },
+  );
+  api.setToken("access-test");
+
+  const capabilities = await api.getMockIntegrationCapabilities();
+  const authorization = await api.startDemoIntegrationOAuth("google_drive");
+  const connection = await api.completeDemoIntegrationOAuth("google_drive", "signed-state", true);
+  const files = await api.getMockDriveItems("demo-drive-1");
+  const sync = await api.syncIntegration("demo-drive-1", ["demo-drive-file-support"]);
+
+  assert.equal(capabilities.enabled, true);
+  assert.match(authorization.authorization_url, /demo-integrations\/authorize/);
+  assert.equal(connection.integration_id, "demo-drive-1");
+  assert.equal(files[0].id, "demo-drive-file-support");
+  assert.equal(sync.status, "queued");
+  assert.deepEqual(
+    requests.map(({ url, options }) => [url, options.method || "GET"]),
+    [
+      ["/api/v1/integrations/mock/capabilities", "GET"],
+      ["/api/v1/integrations/mock/google_drive/oauth/start", "POST"],
+      ["/api/v1/integrations/mock/google_drive/oauth/callback", "POST"],
+      ["/api/v1/integrations/demo-drive-1/google-drive/items", "GET"],
+      ["/api/v1/integrations/demo-drive-1/sync", "POST"],
+    ],
+  );
+  assert.deepEqual(JSON.parse(requests[2].options.body), {
+    state: "signed-state",
+    approved: true,
+  });
+  assert.deepEqual(JSON.parse(requests[4].options.body), {
+    file_ids: ["demo-drive-file-support"],
   });
 });
 

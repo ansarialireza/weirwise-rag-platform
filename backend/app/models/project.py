@@ -19,6 +19,8 @@ from sqlalchemy.orm import relationship
 class KnowledgeSourceType(str, enum.Enum):
     FILE_UPLOAD = "file_upload"
     WEBSITE_CRAWL = "website_crawl"
+    SHOPIFY_CATALOG = "shopify_catalog"
+    GOOGLE_DRIVE = "google_drive"
 
 
 class SourceProcessingStatus(str, enum.Enum):

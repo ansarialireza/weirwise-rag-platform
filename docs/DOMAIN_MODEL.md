@@ -29,7 +29,7 @@ erDiagram
 | `UserSession`, `PasswordResetToken`, `EmailVerificationToken` | User-scoped refresh-session and time-limited account-recovery/verification records; sensitive token values are hashed. |
 | `KnowledgeSource` | Owned by `user_id`; represents an uploaded source or website crawl and may reference a Core knowledge base using `core_kb_id`. |
 | `Document` | Belongs to a `KnowledgeSource`, which is owned by a user; its `user_id` is nullable in the current model. Ingestion sets it for normal upload flows. The parent source is the ownership path and must be checked before document operations. |
-| `ProcessingJob` | Tracks Platform-side processing status and attempts for a document. |
+| `ProcessingJob` | Durable Platform-side ingestion request, status, attempt count, error, and timestamps; active work is claimed by the API's database-backed worker. |
 | `Assistant` | Owned by `user_id`; contains behavior, grounding, language/tone, publication status, and a published configuration snapshot. `core_assistant_id` is an optional external reference, not a shared Core model. |
 | `AssistantKnowledgeSource` | Many-to-many link between assistants and sources, with a priority value. Both sides must be checked against the owning user at the API boundary. |
 | `Conversation`, `Message` | Conversation belongs to an assistant, which is user-owned; messages store role/content, citations, token usage, grounding state, and timing. Anonymous runtime conversations can use a session token. |
@@ -56,7 +56,11 @@ erDiagram
   reinterpret Core's database.
 - `BusinessIntegration` is unique on `(user_id, provider, connection_key)` and its service upserts
   that triple. Older clients without a key use `default`; Shopify can derive the key from the shop
-  domain. Multiple connection records are supported, but provider-specific OAuth, catalog
-  synchronization, retries, and analysis are not implemented by this persistence change.
+  domain. Multiple connection records are supported, and Shopify OAuth connections are encrypted
+  at rest. Shopify product snapshots create a user-owned `shopify_catalog` source and use Core's
+  public REST API for indexing. Sync requests use a database-backed queue state and stale work is
+  requeued after 15 minutes without a heartbeat. Recurring/webhook sync, external queue-broker
+  support, automatic retries for terminal failures, revocation on uninstall, and store analysis are
+  not implemented.
 - Legacy `/workspaces` and `/projects` API routes are compatibility shims. They are not the
   customer account model and are deprecated for new clients; see [`API_CONTRACTS.md`](API_CONTRACTS.md).

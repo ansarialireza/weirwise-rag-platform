@@ -7,6 +7,12 @@ client = TestClient(app)
 
 
 def test_paste_text_ingestion_and_lifecycle():
+    import asyncio
+
+    from backend.app.db.session import async_session_factory
+    from backend.app.models.project import ProcessingJob
+    from sqlalchemy import select
+
     # 1. Register & Login
     uid = uuid.uuid4().hex[:8]
     email = f"paste_text_{uid}@example.com"
@@ -47,6 +53,18 @@ def test_paste_text_ingestion_and_lifecycle():
     assert doc_data["filename"] == "Meeting Transcript.txt"
     assert doc_data["mime_type"] == "text/plain"
     assert doc_data["file_size_bytes"] == len(paste_content.encode("utf-8"))
+
+    async def get_document_jobs():
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(ProcessingJob).where(ProcessingJob.document_id == uuid.UUID(doc_data["id"]))
+            )
+            return result.scalars().all()
+
+    jobs = asyncio.run(get_document_jobs())
+    assert len(jobs) == 1
+    assert jobs[0].status == "pending"
+    assert jobs[0].attempts == 0
 
     # 4. Verify in Document Listing
     docs = client.get(f"/api/v1/sources/{source_id}/documents", headers=headers).json()
