@@ -40,9 +40,9 @@ function sourceTypeLabel(source: KnowledgeSource): string {
   if (source.source_type === "file_upload") return "Files";
   if (source.source_type === "website_crawl") return "Website";
   if (source.source_type === "shopify_catalog") {
-    return source.settings.mock_provider === true ? "Shopify catalog · Demo" : "Shopify catalog";
+    return "Shopify catalog";
   }
-  return source.settings.mock_provider === true ? "Google Drive · Demo" : "Google Drive";
+  return "Google Drive";
 }
 
 function describeProcessingError(raw?: string | null): string {

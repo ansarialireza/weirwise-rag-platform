@@ -184,19 +184,9 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
     setConnectingProvider(provider);
     try {
       if (provider === "google_drive") {
-        try {
-          const { authorization_url } = await api.startGoogleDriveOAuth();
-          window.location.assign(authorization_url);
-          return;
-        } catch (realError) {
-          // Fallback to demo OAuth if real Google credentials are not yet configured on server
-          if (enabled) {
-            const { authorization_url } = await api.startDemoIntegrationOAuth("google_drive");
-            window.location.assign(authorization_url);
-            return;
-          }
-          throw realError;
-        }
+        const { authorization_url } = await api.startGoogleDriveOAuth();
+        window.location.assign(authorization_url);
+        return;
       } else {
         router.push("/settings");
       }
