@@ -131,7 +131,9 @@ class Settings(BaseSettings):
     GOOGLE_DRIVE_CLIENT_SECRET: str | None = None
     GOOGLE_DRIVE_REDIRECT_URI: str | None = None
     GOOGLE_DRIVE_FRONTEND_RETURN_URL: str | None = None
-    GOOGLE_DRIVE_SCOPES: str = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email"
+    GOOGLE_DRIVE_SCOPES: str = (
+        "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email"
+    )
     GOOGLE_DRIVE_OAUTH_STATE_TTL_SECONDS: int = 600
     GOOGLE_DRIVE_MAX_FILES: int = 1000
 

@@ -7,11 +7,9 @@ import httpx
 import pytest
 from backend.app.core.config import settings
 from backend.app.services.google_drive import (
-    GoogleDriveApiError,
     GoogleDriveOAuthError,
     create_google_authorization_url,
     download_google_drive_file_content,
-    ensure_valid_google_credentials,
     exchange_google_authorization_code,
     list_google_drive_files,
     refresh_google_offline_token,
@@ -185,7 +183,11 @@ async def test_download_google_drive_file(google_drive_settings):
             if "doc-1" in url:
                 return httpx.Response(
                     200,
-                    json={"id": "doc-1", "name": "Company Strategy", "mimeType": "application/vnd.google-apps.document"},
+                    json={
+                        "id": "doc-1",
+                        "name": "Company Strategy",
+                        "mimeType": "application/vnd.google-apps.document",
+                    },
                 )
             return httpx.Response(200, json={"id": "file-1", "name": "doc.pdf", "mimeType": "application/pdf"})
 

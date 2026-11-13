@@ -264,7 +264,8 @@ async def _sync_google_drive(integration_id: uuid.UUID, user_id: uuid.UUID) -> N
 
             remaining_docs = [doc for doc in existing_documents if doc not in to_remove] + new_documents
             statuses = [doc.status for doc in remaining_docs]
-            if any(s in {SourceProcessingStatus.PENDING.value, SourceProcessingStatus.PROCESSING.value} for s in statuses):
+            pending_or_processing = {SourceProcessingStatus.PENDING.value, SourceProcessingStatus.PROCESSING.value}
+            if any(s in pending_or_processing for s in statuses):
                 source.status = SourceProcessingStatus.PROCESSING.value
             else:
                 source.status = SourceProcessingStatus.READY.value

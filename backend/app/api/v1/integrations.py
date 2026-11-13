@@ -30,10 +30,7 @@ from backend.app.schemas.integrations import (
     DemoOAuthCompleteRequest,
     DemoOAuthCompleteResponse,
     DemoOAuthStartResponse,
-    GoogleDriveItemResponse,
-    GoogleDriveItemsResponse,
     GoogleDriveOAuthStartResponse,
-    GoogleDriveSyncRequest,
     IntegrationSyncResponse,
     MockDriveItemResponse,
     MockDriveItemsResponse,
@@ -227,7 +224,10 @@ async def complete_google_drive_oauth(
         logger.warning("Google Drive token exchange failed: %s", exc.code)
         return RedirectResponse(build_google_completion_url("failed"), status_code=status.HTTP_303_SEE_OTHER)
 
-    return RedirectResponse(build_google_completion_url("connected", account_email), status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(
+        build_google_completion_url("connected", account_email),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/integrations/mock/capabilities")

@@ -148,7 +148,10 @@ async def exchange_google_authorization_code(code: str) -> tuple[dict[str, Any],
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(_GOOGLE_TOKEN_URL, data=payload)
     except httpx.RequestError as exc:
-        raise GoogleDriveOAuthError("token_exchange_failed", "Google authentication is temporarily unavailable.") from exc
+        raise GoogleDriveOAuthError(
+            "token_exchange_failed",
+            "Google authentication is temporarily unavailable.",
+        ) from exc
 
     if response.status_code != 200:
         logger.warning("Google token exchange rejected: status %s body: %s", response.status_code, response.text)
