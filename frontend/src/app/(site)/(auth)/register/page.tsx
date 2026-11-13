@@ -88,6 +88,17 @@ export default function RegisterPage() {
         </Button>
       </form>
 
+      <p className="text-center text-xs text-muted-foreground leading-relaxed">
+        {dict.auth.agreePrefix}{" "}
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
+          {dict.auth.terms}
+        </Link>{" "}
+        {dict.auth.and}{" "}
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
+          {dict.auth.privacy}
+        </Link>.
+      </p>
+
       <p className="text-center text-sm text-muted-foreground">
         {dict.auth.haveAccount}{" "}
         <Link href="/login" className="font-medium text-foreground hover:underline">

@@ -144,6 +144,8 @@ export interface TranslationDictionary {
     heroEyebrow: string;
     footerStatus: string;
     copyright: string;
+    privacyPolicy: string;
+    termsOfService: string;
   };
   pricing: {
     eyebrow: string;

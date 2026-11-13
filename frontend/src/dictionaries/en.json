@@ -139,7 +139,9 @@
     "ctaSubtitle": "Create your first assistant in minutes.",
     "heroEyebrow": "Intelligent flow control",
     "footerStatus": "Account-scoped ownership checks",
-    "copyright": "© 2026 Weirwise"
+    "copyright": "© 2026 Weirwise",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service"
   },
   "pricing": {
     "eyebrow": "Plans",
