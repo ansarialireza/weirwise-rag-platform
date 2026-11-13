@@ -30,11 +30,26 @@ from backend.app.schemas.integrations import (
     DemoOAuthCompleteRequest,
     DemoOAuthCompleteResponse,
     DemoOAuthStartResponse,
+    GoogleDriveItemResponse,
+    GoogleDriveItemsResponse,
+    GoogleDriveOAuthStartResponse,
+    GoogleDriveSyncRequest,
     IntegrationSyncResponse,
+    MockDriveItemResponse,
     MockDriveItemsResponse,
     MockDriveSyncRequest,
     ShopifyOAuthStartRequest,
     ShopifyOAuthStartResponse,
+)
+from backend.app.services.google_drive import (
+    GoogleDriveApiError,
+    GoogleDriveOAuthError,
+    build_google_completion_url,
+    create_google_authorization_url,
+    exchange_google_authorization_code,
+    list_google_drive_files,
+    save_google_drive_connection,
+    verify_google_callback_parameters,
 )
 from backend.app.services.integrations import integrations_service
 from backend.app.services.mock_integrations import (
@@ -142,6 +157,77 @@ async def complete_shopify_oauth(
         build_completion_url("connected", shop_domain),
         status_code=status.HTTP_303_SEE_OTHER,
     )
+
+
+@router.post("/integrations/google-drive/oauth/start", response_model=GoogleDriveOAuthStartResponse)
+async def start_google_drive_oauth(
+    current_user: User = Depends(get_current_user),
+) -> GoogleDriveOAuthStartResponse:
+    """Begin Google Drive OAuth 2.0 authorization-code flow."""
+    try:
+        authorization_url = create_google_authorization_url(current_user.id)
+    except GoogleDriveOAuthError as exc:
+        if exc.code == "not_configured":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Google Drive connection is not configured.",
+            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.public_message,
+        ) from exc
+    return GoogleDriveOAuthStartResponse(authorization_url=authorization_url)
+
+
+@router.get("/integrations/google-drive/oauth/callback")
+async def complete_google_drive_oauth(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Validate Google OAuth callback, exchange authorization code, and persist encrypted credentials."""
+    state = request.query_params.get("state", "")
+    code = request.query_params.get("code", "")
+    error = request.query_params.get("error")
+
+    if error:
+        logger.info("Google OAuth callback indicated cancellation or error: %s", error)
+        try:
+            return RedirectResponse(build_google_completion_url("cancelled"), status_code=status.HTTP_303_SEE_OTHER)
+        except GoogleDriveOAuthError as config_error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Google Drive connection is not configured.",
+            ) from config_error
+
+    try:
+        user_id = verify_google_callback_parameters(state, code)
+    except GoogleDriveOAuthError as exc:
+        if exc.code == "not_configured":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Google Drive connection is not configured.",
+            ) from exc
+        logger.warning("Google Drive OAuth callback rejected: %s", exc.code)
+        try:
+            return RedirectResponse(build_google_completion_url("failed"), status_code=status.HTTP_303_SEE_OTHER)
+        except GoogleDriveOAuthError as config_error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Google Drive connection is not configured.",
+            ) from config_error
+
+    if await get_active_user_id(db, user_id) is None:
+        logger.warning("Google Drive OAuth callback references an inactive account.")
+        return RedirectResponse(build_google_completion_url("failed"), status_code=status.HTTP_303_SEE_OTHER)
+
+    try:
+        credentials, account_email = await exchange_google_authorization_code(code)
+        await save_google_drive_connection(db, user_id, credentials, account_email)
+    except GoogleDriveOAuthError as exc:
+        logger.warning("Google Drive token exchange failed: %s", exc.code)
+        return RedirectResponse(build_google_completion_url("failed"), status_code=status.HTTP_303_SEE_OTHER)
+
+    return RedirectResponse(build_google_completion_url("connected", account_email), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/integrations/mock/capabilities")
@@ -315,8 +401,9 @@ async def trigger_integration_sync(
         await db.commit()
         return IntegrationSyncResponse(integration_id=integration.id, status="queued")
 
-    if integration.provider == "google_drive" and (integration.config or {}).get("mock_provider") is True:
-        if not settings.DEMO_INTEGRATIONS_ENABLED:
+    if integration.provider == "google_drive":
+        is_mock = (integration.config or {}).get("mock_provider") is True
+        if is_mock and not settings.DEMO_INTEGRATIONS_ENABLED:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo integration not found.")
         if not integration.is_active:
             raise HTTPException(
@@ -328,18 +415,31 @@ async def trigger_integration_sync(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="A Google Drive sync is already in progress.",
             )
-        if payload is None:
+        if payload is None or not isinstance(payload.file_ids, list):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Choose at least one file from the demo Drive before syncing.",
+                detail="Choose at least one file from Google Drive before syncing.",
             )
-        try:
-            mock_drive_files(payload.file_ids)
-        except MockIntegrationError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Choose valid files from the demo Drive.",
-            ) from exc
+        if is_mock:
+            try:
+                mock_drive_files(payload.file_ids)
+            except MockIntegrationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Choose valid files from the demo Drive.",
+                ) from exc
+        else:
+            if not payload.file_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Choose at least one file from Google Drive before syncing.",
+                )
+            if len(payload.file_ids) > settings.GOOGLE_DRIVE_MAX_FILES:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Cannot sync more than {settings.GOOGLE_DRIVE_MAX_FILES} files at once.",
+                )
+
         integration.config = {
             **dict(integration.config or {}),
             "selected_file_ids": payload.file_ids,
@@ -374,19 +474,51 @@ async def list_mock_google_drive_items(
             BusinessIntegration.provider == "google_drive",
         )
     )
-    if (
-        integration is None
-        or (integration.config or {}).get("mock_provider") is not True
-        or not integration.is_active
-        or not settings.DEMO_INTEGRATIONS_ENABLED
-    ):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo Google Drive account not found.")
-    try:
-        items = mock_drive_items(parent_id)
-    except MockIntegrationError as exc:
+    if integration is None or not integration.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Google Drive account not found.")
+
+    is_mock = (integration.config or {}).get("mock_provider") is True
+    if is_mock:
+        if not settings.DEMO_INTEGRATIONS_ENABLED:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo Google Drive account not found.")
+        try:
+            items = mock_drive_items(parent_id)
+        except MockIntegrationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="The selected demo folder was not found.",
+            ) from exc
+        return MockDriveItemsResponse(parent_id=parent_id, items=items)
+
+    credentials = integrations_service.get_decrypted_credentials(integration)
+    if not credentials:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="The selected demo folder was not found.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google Drive credentials are missing or expired. Please reconnect.",
+        )
+
+    try:
+        raw_items = await list_google_drive_files(credentials, parent_id)
+        items = [
+            MockDriveItemResponse(
+                id=item["id"],
+                name=item["name"],
+                type=item["type"],
+                parent_id=item.get("parent_id"),
+                modified_at=item.get("modified_at"),
+                mime_type=item["mime_type"],
+            )
+            for item in raw_items
+        ]
+    except GoogleDriveOAuthError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=exc.public_message,
+        ) from exc
+    except GoogleDriveApiError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=exc.public_message,
         ) from exc
     return MockDriveItemsResponse(parent_id=parent_id, items=items)
 
@@ -449,9 +581,7 @@ async def disconnect_integration(
         "shopify": KnowledgeSourceType.SHOPIFY_CATALOG.value,
         "google_drive": KnowledgeSourceType.GOOGLE_DRIVE.value,
     }.get(integration.provider)
-    has_catalog = integration.provider == "shopify" or (
-        integration.provider == "google_drive" and config.get("mock_provider") is True
-    )
+    has_catalog = integration.provider in {"shopify", "google_drive"}
     if has_catalog:
         if integration.sync_status in {"queued", "syncing"}:
             raise HTTPException(

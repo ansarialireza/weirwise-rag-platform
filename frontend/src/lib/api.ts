@@ -270,6 +270,20 @@ class ApiClient {
     });
   }
 
+  async startGoogleDriveOAuth(): Promise<{ authorization_url: string }> {
+    return this.request<{ authorization_url: string }>("/integrations/google-drive/oauth/start", {
+      method: "POST",
+    });
+  }
+
+  async getGoogleDriveItems(integrationId: string, parentId?: string | null): Promise<MockDriveItem[]> {
+    const query = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : "";
+    const response = await this.request<{ parent_id: string | null; items: MockDriveItem[] }>(
+      `/integrations/${integrationId}/google-drive/items${query}`,
+    );
+    return response.items;
+  }
+
   async syncIntegration(
     integrationId: string,
     fileIds?: string[],

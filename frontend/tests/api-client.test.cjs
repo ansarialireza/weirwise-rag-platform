@@ -197,6 +197,42 @@ test("demo provider authorization and Drive file selection use simulated integra
   });
 });
 
+test("real Google Drive OAuth start and items listing use production API contracts", async () => {
+  responses.push(
+    { body: { authorization_url: "https://accounts.google.com/o/oauth2/v2/auth?client_id=real-id" } },
+    {
+      body: {
+        parent_id: null,
+        items: [
+          {
+            id: "real-drive-file-1",
+            name: "Quarterly Report.pdf",
+            type: "file",
+            parent_id: null,
+            modified_at: "2026-10-15T09:00:00Z",
+            mime_type: "application/pdf",
+          },
+        ],
+      },
+    },
+  );
+  api.setToken("access-test");
+
+  const oauth = await api.startGoogleDriveOAuth();
+  const items = await api.getGoogleDriveItems("gdrive-real-1");
+
+  assert.equal(oauth.authorization_url, "https://accounts.google.com/o/oauth2/v2/auth?client_id=real-id");
+  assert.equal(items[0].id, "real-drive-file-1");
+  assert.equal(items[0].name, "Quarterly Report.pdf");
+  assert.deepEqual(
+    requests.map(({ url, options }) => [url, options.method || "GET"]),
+    [
+      ["/api/v1/integrations/google-drive/oauth/start", "POST"],
+      ["/api/v1/integrations/gdrive-real-1/google-drive/items", "GET"],
+    ],
+  );
+});
+
 test("assistant configuration, publish readiness, and publishing preserve request state", async () => {
   responses.push(
     { body: { id: "assistant-1", name: "Support assistant", status: "draft" } },

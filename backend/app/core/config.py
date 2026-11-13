@@ -125,6 +125,16 @@ class Settings(BaseSettings):
     SHOPIFY_OAUTH_STATE_TTL_SECONDS: int = 600
     SHOPIFY_API_VERSION: str = "2026-10"
     SHOPIFY_MAX_PRODUCTS: int = 10000
+
+    # Google Drive OAuth credentials are server-side only.
+    GOOGLE_DRIVE_CLIENT_ID: str | None = None
+    GOOGLE_DRIVE_CLIENT_SECRET: str | None = None
+    GOOGLE_DRIVE_REDIRECT_URI: str | None = None
+    GOOGLE_DRIVE_FRONTEND_RETURN_URL: str | None = None
+    GOOGLE_DRIVE_SCOPES: str = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email"
+    GOOGLE_DRIVE_OAUTH_STATE_TTL_SECONDS: int = 600
+    GOOGLE_DRIVE_MAX_FILES: int = 1000
+
     DEMO_INTEGRATIONS_ENABLED: bool = False
     DEMO_INTEGRATIONS_FRONTEND_URL: str = "http://localhost:3000"
     DEMO_INTEGRATION_STATE_TTL_SECONDS: int = 300

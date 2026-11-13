@@ -27,7 +27,7 @@ from backend.app.db.session import async_session_factory, engine
 from backend.app.models.project import Document
 from backend.app.services.llm import close_provider_clients
 from backend.app.services.storage import storage_service
-from backend.app.tasks.google_drive_demo import google_drive_demo_sync_worker
+from backend.app.tasks.google_drive import google_drive_sync_worker
 from backend.app.tasks.ingestion import document_ingestion_worker
 from backend.app.tasks.shopify_catalog import shopify_catalog_sync_worker
 from fastapi import FastAPI, Request, Response
@@ -69,13 +69,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await conn.run_sync(Base.metadata.create_all)
     reaper_task = asyncio.create_task(_ephemeral_storage_reaper_loop())
     shopify_sync_task = asyncio.create_task(shopify_catalog_sync_worker())
+    drive_sync_task = asyncio.create_task(google_drive_sync_worker())
     ingestion_task = asyncio.create_task(document_ingestion_worker())
-    drive_demo_task = (
-        asyncio.create_task(google_drive_demo_sync_worker()) if settings.DEMO_INTEGRATIONS_ENABLED else None
-    )
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
-    tasks = (reaper_task, shopify_sync_task, ingestion_task, drive_demo_task)
+    tasks = (reaper_task, shopify_sync_task, drive_sync_task, ingestion_task)
     for task in tasks:
         if task is not None:
             task.cancel()

@@ -12,12 +12,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type DemoProvider = "shopify" | "google_drive";
+type ProviderType = "shopify" | "google_drive";
 type FolderPathItem = { id: string | null; name: string };
-
-function isDemoIntegration(integration: BusinessIntegration): boolean {
-  return integration.config.mock_provider === true;
-}
 
 function getStringSetting(integration: BusinessIntegration, key: string): string | null {
   const value = integration.config[key];
@@ -47,7 +43,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
   const pollErrorShown = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [connectingProvider, setConnectingProvider] = useState<DemoProvider | null>(null);
+  const [connectingProvider, setConnectingProvider] = useState<ProviderType | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [driveModalOpen, setDriveModalOpen] = useState(false);
   const [driveItems, setDriveItems] = useState<MockDriveItem[]>([]);
@@ -60,26 +56,43 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const status = params.get("demo");
-    if (status !== "connected" && status !== "cancelled") return;
-    toast({
-      type: status === "connected" ? "success" : "info",
-      message: status === "connected" ? dict.integrations.connected : dict.integrations.oauthCancelled,
-    });
-    params.delete("demo");
-    const query = params.toString();
-    router.replace(query ? `/sources?${query}` : "/sources");
+    const googleStatus = params.get("google_status");
+    const demoStatus = params.get("demo");
+
+    if (googleStatus) {
+      params.delete("google_status");
+      params.delete("account");
+      const query = params.toString();
+      router.replace(query ? `/sources?${query}` : "/sources");
+      if (googleStatus === "connected") {
+        toast({ type: "success", message: dict.integrations.connected });
+      } else if (googleStatus === "cancelled") {
+        toast({ type: "info", message: dict.integrations.oauthCancelled });
+      } else {
+        toast({ type: "error", message: dict.integrations.connectFailed });
+      }
+    } else if (demoStatus) {
+      params.delete("demo");
+      const query = params.toString();
+      router.replace(query ? `/sources?${query}` : "/sources");
+      toast({
+        type: demoStatus === "connected" ? "success" : "info",
+        message: demoStatus === "connected" ? dict.integrations.connected : dict.integrations.oauthCancelled,
+      });
+    }
   }, [dict.integrations, router, toast]);
 
   useEffect(() => {
     let active = true;
-    Promise.all([api.getMockIntegrationCapabilities(), api.getIntegrations()])
+    Promise.all([
+      api.getMockIntegrationCapabilities().catch(() => ({ enabled: false, providers: [] })),
+      api.getIntegrations(),
+    ])
       .then(([capabilities, allIntegrations]) => {
         if (!active) return;
-        const demoIntegrations = allIntegrations.filter(isDemoIntegration);
         setEnabled(capabilities.enabled);
-        integrationsRef.current = demoIntegrations;
-        setIntegrations(demoIntegrations);
+        integrationsRef.current = allIntegrations;
+        setIntegrations(allIntegrations);
       })
       .catch(() => {
         if (active) setLoadError(true);
@@ -95,6 +108,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
   const activeSync = integrations.some((integration) =>
     ["queued", "syncing"].includes(integration.sync_status)
   );
+
   useEffect(() => {
     if (!activeSync) return;
     let refreshing = false;
@@ -102,7 +116,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
       if (refreshing) return;
       refreshing = true;
       try {
-        const next = (await api.getIntegrations()).filter(isDemoIntegration);
+        const next = await api.getIntegrations();
         pollErrorShown.current = false;
         const previous = integrationsRef.current;
         integrationsRef.current = next;
@@ -141,8 +155,8 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
     return () => clearInterval(interval);
   }, [activeSync, dict.integrations, onSourceImported, toast]);
 
-  const shopifyIntegration = integrations.find((item) => item.provider === "shopify");
-  const driveIntegration = integrations.find((item) => item.provider === "google_drive");
+  const shopifyIntegration = integrations.find((item) => item.provider === "shopify" && item.is_active);
+  const driveIntegration = integrations.find((item) => item.provider === "google_drive" && item.is_active);
   const currentFolder = folderPath[folderPath.length - 1];
 
   useEffect(() => {
@@ -151,7 +165,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
     setDriveItemsLoading(true);
     setDriveItemsError(false);
     api
-      .getMockDriveItems(driveIntegration.id, currentFolder?.id)
+      .getGoogleDriveItems(driveIntegration.id, currentFolder?.id)
       .then((items) => {
         if (active) setDriveItems(items);
       })
@@ -166,20 +180,26 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
     };
   }, [currentFolder?.id, driveIntegration, driveModalOpen]);
 
-  const startDemoOAuth = async (provider: DemoProvider) => {
+  const startOAuth = async (provider: ProviderType) => {
     setConnectingProvider(provider);
     try {
-      const { authorization_url } = await api.startDemoIntegrationOAuth(provider);
-      const destination = new URL(authorization_url);
-      if (
-        destination.origin !== window.location.origin ||
-        destination.pathname !== "/demo-integrations/authorize" ||
-        destination.searchParams.get("provider") !== provider ||
-        !destination.searchParams.get("state")
-      ) {
-        throw new Error(dict.integrations.connectFailed);
+      if (provider === "google_drive") {
+        try {
+          const { authorization_url } = await api.startGoogleDriveOAuth();
+          window.location.assign(authorization_url);
+          return;
+        } catch (realError) {
+          // Fallback to demo OAuth if real Google credentials are not yet configured on server
+          if (enabled) {
+            const { authorization_url } = await api.startDemoIntegrationOAuth("google_drive");
+            window.location.assign(authorization_url);
+            return;
+          }
+          throw realError;
+        }
+      } else {
+        router.push("/settings");
       }
-      window.location.assign(destination.toString());
     } catch (error) {
       toast({
         type: "error",
@@ -246,12 +266,11 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
   };
 
   if (loading) return null;
-  if (!enabled && integrations.length === 0 && !loadError) return null;
 
   return (
     <>
       <section
-        aria-labelledby="demo-integrations-title"
+        aria-labelledby="integrations-title"
         className="space-y-4 rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-5"
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -260,7 +279,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
               <HardDrive className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             </div>
             <div>
-              <h2 id="demo-integrations-title" className="text-sm font-semibold text-foreground">
+              <h2 id="integrations-title" className="text-sm font-semibold text-foreground">
                 {dict.integrations.title}
               </h2>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -268,7 +287,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
               </p>
             </div>
           </div>
-          <span className="w-fit rounded-full border border-warning/40 bg-warning/10 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-warning">
+          <span className="w-fit rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-primary">
             {dict.integrations.demoBadge}
           </span>
         </div>
@@ -288,8 +307,9 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
               Boolean(integration && ["queued", "syncing"].includes(integration.sync_status)) ||
               syncingId === integration?.id;
             const isConnecting = connectingProvider === provider;
-            const accountName =
-              provider === "shopify" ? dict.integrations.storeName : dict.integrations.accountName;
+            const accountName = integration?.display_name || (
+              provider === "shopify" ? dict.integrations.storeName : dict.integrations.accountName
+            );
             const ProviderIcon = provider === "shopify" ? Store : HardDrive;
             return (
               <article key={provider} className="rounded-xl border border-border/70 bg-muted/10 p-3 sm:p-4">
@@ -352,14 +372,14 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {!integration && enabled && (
+                  {!integration && (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       disabled={isConnecting}
                       isLoading={isConnecting}
-                      onClick={() => startDemoOAuth(provider)}
+                      onClick={() => startOAuth(provider)}
                     >
                       {isConnecting
                         ? dict.integrations.connecting
@@ -368,7 +388,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
                           : dict.integrations.connectDrive}
                     </Button>
                   )}
-                  {integration && enabled && provider === "shopify" && (
+                  {integration && provider === "shopify" && (
                     <Button
                       type="button"
                       size="sm"
@@ -380,7 +400,7 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
                       {isSyncing ? dict.integrations.syncing : dict.integrations.syncShopify}
                     </Button>
                   )}
-                  {integration && enabled && provider === "google_drive" && (
+                  {integration && provider === "google_drive" && (
                     <Button
                       type="button"
                       size="sm"
@@ -418,13 +438,10 @@ export function DemoIntegrationHub({ onSourceImported }: DemoIntegrationHubProps
           if (!syncingId) setDriveModalOpen(false);
         }}
         title={dict.integrations.chooseFiles}
-        description={dict.integrations.simulationNotice}
+        description={dict.integrations.driveSelectionNote}
         maxWidth="lg"
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <p className="mb-3 rounded-lg bg-warning/10 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-            {dict.integrations.driveSelectionNote}
-          </p>
           <nav aria-label={dict.integrations.rootFolder} className="flex items-center gap-1 border-b border-border/60 pb-3">
             {folderPath.map((folder, index) => (
               <span key={folder.id ?? "root"} className="flex min-w-0 items-center gap-1">

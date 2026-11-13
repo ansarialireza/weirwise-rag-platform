@@ -16,6 +16,29 @@ class IntegrationSyncResponse(BaseModel):
     status: str
 
 
+class GoogleDriveOAuthStartResponse(BaseModel):
+    authorization_url: str
+
+
+class GoogleDriveItemResponse(BaseModel):
+    id: str
+    name: str
+    type: str
+    parent_id: str | None = None
+    modified_at: str | None = None
+    mime_type: str
+    size: int | None = None
+
+
+class GoogleDriveItemsResponse(BaseModel):
+    parent_id: str | None = None
+    items: list[GoogleDriveItemResponse]
+
+
+class GoogleDriveSyncRequest(BaseModel):
+    file_ids: list[str] = Field(default_factory=list, max_length=1000)
+
+
 class DemoOAuthStartResponse(BaseModel):
     authorization_url: str
 
